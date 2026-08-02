@@ -1,0 +1,32 @@
+# Python / PyInstaller
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.spec
+!Ghostkiller_Sound_Cleaner_V2.spec
+
+# Model dosyaları (GitHub dosya boyutu sınırını aşmaması ve disk kaplamaması için)
+modeller/
+*.pth
+*.ckpt
+*.index
+*.bin
+*.pt
+
+# Geçici ses ve log dosyaları
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.log
+Ghostkiller_CrashLog.txt
+Setup/
+
+# IDE / Editör
+.vscode/
+.idea/
+*.swp
+*.swo
