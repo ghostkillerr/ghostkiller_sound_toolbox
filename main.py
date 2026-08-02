@@ -50,6 +50,7 @@ class GhostkillerMainFrame(wx.Frame):
         self.bg_main = wx.Colour(30, 30, 30)
         self.fg_light = wx.Colour(240, 240, 240)
 
+        self.InitIcon()
         self.InitMenuBar()
         self.InitUI()
         self.Centre()
@@ -57,6 +58,15 @@ class GhostkillerMainFrame(wx.Frame):
         wx.CallAfter(self.ShowStartupMessage)
         # Açılışta arka planda sessiz güncelleme kontrolü yap
         wx.CallAfter(lambda: check_for_updates(self, silent=True))
+
+    def InitIcon(self):
+        """Program penceresinde logo.ico simgesini görüntüler."""
+        try:
+            icon_path = os.path.join(app_dir, "logo.ico")
+            if os.path.exists(icon_path):
+                self.SetIcon(wx.Icon(icon_path, wx.BITMAP_TYPE_ICO))
+        except Exception:
+            pass
 
     def InitMenuBar(self):
         """A11y (NVDA/JAWS): Ekran okuyucu kullanıcıları için menü çubuğu."""

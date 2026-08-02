@@ -18,7 +18,7 @@ import subprocess
 import threading
 
 CURRENT_VERSION = "2.0.0"
-UPDATE_URL = "https://raw.githubusercontent.com/YasinTalhaGencsoy/ghostkiller_sound_toolbox/main/version.json"
+UPDATE_URL = "https://raw.githubusercontent.com/ghostkillerr/ghostkiller_sound_toolbox/master/version.json"
 
 
 def parse_version(v_str):

@@ -4,6 +4,7 @@ from PyInstaller.utils.hooks import collect_all
 datas = [
     ('models.json', '.'),
     ('version.json', '.'),
+    ('logo.ico', '.'),
     ('lisans.txt', '.'),
     ('oku.md', '.'),
     ('rvc', 'rvc'),
@@ -93,7 +94,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['C:\\Users\\User\\Desktop\\kodlamalar\\ghostkiller_sound_cleaner\\logo.ico'],
+    icon=['logo.ico'],
 )
 coll = COLLECT(
     exe,
