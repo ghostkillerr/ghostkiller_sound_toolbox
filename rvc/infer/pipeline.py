@@ -431,10 +431,13 @@ class Pipeline:
             try:
                 index = faiss.read_index(file_index)
                 big_npy = index.reconstruct_n(0, index.ntotal)
+                print(f"[FAISS BİLGİ] İndeks başarıyla yüklendi: {os.path.basename(file_index)} (Vektör: {index.ntotal}, Oran: {index_rate})")
             except Exception as error:
-                print(f"An error occurred reading the FAISS index: {error}")
+                print(f"[FAISS HATA] İndeks okunamadı: {error}")
                 index = big_npy = None
         else:
+            if file_index != "" and not os.path.exists(file_index):
+                print(f"[FAISS UYARI] İndeks dosyası bulunamadı: {file_index}")
             index = big_npy = None
         audio = signal.filtfilt(bh, ah, audio)
         audio_pad = np.pad(audio, (self.window // 2, self.window // 2), mode="reflect")

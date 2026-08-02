@@ -618,6 +618,11 @@ class CoverPanel(wx.Panel):
                 self.LogMessage(f"[HATA] Model dosyası bulunamadı: '{model_name}' ({pth_path}). Lütfen modeli kontrol edin veya listeden tekrar ekleyin.")
                 continue
 
+            if index_path and os.path.exists(index_path):
+                self.LogMessage(f"[BİLGİ] FAISS İndeks Dosyası Aktif: {os.path.basename(index_path)} (İndeks Oranı: {settings['index_rate']})")
+            else:
+                self.LogMessage(f"[UYARI] İndeks dosyası bulunamadı ('{index_path}'). Ses dönüşümü indeks olmadan gerçekleştirilecek.")
+
             try:
                 from rvc.infer.infer import VoiceConverter
                 self.LogMessage(f"RVC Yapay Zeka Motoru Çalıştırılıyor ({model_name})...")

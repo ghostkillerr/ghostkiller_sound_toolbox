@@ -278,8 +278,11 @@ class VoiceConverter:
             .strip("\n")
             .strip('"')
             .strip()
-            .replace("trained", "added")
         )
+        if "trained" in file_index:
+            alt_index = file_index.replace("trained", "added")
+            if os.path.exists(alt_index):
+                file_index = alt_index
 
         if self.tgt_sr != resample_sr >= 16000:
             self.tgt_sr = resample_sr
