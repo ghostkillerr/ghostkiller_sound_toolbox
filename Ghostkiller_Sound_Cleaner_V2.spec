@@ -6,7 +6,6 @@ datas = [
     ('version.json', '.'),
     ('logo.ico', '.'),
     ('lisans.txt', '.'),
-    ('oku.md', '.'),
     ('rvc', 'rvc'),
     ('modeller', 'modeller'),
 ]
