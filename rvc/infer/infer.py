@@ -242,6 +242,13 @@ class VoiceConverter:
             sid (int, optional): Speaker ID. Default is 0.
             **kwargs: Additional keyword arguments.
         """
+        pitch = int(float(pitch)) if pitch is not None else 0
+        index_rate = float(index_rate) if index_rate is not None else 0.75
+        volume_envelope = float(volume_envelope) if volume_envelope is not None else 1.0
+        protect = float(protect) if protect is not None else 0.5
+        hop_length = int(hop_length) if hop_length is not None else 128
+        clean_strength = float(clean_strength) if clean_strength is not None else 0.5
+
         if not model_path:
             print("No model path provided. Aborting conversion.")
             return

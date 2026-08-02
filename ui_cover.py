@@ -560,11 +560,16 @@ class CoverPanel(wx.Panel):
             wx.MessageBox("Lütfen çıktı klasörünü seçin.", "Hata", wx.OK | wx.ICON_ERROR)
             return
 
+        try:
+            index_rate_val = float(self.index_rate_ctrl.GetValue().strip())
+        except ValueError:
+            index_rate_val = 0.75
+
         settings = {
-            "pitch": self.pitch_ctrl.GetValue(),
+            "pitch": int(self.pitch_ctrl.GetValue()),
             "device": self.device_choice.GetStringSelection(),
             "f0_method": self.f0_choice.GetStringSelection(),
-            "index_rate": self.index_rate_ctrl.GetValue().strip()
+            "index_rate": index_rate_val
         }
 
         self.txt_log.Clear()
