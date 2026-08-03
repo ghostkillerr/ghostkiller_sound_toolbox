@@ -1,22 +1,6 @@
 {
-    "Yasin V3, 200 ep": {
-        "pth": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3_200e_11800s.pth",
-        "index": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3.index"
-    },
-    "Yasin V3, 225 ep": {
-        "pth": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3_225e_13275s.pth",
-        "index": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3.index"
-    },
-    "Yasin V3, 250 ep": {
-        "pth": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3_250e_14750s.pth",
-        "index": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3.index"
-    },
-    "Yasin V3, 275 ep": {
-        "pth": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3_275e_16225s.pth",
-        "index": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3.index"
-    },
-    "Yasin V3, 300 ep": {
-        "pth": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3_300e_17700s.pth",
-        "index": "D:\\modeller\\Applio\\logs\\yasinv3\\yasinv3.index"
+    "Stüdyo Vokal - Lead (250 Epoch)": {
+        "pth": "D:\\modeller\\Applio\\logs\\yasinv3\\epoc\\250\\yasinv3_250e_14750s.pth",
+        "index": "D:\\modeller\\Applio\\logs\\yasinv3\\epoc\\250\\yasinv3.index"
     }
 }

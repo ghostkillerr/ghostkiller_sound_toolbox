@@ -43,7 +43,7 @@ class GhostkillerMainFrame(wx.Frame):
         """Ana pencereyi, boyutları ve renk paletini başlatır."""
         super(GhostkillerMainFrame, self).__init__(
             parent=None,
-            title=f"Ghostkiller Sound Cleaner - V2 Pro (v{CURRENT_VERSION})",
+            title=f"Ghostkiller Sound Toolbox - Studio Pro (v{CURRENT_VERSION})",
             size=(800, 850)
         )
 
@@ -83,8 +83,10 @@ class GhostkillerMainFrame(wx.Frame):
     def ShowStartupMessage(self):
         """Uygulama başladığında bilgi mesajı gösterir."""
         wx.MessageBox(
-            f"Bu program Yasin Talha Gençsoy tarafından yapılmıştır.\n\nV2 Modüler Sürüm v{CURRENT_VERSION} (Ses Ayrıştırma & AI Cover)",
-            "Bilgi",
+            f"Ghostkiller Sound Toolbox - Studio Pro (v{CURRENT_VERSION})\n\n"
+            "Geliştirici: Yasin Talha Gençsoy\n"
+            "Altyapı: SOTA DSP & Yüksek Sadakatli AI Vokal Motoru",
+            "Ghostkiller Studio Pro",
             wx.OK | wx.ICON_INFORMATION
         )
 
@@ -110,11 +112,11 @@ class GhostkillerMainFrame(wx.Frame):
 
         # 1. SEKME: Ses Ayrıştırma Paneli
         self.separator_tab = SeparatorPanel(self.notebook)
-        self.notebook.AddPage(self.separator_tab, "1. Ses Ayrıştırma (Temizleme)")
+        self.notebook.AddPage(self.separator_tab, "1. Vokal Ayrıştırma & DSP Stüdyosu")
 
         # 2. SEKME: AI Cover Paneli
         self.cover_tab = CoverPanel(self.notebook)
-        self.notebook.AddPage(self.cover_tab, "2. AI Cover (RVC Dönüştürme)")
+        self.notebook.AddPage(self.cover_tab, "2. Yapay Zeka Vokal Sentezi (AI Cover)")
 
         vbox.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 5)
         panel.SetSizer(vbox)

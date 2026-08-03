@@ -130,7 +130,7 @@ class SeparatorPanel(wx.Panel):
 
         # 1. Ses Dosyası Seçimi
         file_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_file = wx.Button(self, label="1. Ses Dosyası Seç", size=(-1, 45))
+        self.btn_select_file = wx.Button(self, label="1. Ses Kaynağı Seç (.wav / .flac / .mp3)", size=(-1, 45))
         self.btn_select_file.SetFont(font_large)
         self.btn_select_file.SetBackgroundColour(self.bg_btn)
         self.btn_select_file.SetForegroundColour(self.fg_light)
@@ -147,7 +147,7 @@ class SeparatorPanel(wx.Panel):
 
         # 2. Çıktı Klasörü Seçimi
         dir_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_dir = wx.Button(self, label="2. Çıktı Klasörü Seç", size=(-1, 45))
+        self.btn_select_dir = wx.Button(self, label="2. Hedef Çıktı Dizini Seç", size=(-1, 45))
         self.btn_select_dir.SetFont(font_large)
         self.btn_select_dir.SetBackgroundColour(self.bg_btn)
         self.btn_select_dir.SetForegroundColour(self.fg_light)
@@ -163,7 +163,7 @@ class SeparatorPanel(wx.Panel):
         vbox.Add(dir_box, 0, wx.EXPAND | wx.ALL, 5)
 
         # 3. İşlem Seçenekleri (Kanallar)
-        box_options = wx.StaticBox(self, label="3. Çıkarılacak Kanallar ve İşlemler")
+        box_options = wx.StaticBox(self, label="3. DSP Vokal Ayrıştırma & Temizleme Zinciri (Audio Separation Chain)")
         box_options.SetForegroundColour(self.fg_light)
         box_options.SetFont(font_large)
         sizer_options = wx.StaticBoxSizer(box_options, wx.VERTICAL)
@@ -179,19 +179,19 @@ class SeparatorPanel(wx.Panel):
             btn.Bind(wx.EVT_TOGGLEBUTTON, self.OnCheckToggle)
             return btn
 
-        self.chk_inst = CreateToggleBtn("Kusursuz Enstrümantal Çıkar (MelBand Kim Inst)", False)
+        self.chk_inst = CreateToggleBtn("Stüdyo Enstrümantal Ayrıştırma (Mel-Band Roformer - Inst)", False)
         sizer_options.Add(self.chk_inst, 0, wx.EXPAND | wx.ALL, 5)
 
-        self.chk_step1 = CreateToggleBtn("Ana Vokali Ayır (Roformer)", True)
+        self.chk_step1 = CreateToggleBtn("Ana Vokal Ayrıştırma (BS-Roformer / SOTA Vocal Extract)", True)
         sizer_options.Add(self.chk_step1, 0, wx.EXPAND | wx.ALL, 5)
 
-        self.chk_step2 = CreateToggleBtn("Arka Vokalleri Temizle (Mel Band Karaoke)", False)
+        self.chk_step2 = CreateToggleBtn("Arka Vokal & Harmoni Temizliği (Karaoke Filter)", False)
         sizer_options.Add(self.chk_step2, 0, wx.EXPAND | wx.ALL, 5)
 
-        self.chk_step3 = CreateToggleBtn("Yankıyı Gider (DeReverb)", False)
+        self.chk_step3 = CreateToggleBtn("Akustik Yankı & Oda Reverb Giderici (De-Reverb DSP)", False)
         sizer_options.Add(self.chk_step3, 0, wx.EXPAND | wx.ALL, 5)
 
-        self.chk_step4 = CreateToggleBtn("Gürültü Gider (DeNoise)", False)
+        self.chk_step4 = CreateToggleBtn("Dip Gürültü & Hışırtı Filtresi (De-Noise DSP)", False)
         sizer_options.Add(self.chk_step4, 0, wx.EXPAND | wx.ALL, 5)
 
         vbox.Add(sizer_options, 0, wx.EXPAND | wx.ALL, 5)
@@ -199,7 +199,7 @@ class SeparatorPanel(wx.Panel):
         # 4. İşlem Butonları (Başlat / İptal)
         btn_box = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.btn_start = wx.Button(self, label="Ghostkiller İşlemlerini Başlat", size=(-1, 60))
+        self.btn_start = wx.Button(self, label="Stüdyo Ayrıştırma Pipeline'ını Başlat", size=(-1, 60))
         self.btn_start.SetFont(font_large)
         self.btn_start.SetBackgroundColour(wx.Colour(0, 150, 100))
         self.btn_start.SetForegroundColour(self.fg_light)

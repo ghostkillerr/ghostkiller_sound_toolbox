@@ -257,19 +257,19 @@ class CoverPanel(wx.Panel):
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         # 1. MODEL YÖNETİMİ BÖLÜMÜ
-        box_models = wx.StaticBox(self, label="1. RVC Model Yönetimi ve Seçimi")
+        box_models = wx.StaticBox(self, label="1. Vokal Model Kütüphanesi & Çoklu Çıkarım (Batch Inference)")
         box_models.SetForegroundColour(self.fg_light)
         box_models.SetFont(font_large)
         sizer_models = wx.StaticBoxSizer(box_models, wx.VERTICAL)
 
         btn_model_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_add_model = wx.Button(self, label="Yeni Model Ekle (.pth ve .index)", size=(-1, 40))
+        self.btn_add_model = wx.Button(self, label="Stüdyo Vokal Modeli Ekle (.pth & .index)", size=(-1, 40))
         self.btn_add_model.SetFont(font_normal)
         self.btn_add_model.SetBackgroundColour(self.bg_btn)
         self.btn_add_model.SetForegroundColour(self.fg_light)
         self.btn_add_model.Bind(wx.EVT_BUTTON, self.OnAddModel)
 
-        self.btn_del_model = wx.Button(self, label="Seçili Modelleri Sil", size=(-1, 40))
+        self.btn_del_model = wx.Button(self, label="Seçili Modeli Kütüphaneden Kaldır", size=(-1, 40))
         self.btn_del_model.SetFont(font_normal)
         self.btn_del_model.SetBackgroundColour(wx.Colour(150, 60, 60))
         self.btn_del_model.SetForegroundColour(self.fg_light)
@@ -281,7 +281,7 @@ class CoverPanel(wx.Panel):
 
         lbl_select_info = wx.StaticText(
             self,
-            label="İşlem Yapılacak Modelleri İşaretleyin (Sound Cleaner gibi [AÇIK]/[KAPALI] ve basılı/basılı değil olarak okur):"
+            label="Sentezleme Yapılacak Vokal Modellerini Seçin ([AÇIK]/[KAPALI] ve basılı/basılı değil olarak okur):"
         )
         lbl_select_info.SetFont(font_normal)
         sizer_models.Add(lbl_select_info, 0, wx.ALL, 5)
@@ -295,14 +295,14 @@ class CoverPanel(wx.Panel):
         vbox.Add(sizer_models, 1, wx.EXPAND | wx.ALL, 5)
 
         # 2. DOSYA YOLLARI (Girdi ve Çıktı)
-        box_paths = wx.StaticBox(self, label="2. Dosya Yolları")
+        box_paths = wx.StaticBox(self, label="2. Ses Kaynak & Hedef Dizin Ayarları")
         box_paths.SetForegroundColour(self.fg_light)
         box_paths.SetFont(font_large)
         sizer_paths = wx.StaticBoxSizer(box_paths, wx.VERTICAL)
 
         # Girdi Dosyası (.wav)
         input_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_input = wx.Button(self, label="Kılavuz Vokal Seç (.wav)", size=(-1, 40))
+        self.btn_select_input = wx.Button(self, label="Kılavuz Vokal Kaynağı Seç (.wav / .flac)", size=(-1, 40))
         self.btn_select_input.SetFont(font_normal)
         self.btn_select_input.SetBackgroundColour(self.bg_btn)
         self.btn_select_input.SetForegroundColour(self.fg_light)
@@ -319,7 +319,7 @@ class CoverPanel(wx.Panel):
 
         # Çıktı Klasörü
         output_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_output = wx.Button(self, label="Çıktı Klasörünü Seç", size=(-1, 40))
+        self.btn_select_output = wx.Button(self, label="Hedef Çıktı Dizini Seç", size=(-1, 40))
         self.btn_select_output.SetFont(font_normal)
         self.btn_select_output.SetBackgroundColour(self.bg_btn)
         self.btn_select_output.SetForegroundColour(self.fg_light)
@@ -337,7 +337,7 @@ class CoverPanel(wx.Panel):
         vbox.Add(sizer_paths, 0, wx.EXPAND | wx.ALL, 5)
 
         # 3. ÇIKARIM (INFERENCE) AYARLARI
-        box_settings = wx.StaticBox(self, label="3. Çıkarım (Inference) Ayarları")
+        box_settings = wx.StaticBox(self, label="3. SOTA Vokal Sentez & DSP Akustik Parametreleri")
         box_settings.SetForegroundColour(self.fg_light)
         box_settings.SetFont(font_large)
         sizer_settings = wx.StaticBoxSizer(box_settings, wx.VERTICAL)
@@ -347,7 +347,7 @@ class CoverPanel(wx.Panel):
         grid.AddGrowableCol(3, 1)
 
         # Pitch
-        lbl_pitch = wx.StaticText(self, label="Pitch (Nota Kaydırma):")
+        lbl_pitch = wx.StaticText(self, label="Tonlandırma / Pitch (Yarım Ses):")
         lbl_pitch.SetFont(font_normal)
         grid.Add(lbl_pitch, 0, wx.ALIGN_CENTER_VERTICAL)
         self.pitch_ctrl = wx.SpinCtrl(self, value="0", min=-24, max=24)
@@ -355,7 +355,7 @@ class CoverPanel(wx.Panel):
         grid.Add(self.pitch_ctrl, 1, wx.EXPAND)
 
         # Donanım
-        lbl_device = wx.StaticText(self, label="Donanım (VRAM Korumalı):")
+        lbl_device = wx.StaticText(self, label="Sentez Motoru / Donanım (CUDA/CPU):")
         lbl_device.SetFont(font_normal)
         grid.Add(lbl_device, 0, wx.ALIGN_CENTER_VERTICAL)
         self.device_choice = wx.Choice(self, choices=["cuda", "cpu"])
@@ -364,7 +364,7 @@ class CoverPanel(wx.Panel):
         grid.Add(self.device_choice, 1, wx.EXPAND)
 
         # F0 Algoritması
-        lbl_f0 = wx.StaticText(self, label="F0 Algoritması:")
+        lbl_f0 = wx.StaticText(self, label="F0 Algılayıcı (Pitch Tracker):")
         lbl_f0.SetFont(font_normal)
         grid.Add(lbl_f0, 0, wx.ALIGN_CENTER_VERTICAL)
         self.f0_choice = wx.Choice(self, choices=["rmvpe", "mangio-crepe"])
@@ -373,7 +373,7 @@ class CoverPanel(wx.Panel):
         grid.Add(self.f0_choice, 1, wx.EXPAND)
 
         # Index Rate
-        lbl_index = wx.StaticText(self, label="Index Rate (Özellik Oranı):")
+        lbl_index = wx.StaticText(self, label="Tını Harmanlama (FAISS Index Rate):")
         lbl_index.SetFont(font_normal)
         grid.Add(lbl_index, 0, wx.ALIGN_CENTER_VERTICAL)
         self.index_rate_ctrl = wx.TextCtrl(self, value="0.75")
@@ -385,7 +385,7 @@ class CoverPanel(wx.Panel):
 
         # 4. İŞLEM BUTONLARI (Başlat / İptal)
         btn_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_start = wx.Button(self, label="Toplu AI Cover Dönüştürmeyi Başlat", size=(-1, 60))
+        self.btn_start = wx.Button(self, label="SOTA AI Vokal Sentezleme Kuyruğunu Başlat", size=(-1, 60))
         self.btn_start.SetFont(font_large)
         self.btn_start.SetBackgroundColour(wx.Colour(0, 150, 100))
         self.btn_start.SetForegroundColour(self.fg_light)
@@ -430,8 +430,8 @@ class CoverPanel(wx.Panel):
         """Yeni model ekleme penceresi ve veritabanı kaydı."""
         name_dlg = wx.TextEntryDialog(
             self,
-            "Model için açıklayıcı bir isim girin (Örn: Yasin_V1):",
-            "Yeni RVC Modeli Ekle"
+            "Model için açıklayıcı bir stüdyo etiketi girin (Örn: Stüdyo_Vokal_Lead, Erkek_Vokal_48k, Solo_Soprano vb.):",
+            "Stüdyo Vokal Modeli Ekle (RVC)"
         )
         if name_dlg.ShowModal() == wx.ID_OK:
             model_name = name_dlg.GetValue().strip()
