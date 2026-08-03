@@ -1,0 +1,39 @@
+Ghostkiller SOUND CLEANER - SON KULLANICI LİSANS SÖZLEŞMESİ (EULA)
+
+Yazılım Geliştiricisi: Yasin Talha Gençsoy (Ghostkiller)
+Sürüm: 1.0
+
+Bu yazılımı bilgisayarınıza kurarak ve kullanarak, aşağıda belirtilen tüm şartları ve koşulları okuduğunuzu, anladığınızı ve gayrikabili rücu (geri dönülemez) şekilde kabul ettiğinizi beyan etmiş olursunuz. Şartları kabul etmiyorsanız, kurulumu iptal ediniz.
+
+1. KULLANIM HAKLARI VE LİSANS
+Ghostkiller Sound Cleaner tamamen ücretsiz (Freeware) bir yazılımdır. Yazılımı kişisel veya profesyonel ses/müzik işleme süreçlerinizde herhangi bir kısıtlama olmaksızın kullanabilirsiniz. 
+
+2. KISITLAMALAR
+- Bu yazılım hiçbir şekilde, hiçbir platformda ücret karşılığında satılamaz veya ticari bir ürünün parçası olarak paketlenemez.
+- Yazılımın arayüzü, yapısı veya kodları tersine mühendisliğe (reverse engineering) tabi tutulamaz.
+- Geliştiricinin (Yasin Talha Gençsoy) adı ve "Ghostkiller" markası programın üzerinden silinerek başka bir isimle yeniden dağıtılamaz.
+
+3. SORUMLULUK REDDİ (ÖNEMLİ)
+Bu yazılım "olduğu gibi" (as is) esasına göre, herhangi bir açık veya zımni garanti verilmeksizin sunulmaktadır. Yazılım, yapay zeka modelleri ve yüksek donanım gücü (GPU/CPU) kullanmaktadır. Yazılımın kullanımı sırasında veya sonucunda oluşabilecek veri kayıpları, donanımsal aşırı ısınma/yıpranma, donanım arızaları veya ticari kayıplardan yapımcı Yasin Talha Gençsoy hiçbir şart altında sorumlu tutulamaz. Tüm risk kullanıcıya aittir.
+
+4. GİZLİLİK VE VERİ GÜVENLİĞİ
+Ghostkiller Sound Cleaner, tamamen çevrimdışı (offline) çalışacak şekilde tasarlanmıştır. Seçtiğiniz ses dosyaları veya çıktılar hiçbir şekilde harici bir sunucuya yüklenmez, işlenmez veya yedeklenmez. Tüm işlemler kendi donanımınızın içinde gerçekleşir.
+
+5. İLETİŞİM VE DESTEK
+Geri bildirim, hata bildirimi veya projeler hakkında iletişim kurmak için aşağıdaki e-posta adreslerini kullanabilirsiniz:
+- ekransizoyuncular@gmail.com
+- yasintalhagencsoy@gmail.com
+
+GELİŞTİRİCİNİN DİĞER PROJELERİ
+Ghostkiller projelerini desteklemek ve diğer simülasyon/oyun projelerimizi keşfetmek için web sitelerimizi ziyaret edebilirsiniz:
+
+Ekransız Oyuncular Ana Web Sitesi:
+>> https://ekransizoyuncular.gen.tr/
+
+Ghostkiller Truck Game (Metin Tabanlı Tır Simülasyonu):
+>> https://ekransizoyuncular.gen.tr/truck
+
+Osmanlı Eyalet Simülasyonu:
+>> https://ekransizoyuncular.gen.tr/OsmanliEyaletSimulasyonu.html
+
+Yasin Talha Gençsoy | Tüm Hakları Saklıdır.

@@ -1,0 +1,8 @@
+{
+    "version": "2.0.0",
+    "app_name": "Ghostkiller Sound Cleaner V2",
+    "release_date": "2026-08-02",
+    "changelog": "İlk modüler kararlı sürüm: Ses Ayrıştırma (UVR/MelBand) ve AI Cover (Gömülü RVC motoru, sıfır Applio bağımlılığı), tam NVDA/JAWS erişilebilirliği ve otomatik güncelleme sistemi.",
+    "download_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/latest/download/Ghostkiller_V2_Setup.exe",
+    "release_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/latest"
+}
