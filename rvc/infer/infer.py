@@ -263,6 +263,15 @@ class VoiceConverter:
             16000,
             **kwargs,
         )
+
+        # SOTA: RVC Öncesi 80 Hz Low-Cut (High-Pass) ve Gürültü/Rumble Temizliği
+        try:
+            from scipy.signal import butter, filtfilt
+            b_hp, a_hp = butter(4, 80 / 8000, btype='highpass')
+            audio = filtfilt(b_hp, a_hp, audio)
+        except Exception as e:
+            print(f"[PRE-PROCESS UYARI] 80Hz Low-Cut filtresi uygulanamadı: {e}")
+
         audio_max = np.abs(audio).max() / 0.95
 
         if audio_max > 1:

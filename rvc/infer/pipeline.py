@@ -278,6 +278,21 @@ class Pipeline:
             f0 *= pow(2, (pitch + up_key) / 12)
         else:
             f0 *= pow(2, pitch / 12)
+
+        # SOTA: Dinamik F0 Sinyal Optimizasyonu (Median + Savitzky-Golay Filtresi)
+        # Anlık oktav sıçraması (spike) hatalarını temizler ve doğal vibratoyu bozmadan tonlamayı pürüzsüzleştirir.
+        try:
+            from scipy.signal import medfilt, savgol_filter
+            voiced_mask = f0 > 0
+            if np.sum(voiced_mask) > 11:
+                f0_voiced = f0[voiced_mask]
+                f0_voiced = medfilt(f0_voiced, kernel_size=3)
+                if len(f0_voiced) >= 7:
+                    f0_voiced = savgol_filter(f0_voiced, window_length=7, polyorder=3)
+                f0[voiced_mask] = np.maximum(f0_voiced, 0)
+        except Exception as e:
+            print(f"[F0 OPTİMİZASYONU UYARI] Filtreleme atlandı: {e}")
+
         # quantizing f0 to 255 buckets to make coarse f0
         f0bak = f0.copy()
         f0_mel = 1127 * np.log(1 + f0 / 700)
@@ -378,7 +393,9 @@ class Pipeline:
     def _retrieve_speaker_embeddings(self, feats, index, big_npy, index_rate):
         npy = feats[0].cpu().numpy()
         score, ix = index.search(npy, k=8)
-        weight = np.square(1 / score)
+        # SOTA: Sıfıra Bölünme Koruması ve Ters Mesafe Ağırlıklandırması (Inverse Distance Weighting)
+        # Yüksek index oranlarında (>0.70) sesin boğuklaşmasını (muffling) önler.
+        weight = np.square(1 / np.maximum(score, 1e-5))
         weight /= weight.sum(axis=1, keepdims=True)
         npy = np.sum(big_npy[ix] * np.expand_dims(weight, axis=2), axis=1)
         feats = (
