@@ -1,6 +1,8 @@
 import os
-import sys
-import soxr
+from app_runtime import configure_runtime_cache
+
+configure_runtime_cache()
+
 import time
 import torch
 import librosa
@@ -22,9 +24,6 @@ from pedalboard import (
     Delay,
 )
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-
 from rvc.infer.pipeline import Pipeline as VC
 from rvc.lib.utils import load_audio_infer, load_embedding
 from rvc.lib.tools.split_audio import process_audio, merge_audio
@@ -42,11 +41,12 @@ class VoiceConverter:
     A class for performing voice conversion using the Retrieval-Based Voice Conversion (RVC) method.
     """
 
-    def __init__(self):
+    def __init__(self, device=None, allow_model_download=True):
         """
         Initializes the VoiceConverter with default configuration, and sets up models and parameters.
         """
-        self.config = Config()  # Load configuration
+        self.config = Config(device=device)
+        self.allow_model_download = allow_model_download
         self.hubert_model = (
             None  # Initialize the Hubert model (for embedding extraction)
         )
@@ -68,7 +68,7 @@ class VoiceConverter:
             embedder_model (str): Path to the pre-trained HuBERT model.
             embedder_model_custom (str): Path to the custom HuBERT model.
         """
-        self.hubert_model = load_embedding(embedder_model, embedder_model_custom)
+        self.hubert_model = load_embedding(embedder_model, embedder_model_custom, allow_download=self.allow_model_download)
         self.hubert_model = self.hubert_model.to(self.config.device).float()
         self.hubert_model.eval()
 
@@ -101,29 +101,11 @@ class VoiceConverter:
             output_path (str): Path to the output audio file.
             output_format (str): Desired audio format (e.g., "WAV", "MP3").
         """
-        try:
-            if output_format != "WAV":
-                print(f"Saving audio as {output_format}...")
-                audio, sample_rate = librosa.load(input_path, sr=None)
-                common_sample_rates = [
-                    8000,
-                    11025,
-                    12000,
-                    16000,
-                    22050,
-                    24000,
-                    32000,
-                    44100,
-                    48000,
-                ]
-                target_sr = min(common_sample_rates, key=lambda x: abs(x - sample_rate))
-                audio = librosa.resample(
-                    audio, orig_sr=sample_rate, target_sr=target_sr, res_type="soxr_vhq"
-                )
-                sf.write(output_path, audio, target_sr, format=output_format.lower())
+        if output_format.upper() != "WAV":
+            audio, sample_rate = sf.read(input_path)
+            sf.write(output_path, audio, sample_rate, format=output_format.upper())
             return output_path
-        except Exception as error:
-            print(f"An error occurred converting the audio format: {error}")
+        return input_path
 
     @staticmethod
     def post_process_audio(
@@ -248,12 +230,21 @@ class VoiceConverter:
         protect = float(protect) if protect is not None else 0.5
         hop_length = int(hop_length) if hop_length is not None else 128
         clean_strength = float(clean_strength) if clean_strength is not None else 0.5
+        for name, value in (("index_rate", index_rate), ("volume_envelope", volume_envelope),
+                            ("protect", protect), ("clean_strength", clean_strength)):
+            if not np.isfinite(value) or not 0 <= value <= 1:
+                raise ValueError(f"{name}, 0 ile 1 arasında olmalıdır.")
+        if not 0 <= protect <= .5:
+            raise ValueError("protect, 0 ile 0.5 arasında olmalıdır.")
+        if hop_length <= 0:
+            raise ValueError("hop_length pozitif olmalıdır.")
 
-        if not model_path:
-            print("No model path provided. Aborting conversion.")
-            return
+        if not model_path or not os.path.isfile(model_path):
+            raise FileNotFoundError(f"Model bulunamadı: {model_path}")
 
         self.get_vc(model_path, sid)
+        if not isinstance(sid, int) or not 0 <= sid < self.n_spk:
+            raise ValueError("Geçersiz konuşmacı numarası.")
 
         start_time = time.time()
         print(f"Converting audio '{audio_input_path}'...")
@@ -272,17 +263,20 @@ class VoiceConverter:
         except Exception as e:
             print(f"[PRE-PROCESS UYARI] 80Hz Low-Cut filtresi uygulanamadı: {e}")
 
+        if audio.size == 0 or not np.isfinite(audio).all():
+            raise ValueError("Ses dosyası boş veya geçersiz örnekler içeriyor.")
         audio_max = np.abs(audio).max() / 0.95
 
         if audio_max > 1:
             audio /= audio_max
 
-        if not self.hubert_model or embedder_model != self.last_embedder_model:
+        embedder_key = (embedder_model, embedder_model_custom)
+        if self.hubert_model is None or embedder_key != self.last_embedder_model:
             self.load_hubert(embedder_model, embedder_model_custom)
-            self.last_embedder_model = embedder_model
+            self.last_embedder_model = embedder_key
 
         file_index = (
-            index_path.strip()
+            (index_path or "").strip()
             .strip('"')
             .strip("\n")
             .strip('"')
@@ -293,8 +287,7 @@ class VoiceConverter:
             if os.path.exists(alt_index):
                 file_index = alt_index
 
-        if self.tgt_sr != resample_sr >= 16000:
-            self.tgt_sr = resample_sr
+        output_sr = int(resample_sr) if resample_sr >= 16000 else self.tgt_sr
 
         if split_audio:
             chunks, intervals = process_audio(audio, 16000)
@@ -329,14 +322,17 @@ class VoiceConverter:
 
         if split_audio:
             audio_opt = merge_audio(
-                chunks, converted_chunks, intervals, 16000, self.tgt_sr
+                chunks, converted_chunks, intervals, 16000, self.tgt_sr, len(audio)
             )
         else:
             audio_opt = converted_chunks[0]
 
+        if output_sr != self.tgt_sr:
+            audio_opt = librosa.resample(audio_opt, orig_sr=self.tgt_sr, target_sr=output_sr, res_type="soxr_vhq")
+
         if clean_audio:
             cleaned_audio = self.remove_audio_noise(
-                audio_opt, self.tgt_sr, clean_strength
+                audio_opt, output_sr, clean_strength
             )
             if cleaned_audio is not None:
                 audio_opt = cleaned_audio
@@ -344,14 +340,14 @@ class VoiceConverter:
         if post_process:
             audio_opt = self.post_process_audio(
                 audio_input=audio_opt,
-                sample_rate=self.tgt_sr,
+                sample_rate=output_sr,
                 **kwargs,
             )
 
-        sf.write(audio_output_path, audio_opt, self.tgt_sr, format="WAV")
-        output_path_format = audio_output_path.replace(
-            ".wav", f".{export_format.lower()}"
-        )
+        if not len(audio_opt) or not np.isfinite(audio_opt).all():
+            raise ValueError("Dönüşüm boş veya geçersiz bir ses üretti.")
+        sf.write(audio_output_path, audio_opt, output_sr, format="WAV")
+        output_path_format = os.path.splitext(audio_output_path)[0] + f".{export_format.lower()}"
         audio_output_path = self.convert_audio_format(
             audio_output_path, output_path_format, export_format
         )
@@ -360,69 +356,7 @@ class VoiceConverter:
         print(
             f"Conversion completed at '{audio_output_path}' in {elapsed_time:.2f} seconds."
         )
-
-    def convert_audio_batch(
-        self,
-        audio_input_paths: str,
-        audio_output_path: str,
-        **kwargs,
-    ):
-        """
-        Performs voice conversion on a batch of input audio files.
-
-        Args:
-            audio_input_paths (str): List of paths to the input audio files.
-            audio_output_path (str): Path to the output audio file.
-            resample_sr (int, optional): Resample sampling rate. Default is 0.
-            sid (int, optional): Speaker ID. Default is 0.
-            **kwargs: Additional keyword arguments.
-        """
-        pid = os.getpid()
-        try:
-            with open(
-                os.path.join(now_dir, "assets", "infer_pid.txt"), "w"
-            ) as pid_file:
-                pid_file.write(str(pid))
-            start_time = time.time()
-            print(f"Converting audio batch '{audio_input_paths}'...")
-            audio_files = [
-                f
-                for f in os.listdir(audio_input_paths)
-                if f.lower().endswith(
-                    (
-                        "wav",
-                        "mp3",
-                        "flac",
-                        "ogg",
-                        "opus",
-                        "m4a",
-                        "mp4",
-                        "aac",
-                        "alac",
-                        "wma",
-                        "aiff",
-                        "webm",
-                        "ac3",
-                    )
-                )
-            ]
-            print(f"Detected {len(audio_files)} audio files for inference.")
-            for a in audio_files:
-                new_input = os.path.join(audio_input_paths, a)
-                new_output = os.path.splitext(a)[0] + "_output.wav"
-                new_output = os.path.join(audio_output_path, new_output)
-                if os.path.exists(new_output):
-                    continue
-                self.convert_audio(
-                    audio_input_path=new_input,
-                    audio_output_path=new_output,
-                    **kwargs,
-                )
-            print(f"Conversion completed at '{audio_input_paths}'.")
-            elapsed_time = time.time() - start_time
-            print(f"Batch conversion completed in {elapsed_time:.2f} seconds.")
-        finally:
-            os.remove(os.path.join(now_dir, "assets", "infer_pid.txt"))
+        return audio_output_path
 
     def get_vc(self, weight_root, sid):
         """
@@ -434,33 +368,30 @@ class VoiceConverter:
         """
         if sid == "" or sid == []:
             self.cleanup_model()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
 
         if not self.loaded_model or self.loaded_model != weight_root:
-            self.load_model(weight_root)
-            if self.cpt is not None:
+            self.cleanup_model()
+            try:
+                self.load_model(weight_root)
+                if self.cpt is None:
+                    raise FileNotFoundError(weight_root)
                 self.setup_network()
                 self.setup_vc_instance()
                 self.loaded_model = weight_root
-            else:
-                self.vc = None
-                self.loaded_model = None
+            except Exception:
+                self.cleanup_model()
+                raise
 
     def cleanup_model(self):
         """
         Cleans up the model and releases resources.
         """
-        if self.hubert_model is not None:
-            del self.net_g, self.n_spk, self.vc, self.hubert_model, self.tgt_sr
-            self.hubert_model = self.net_g = self.n_spk = self.vc = self.tgt_sr = None
-            if torch.cuda.is_available():
+        self.hubert_model = self.net_g = self.n_spk = self.vc = self.tgt_sr = None
+        self.cpt = self.loaded_model = None
+        self.last_embedder_model = self.version = self.use_f0 = None
+        if self.config.device.startswith("cuda") and torch.cuda.is_available():
+            with torch.cuda.device(self.config.device):
                 torch.cuda.empty_cache()
-
-        del self.net_g, self.cpt
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        self.cpt = None
 
     def load_model(self, weight_root):
         """
@@ -480,6 +411,11 @@ class VoiceConverter:
         Sets up the network configuration based on the loaded checkpoint.
         """
         if self.cpt is not None:
+            if not isinstance(self.cpt, dict) or not isinstance(self.cpt.get("config"), (list, tuple)) or len(self.cpt["config"]) != 18:
+                raise ValueError("Geçersiz RVC model yapılandırması.")
+            self.cpt["config"] = list(self.cpt["config"])
+            if not isinstance(self.cpt.get("weight"), dict) or "emb_g.weight" not in self.cpt["weight"]:
+                raise ValueError("RVC model ağırlıkları eksik.")
             self.tgt_sr = self.cpt["config"][-1]
             self.cpt["config"][-3] = self.cpt["weight"]["emb_g.weight"].shape[0]
             self.use_f0 = self.cpt.get("f0", 1)
@@ -487,6 +423,12 @@ class VoiceConverter:
             self.version = self.cpt.get("version", "v1")
             self.text_enc_hidden_dim = 768 if self.version == "v2" else 256
             self.vocoder = self.cpt.get("vocoder", "HiFi-GAN")
+            if self.version not in ("v1", "v2") or self.vocoder not in ("HiFi-GAN", "MRF HiFi-GAN", "RefineGAN"):
+                raise ValueError("Desteklenmeyen RVC model sürümü veya vocoder.")
+            if not self.use_f0 and self.vocoder != "HiFi-GAN":
+                raise ValueError("Bu vocoder F0 bilgisi gerektiriyor.")
+            if not isinstance(self.tgt_sr, int) or self.tgt_sr < 16000:
+                raise ValueError("Geçersiz model örnekleme hızı.")
             self.net_g = Synthesizer(
                 *self.cpt["config"],
                 use_f0=self.use_f0,
@@ -494,7 +436,9 @@ class VoiceConverter:
                 vocoder=self.vocoder,
             )
             del self.net_g.enc_q
-            self.net_g.load_state_dict(self.cpt["weight"], strict=False)
+            incompatible = self.net_g.load_state_dict(self.cpt["weight"], strict=False)
+            if incompatible.missing_keys:
+                raise ValueError(f"RVC model ağırlıkları eksik: {', '.join(incompatible.missing_keys[:5])}")
             self.net_g = self.net_g.to(self.config.device).float()
             self.net_g.eval()
 

@@ -7,8 +7,7 @@ ve arayüzünü modüler bir wx.Panel (SeparatorPanel) bileşenine dönüştür�
 
 Özellikler:
 1. Standart wxPython bileşenleri ile tam NVDA/JAWS ekran okuyucu uyumluluğu (Erişilebilirlik - A11y).
-2. Akıllı Model Kontrolcüsü: Önce işletim sistemi varsayılan model dizinlerine bakar; model varsa orayı kullanır,
-   yoksa taşınabilir (portable) 'modeller' klasörünü oluşturur.
+2. Modeller uygulama altındaki 'models' klasörüne indirilir; eski önbellekler gerektiğinde kopyalanır.
 3. 5 Aşamalı ses temizleme zinciri (Enstrümantal, Ana Vokal Roformer, Arka Vokal Karaoke, DeReverb, DeNoise).
 4. Arayüzün donmaması için threading ile iş parçacığı yönetimi ve OOM önlemleri.
 """
@@ -18,11 +17,15 @@ import os
 import sys
 import re
 import gc
-import traceback
+import tempfile
 import threading
+from app_runtime import (JOB_LOCK, post_ui, append_log, model_directory, copy_model,
+                         same_path, validate_audio_file, finish_job)
+
+from separation_steps import SEPARATION_STEPS
 
 try:
-    from audio_separator.separator import Separator
+    from separator_backend import LocalSeparator as Separator
 except ImportError:
     Separator = None
 
@@ -36,7 +39,8 @@ def get_app_dir():
 
 def setup_ffmpeg_paths(app_dir):
     """ffmpeg ve ffprobe yollarını ayarlar."""
-    os.environ["PATH"] = app_dir + os.pathsep + os.environ.get("PATH", "")
+    tools_dir = os.path.join(app_dir, "tools", "ffmpeg")
+    os.environ["PATH"] = app_dir + os.pathsep + tools_dir + os.pathsep + os.environ.get("PATH", "")
     try:
         import pydub
         ffmpeg_path = os.path.join(app_dir, "ffmpeg.exe")
@@ -49,26 +53,11 @@ def setup_ffmpeg_paths(app_dir):
         pass
 
 
-def get_model_directory(app_dir):
-    """
-    Akıllı Model Kontrolcüsü (Smart Model Controller):
-    1. Önce programın kurulu olduğu yerdeki 'modeller' klasöründe model var mı kontrol eder.
-    2. Sonra işletim sistemindeki varsayılan önbellek/model dizinlerine bakar (.cache/audio-separator vb.).
-       Eğer önceden indirilmiş modeller varsa tekrar indirmesin ki diskte yer kaplamasın.
-    3. Hiçbir yerde model bulunamazsa, programın kurulu olduğu yerdeki 'modeller' klasörünü döndürür
-       (modeller otomatik olarak buraya indirilir).
-    """
-    portable_dir = os.path.join(app_dir, "modeller")
-    if os.path.exists(portable_dir) and os.path.isdir(portable_dir):
-        try:
-            files = os.listdir(portable_dir)
-            if any(f.endswith((".ckpt", ".pth", ".onnx", ".yaml")) for f in files):
-                return portable_dir
-        except Exception:
-            pass
-
+def model_cache_directories(app_dir):
     user_home = os.path.expanduser("~")
-    possible_default_dirs = [
+    return [
+        os.path.join(app_dir, "modeller"),
+        os.path.join(os.environ.get('LOCALAPPDATA', user_home), 'GhostkillerSoundToolbox', 'modeller'),
         os.path.join(user_home, ".cache", "audio-separator", "models"),
         os.path.join(user_home, ".cache", "audio-separator"),
         os.path.join(user_home, "AppData", "Local", "audio-separator", "models"),
@@ -76,26 +65,38 @@ def get_model_directory(app_dir):
         os.path.join(os.environ.get("TEMP", ""), "audio-separator-models"),
     ]
 
-    for d in possible_default_dirs:
-        if os.path.exists(d) and os.path.isdir(d):
-            try:
-                files = os.listdir(d)
-                if any(f.endswith((".ckpt", ".pth", ".onnx", ".yaml")) for f in files):
-                    return d
-            except Exception:
-                pass
+def get_model_directory(app_dir):
+    return model_directory(app_dir)
 
-    os.makedirs(portable_dir, exist_ok=True)
-    return portable_dir
+
+def prepare_separator_model(app_dir, model_dir, model_name):
+    os.makedirs(model_dir, exist_ok=True)
+    target = os.path.join(model_dir, model_name)
+    if os.path.isfile(target) and os.path.getsize(target):
+        return
+    for directory in model_cache_directories(app_dir):
+        source = os.path.join(directory, model_name)
+        if os.path.isfile(source) and os.path.getsize(source) and not same_path(source, target):
+            # Metadata maps model hashes and their YAML configs to the right architecture.
+            for filename in os.listdir(directory):
+                if filename.endswith(('.json', '.yaml')):
+                    metadata = os.path.join(directory, filename)
+                    destination = os.path.join(model_dir, filename)
+                    if os.path.isfile(metadata) and os.path.getsize(metadata) and (not os.path.isfile(destination) or not os.path.getsize(destination)):
+                        copy_model(metadata, destination)
+            copy_model(source, target)
+            return
 
 
 class SeparatorPanel(wx.Panel):
     """
     Ses Ayrıştırma Sekmesi Paneli (wx.Notebook ile uyumlu)
     """
-    def __init__(self, parent):
+    def __init__(self, parent, settings=None):
         """Ses Ayrıştırma paneli yollarını, renk paletini ve durumlarını başlatır."""
         super(SeparatorPanel, self).__init__(parent)
+        from app_settings import AppSettings
+        self.settings = settings or AppSettings()
 
         self.app_dir = get_app_dir()
         setup_ffmpeg_paths(self.app_dir)
@@ -130,7 +131,7 @@ class SeparatorPanel(wx.Panel):
 
         # 1. Ses Dosyası Seçimi
         file_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_file = wx.Button(self, label="1. Ses Kaynağı Seç (.wav / .flac / .mp3)", size=(-1, 45))
+        self.btn_select_file = wx.Button(self, label="1. Şarkı veya Ses Dosyası Seç (.mp3 / .wav / .flac)", size=(-1, 45))
         self.btn_select_file.SetFont(font_large)
         self.btn_select_file.SetBackgroundColour(self.bg_btn)
         self.btn_select_file.SetForegroundColour(self.fg_light)
@@ -147,7 +148,7 @@ class SeparatorPanel(wx.Panel):
 
         # 2. Çıktı Klasörü Seçimi
         dir_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_dir = wx.Button(self, label="2. Hedef Çıktı Dizini Seç", size=(-1, 45))
+        self.btn_select_dir = wx.Button(self, label="2. Kaydedilecek Klasörü Seç", size=(-1, 45))
         self.btn_select_dir.SetFont(font_large)
         self.btn_select_dir.SetBackgroundColour(self.bg_btn)
         self.btn_select_dir.SetForegroundColour(self.fg_light)
@@ -163,7 +164,7 @@ class SeparatorPanel(wx.Panel):
         vbox.Add(dir_box, 0, wx.EXPAND | wx.ALL, 5)
 
         # 3. İşlem Seçenekleri (Kanallar)
-        box_options = wx.StaticBox(self, label="3. DSP Vokal Ayrıştırma & Temizleme Zinciri (Audio Separation Chain)")
+        box_options = wx.StaticBox(self, label="3. Yapılacak Temizleme İşlemleri")
         box_options.SetForegroundColour(self.fg_light)
         box_options.SetFont(font_large)
         sizer_options = wx.StaticBoxSizer(box_options, wx.VERTICAL)
@@ -179,19 +180,19 @@ class SeparatorPanel(wx.Panel):
             btn.Bind(wx.EVT_TOGGLEBUTTON, self.OnCheckToggle)
             return btn
 
-        self.chk_inst = CreateToggleBtn("Stüdyo Enstrümantal Ayrıştırma (Mel-Band Roformer - Inst)", False)
+        self.chk_inst = CreateToggleBtn("1. Müziği Ayır (Sadece Enstrümantal Müzik Kalsın)", False)
         sizer_options.Add(self.chk_inst, 0, wx.EXPAND | wx.ALL, 5)
 
-        self.chk_step1 = CreateToggleBtn("Ana Vokal Ayrıştırma (BS-Roformer / SOTA Vocal Extract)", True)
+        self.chk_step1 = CreateToggleBtn("2. İnsan Sesini Ayır (Sadece Vokal Kalsın)", True)
         sizer_options.Add(self.chk_step1, 0, wx.EXPAND | wx.ALL, 5)
 
-        self.chk_step2 = CreateToggleBtn("Arka Vokal & Harmoni Temizliği (Karaoke Filter)", False)
+        self.chk_step2 = CreateToggleBtn("3. Arka Vokalleri ve Harmoni Seslerini Temizle", False)
         sizer_options.Add(self.chk_step2, 0, wx.EXPAND | wx.ALL, 5)
 
-        self.chk_step3 = CreateToggleBtn("Akustik Yankı & Oda Reverb Giderici (De-Reverb DSP)", False)
+        self.chk_step3 = CreateToggleBtn("4. Yankıyı ve Eko Seslerini Temizle", False)
         sizer_options.Add(self.chk_step3, 0, wx.EXPAND | wx.ALL, 5)
 
-        self.chk_step4 = CreateToggleBtn("Dip Gürültü & Hışırtı Filtresi (De-Noise DSP)", False)
+        self.chk_step4 = CreateToggleBtn("5. Arka Plan Gürültüsünü ve Hışırtıyı Temizle", False)
         sizer_options.Add(self.chk_step4, 0, wx.EXPAND | wx.ALL, 5)
 
         vbox.Add(sizer_options, 0, wx.EXPAND | wx.ALL, 5)
@@ -199,7 +200,7 @@ class SeparatorPanel(wx.Panel):
         # 4. İşlem Butonları (Başlat / İptal)
         btn_box = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.btn_start = wx.Button(self, label="Stüdyo Ayrıştırma Pipeline'ını Başlat", size=(-1, 60))
+        self.btn_start = wx.Button(self, label="Temizleme İşlemini Başlat", size=(-1, 60))
         self.btn_start.SetFont(font_large)
         self.btn_start.SetBackgroundColour(wx.Colour(0, 150, 100))
         self.btn_start.SetForegroundColour(self.fg_light)
@@ -234,6 +235,11 @@ class SeparatorPanel(wx.Panel):
         vbox.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 5)
 
         self.SetSizer(vbox)
+        self.txt_selected_file.SetName("Seçilen ses dosyası")
+        self.txt_selected_dir.SetName("Çıktı klasörü")
+        self.txt_log.SetName("İşlem günlüğü")
+        self.txt_status.SetName("İşlem durumu ve yüzde")
+        self.gauge.SetName("İşlem ilerlemesi")
         self.LogMessage("Sistem Hazır. İşlem yapmak için dosya seçin.")
 
     def OnCheckToggle(self, event):
@@ -280,46 +286,28 @@ class SeparatorPanel(wx.Panel):
         """Log ekranına yeni satır eklendiğinde ekrana basar ve en alta kaydırır."""
         clean_message = message.strip()
         if clean_message:
-            wx.CallAfter(self.txt_log.AppendText, clean_message + "\n")
-            wx.CallAfter(self.txt_log.ShowPosition, self.txt_log.GetLastPosition())
+            append_log(self, clean_message)
 
     def UpdateStatus(self, text, percent=None):
         """Durum göstergesini ve ilerleme çubuğunu (gauge) günceller."""
         status_msg = f"Durum: {text}"
         if percent is not None:
+            percent = max(0, min(100, int(percent)))
             status_msg += f" - %{percent}"
-            wx.CallAfter(self.gauge.SetValue, percent)
-        wx.CallAfter(self.txt_status.SetValue, status_msg)
+            post_ui(self, self.gauge.SetValue, percent)
+        post_ui(self, self.txt_status.SetValue, status_msg)
 
     def EnableUI(self, enable):
         """İşlem sürerken veya bittiğinde arayüz kontrollerini aktif/pasif yapar."""
-        wx.CallAfter(self.btn_select_file.Enable, enable)
-        wx.CallAfter(self.btn_select_dir.Enable, enable)
-        wx.CallAfter(self.btn_start.Enable, enable)
-        wx.CallAfter(self.btn_cancel.Enable, not enable)
-        wx.CallAfter(self.chk_inst.Enable, enable)
-        wx.CallAfter(self.chk_step1.Enable, enable)
-        wx.CallAfter(self.chk_step2.Enable, enable)
-        wx.CallAfter(self.chk_step3.Enable, enable)
-        wx.CallAfter(self.chk_step4.Enable, enable)
-
-    def GetNewFiles(self, directory, files_before):
-        """Klasörde işlem öncesine göre yeni oluşturulmuş dosyaların listesini döndürür."""
-        files_after = set(os.listdir(directory))
-        return list(files_after - files_before)
-
-    def RenameAndKeep(self, original_path, new_filename):
-        """Çıktı dosyasını tutarlı biçimde yeniden adlandırır ve mevcutsa üzerine yazar."""
-        final_path = os.path.join(self.output_directory, new_filename)
-        try:
-            if os.path.exists(final_path):
-                os.remove(final_path)
-            os.rename(original_path, final_path)
-            self.LogMessage(f"Oluşturuldu: {new_filename}")
-            return final_path
-        except Exception as e:
-            self.LogMessage(f"HATA (İsimlendirme): {str(e)}")
-            return original_path
+        post_ui(self, self.btn_select_file.Enable, enable)
+        post_ui(self, self.btn_select_dir.Enable, enable)
+        post_ui(self, self.btn_start.Enable, enable)
+        post_ui(self, self.btn_cancel.Enable, not enable)
+        post_ui(self, self.chk_inst.Enable, enable)
+        post_ui(self, self.chk_step1.Enable, enable)
+        post_ui(self, self.chk_step2.Enable, enable)
+        post_ui(self, self.chk_step3.Enable, enable)
+        post_ui(self, self.chk_step4.Enable, enable)
 
     def OnCancel(self, event):
         """Devam eden ayrıştırma zincirini iptal etme bayrağını tetikler."""
@@ -327,7 +315,7 @@ class SeparatorPanel(wx.Panel):
         self.UpdateStatus("İptal ediliyor... (Mevcut işlem bitince duracak)", 0)
         self.btn_cancel.Enable(False)
 
-    def RunSeparatorCommand(self, input_file, model_name, step_name):
+    def RunSeparatorCommand(self, input_file, model_name, step_name, output_dir):
         """Belirtilen model ile tekli ses ayırma adımını çalıştırır ve VRAM/GC temizliği yapar."""
         if Separator is None:
             self.LogMessage("HATA: audio-separator kütüphanesi yüklü değil veya bulunamadı!")
@@ -344,12 +332,12 @@ class SeparatorPanel(wx.Panel):
                 def __init__(self, panel_instance, step_name):
                     self.panel = panel_instance
                     self.step_name = step_name
-                    self.current_phase = "Model İndiriliyor/Hazırlanıyor"
+                    self.current_phase = "Model Hazırlanıyor"
 
                 def write(self, text):
                     """Standart hata akışına yazılan çıktıda yüzde arar ve panel durumunu yeniler."""
                     if self.panel.is_cancelled:
-                        return
+                        return len(text)
                     clean_line = text.strip()
                     if clean_line:
                         match = re.search(r'(\d+)%', clean_line)
@@ -358,23 +346,32 @@ class SeparatorPanel(wx.Panel):
                             self.panel.UpdateStatus(f"{self.current_phase} ({self.step_name})", percent)
                         elif "Error" in clean_line or "Exception" in clean_line:
                             self.panel.LogMessage(f"HATA: {clean_line}")
+                    return len(text)
 
                 def flush(self):
                     """Akışı temizler (boş metod)."""
                     pass
 
+                def isatty(self):
+                    return False
+
+                encoding = 'utf-8'
+
             catcher = StderrCatcher(self, step_name)
             sys.stderr = catcher
 
-            # Akıllı model kontrolcüsünün belirlediği dizini kullan
+            if self.is_cancelled:
+                return False
             separator = Separator(
-                output_dir=self.output_directory,
+                output_dir=output_dir,
                 output_format="FLAC",
-                model_file_dir=self.model_dir
+                model_file_dir=self.model_dir,
+                device=getattr(self, "job_device", "cpu"),
+                use_autocast=False,
             )
 
-            # Model indirme/yükleme aşaması
-            catcher.current_phase = "Model İndiriliyor/Hazırlanıyor"
+            # Missing downloads are prohibited during inference by LocalSeparator.
+            catcher.current_phase = "Model Hazırlanıyor"
             separator.load_model(model_filename=model_name)
 
             if self.is_cancelled:
@@ -383,8 +380,17 @@ class SeparatorPanel(wx.Panel):
             # Ses işleme aşaması
             catcher.current_phase = "Ses İşleniyor"
             self.UpdateStatus(f"Ses İşleniyor ({step_name})...", 0)
-            separator.separate(input_file)
-            return True
+            outputs = separator.separate(input_file)
+            if not isinstance(outputs, (list, tuple)) or not outputs:
+                raise RuntimeError("Ayrıştırma motoru çıktı dosyası döndürmedi.")
+            paths = []
+            for output in outputs:
+                path = os.path.realpath(output if os.path.isabs(output) else os.path.join(output_dir, output))
+                root = os.path.realpath(output_dir)
+                if os.path.normcase(os.path.commonpath([root, path])) != os.path.normcase(root) or not os.path.isfile(path):
+                    raise RuntimeError("Geçersiz ayrıştırma çıktısı.")
+                paths.append(path)
+            return paths
 
         except Exception as e:
             self.LogMessage(f"SİSTEM HATASI: {str(e)}")
@@ -401,76 +407,61 @@ class SeparatorPanel(wx.Panel):
                 pass
             gc.collect()
 
-    def ProcessChain(self):
-        """Seçilen kanallar için sırasıyla ses ayrıştırma adımlarını tekli iş parçacığında çalıştırır."""
-        self.EnableUI(False)
-        self.is_cancelled = False
-        working_file = self.current_input_file
-        base_filename = os.path.splitext(os.path.basename(self.current_input_file))[0]
-
-        if self.chk_inst.GetValue() and not self.is_cancelled:
-            files_before = set(os.listdir(self.output_directory))
-            success = self.RunSeparatorCommand(self.current_input_file, "melband_roformer_inst_v2.ckpt", "Enstrümantal Çıkarma")
-
-            if success and not self.is_cancelled:
-                new_files = self.GetNewFiles(self.output_directory, files_before)
-                for f in new_files:
-                    full_path = os.path.join(self.output_directory, f)
-                    if "(Instrumental)" in f:
-                        self.RenameAndKeep(full_path, f"{base_filename}_Ghostkiller_Enstrumantal.flac")
-                    else:
-                        try:
-                            os.remove(full_path)
-                        except Exception:
-                            pass
-
-        steps = [
-            (self.chk_step1, "model_bs_roformer_ep_317_sdr_12.9755.ckpt", "Ana Vokal Ayrıştırma", "(Vocals)", "_Ghostkiller_1_Ayrilmis_Vokal.flac"),
-            (self.chk_step2, "mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt", "Arka Vokal Temizliği", "(Vocals)", "_Ghostkiller_2_ArkaSes_Silinmis.flac"),
-            (self.chk_step3, "UVR-DeEcho-DeReverb.pth", "Yankı (Reverb) Temizliği", "(No Reverb)", "_Ghostkiller_3_Yankisiz_Vokal.flac"),
-            (self.chk_step4, "UVR-DeNoise.pth", "Gürültü (Noise) Temizliği", "(No Noise)", "_Ghostkiller_4_Gurultusuz_Vokal.flac")
-        ]
-
-        for chk, model, step_name, keep_keyword, suffix in steps:
-            if chk.GetValue() and not self.is_cancelled:
-                files_before = set(os.listdir(self.output_directory))
-                success = self.RunSeparatorCommand(working_file, model, step_name)
-
+    def ProcessChain(self, selected_steps, input_file=None, output_directory=None, device="cpu"):
+        completed = 0
+        failed = False
+        self.job_device = device
+        input_file = input_file or self.current_input_file
+        output_directory = output_directory or self.output_directory
+        working_file = input_file
+        base_name = os.path.splitext(os.path.basename(working_file))[0]
+        steps = SEPARATION_STEPS
+        try:
+            from hardware import configure_runtime
+            configure_runtime(device)
+            for idx, (model, label, keyword, suffix) in enumerate(steps):
+                if not selected_steps[idx]:
+                    continue
                 if self.is_cancelled:
                     break
-
-                if not success:
-                    self.LogMessage(f"{step_name} durduruldu. Zincir iptal edildi.")
-                    break
-
-                new_files = self.GetNewFiles(self.output_directory, files_before)
-                found_next_file = False
-
-                for f in new_files:
-                    full_path = os.path.join(self.output_directory, f)
-                    if keep_keyword in f:
-                        working_file = self.RenameAndKeep(full_path, base_filename + suffix)
-                        found_next_file = True
-                    else:
-                        try:
-                            os.remove(full_path)
-                        except Exception:
-                            pass
-
-                if not found_next_file:
-                    self.LogMessage(f"HATA: {step_name} çıktısı bulunamadı.")
-                    break
-
-        if self.is_cancelled:
-            self.UpdateStatus("İşlem İptal Edildi", 0)
-            self.LogMessage("\n--- İŞLEM KULLANICI TARAFINDAN İPTAL EDİLDİ ---")
-            wx.CallAfter(wx.MessageBox, "İşlem iptal edildi.", "İptal", wx.OK | wx.ICON_WARNING)
-        else:
-            self.UpdateStatus("Tüm İşlemler Tamamlandı", 100)
-            self.LogMessage("\n--- GHOSTKILLER İŞLEM ZİNCİRİ TAMAMLANDI ---")
-            wx.CallAfter(wx.MessageBox, "Seçilen tüm işlemler başarıyla tamamlandı.", "İşlem Bitti", wx.OK | wx.ICON_INFORMATION)
-
-        self.EnableUI(True)
+                # Only files owned by this job can be removed by TemporaryDirectory.
+                with tempfile.TemporaryDirectory(prefix="ghostkiller_", dir=output_directory) as stage:
+                    source = input_file if idx == 0 else working_file
+                    outputs = self.RunSeparatorCommand(source, model, label, stage)
+                    if self.is_cancelled:
+                        break
+                    if not outputs:
+                        raise RuntimeError(f"{label} başarısız oldu.")
+                    # The input basename can itself contain a stem label such as '(Vocals)'.
+                    matches = [path for path in outputs if re.findall(r'_\([^()]*\)', os.path.basename(path))[-1:] == ['_' + keyword]]
+                    if len(matches) != 1:
+                        raise RuntimeError(f"{label}: beklenen çıktı bulunamadı veya belirsiz.")
+                    destination = os.path.join(output_directory, base_name + suffix)
+                    if same_path(destination, input_file):
+                        raise RuntimeError("Çıktı giriş dosyasının üzerine yazamaz.")
+                    validate_audio_file(matches[0])
+                    if self.is_cancelled:
+                        break
+                    os.replace(matches[0], destination)
+                    completed += 1
+                    self.LogMessage(f"Oluşturuldu: {os.path.basename(destination)}")
+                    if idx != 0:
+                        working_file = destination
+        except Exception as error:
+            failed = True
+            self.LogMessage(f"HATA: {error}")
+        finally:
+            try:
+                if self.is_cancelled:
+                    summary = f"İşlem iptal edildi. Tamamlanan adım: {completed}."
+                elif failed:
+                    summary = f"İşlem başarısız. Tamamlanan adım: {completed}. Ayrıntılar günlükte."
+                else:
+                    summary = f"Seçilen {completed} işlem başarıyla tamamlandı."
+                self.UpdateStatus(summary, 0 if failed or self.is_cancelled else 100)
+                post_ui(self, wx.MessageBox, summary, "İşlem Sonucu", wx.OK | (wx.ICON_WARNING if failed or self.is_cancelled else wx.ICON_INFORMATION))
+            finally:
+                finish_job(self)
 
     def OnStart(self, event):
         """Ayrıştırma işlemini arka plan iş parçacığı (threading) olarak başlatır."""
@@ -481,11 +472,35 @@ class SeparatorPanel(wx.Panel):
             wx.MessageBox("Lütfen bir çıktı klasörü seçin.", "Eksik Bilgi", wx.OK | wx.ICON_WARNING)
             return
 
-        self.txt_log.Clear()
-        self.LogMessage("İşlemler başlıyor. İnternet hızınıza bağlı olarak eksik modeller indirilebilir.")
-
-        thread = threading.Thread(target=self.ProcessChain, daemon=True)
-        thread.start()
+        selected_steps = tuple(control.GetValue() for control in
+                               (self.chk_inst, self.chk_step1, self.chk_step2, self.chk_step3, self.chk_step4))
+        if not any(selected_steps):
+            wx.MessageBox("En az bir temizleme işlemi seçin.", "Eksik Bilgi", wx.OK | wx.ICON_WARNING)
+            return
+        if not os.path.isfile(self.current_input_file) or not os.path.isdir(self.output_directory):
+            wx.MessageBox("Giriş dosyası veya çıktı klasörü bulunamadı.", "Hata", wx.OK | wx.ICON_ERROR)
+            return
+        try:
+            required = [step[0] for enabled, step in zip(selected_steps, SEPARATION_STEPS) if enabled]
+            device = self.settings.prepare_job(required)
+        except Exception as error:
+            wx.MessageBox(str(error), "Donanım ve model kontrolü", wx.OK | wx.ICON_WARNING)
+            self.settings.open_settings()
+            return
+        if not JOB_LOCK.acquire(blocking=False):
+            wx.MessageBox("Başka bir ses işlemi çalışıyor. Bitmesini bekleyin.", "İşlem Sürüyor", wx.OK | wx.ICON_INFORMATION)
+            return
+        try:
+            self.is_cancelled = False
+            self.EnableUI(False)
+            self.txt_log.Clear()
+            self.LogMessage(f"İşlemler başlıyor. Kullanılacak cihaz: {device}. Modeller yerel klasörden yüklenecek.")
+            thread = threading.Thread(target=self.ProcessChain, args=(selected_steps, self.current_input_file, self.output_directory, device), daemon=True)
+            thread.start()
+        except Exception:
+            JOB_LOCK.release()
+            self.EnableUI(True)
+            raise
 
 
 if __name__ == '__main__':
