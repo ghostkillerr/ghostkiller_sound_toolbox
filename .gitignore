@@ -12,6 +12,7 @@ dist/
 modeller/
 models/
 /models.json
+/settings.json
 *.pth
 *.ckpt
 *.index
@@ -26,6 +27,7 @@ models/
 *.log
 Ghostkiller_CrashLog.txt
 Setup/
+/tools/ffmpeg/*.exe
 
 # IDE / Editör
 .vscode/

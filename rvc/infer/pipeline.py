@@ -1,6 +1,5 @@
 import os
 import gc
-import sys
 import torch
 import torch.nn.functional as F
 import torchcrepe
@@ -10,10 +9,8 @@ import numpy as np
 from scipy import signal
 from torch import Tensor
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-
 from rvc.lib.predictors.f0 import CREPE, FCPE, RMVPE
+from rvc.infer.f0_utils import smooth_f0
 
 import logging
 
@@ -157,6 +154,8 @@ class Autotune:
         """
         autotuned_f0 = np.zeros_like(f0)
         for i, freq in enumerate(f0):
+            if not np.isfinite(freq) or freq <= 0:
+                continue
             closest_note = min(self.note_dict, key=lambda x: abs(x - freq))
             autotuned_f0[i] = freq + (closest_note - freq) * f0_autotune_strength
         return autotuned_f0
@@ -245,9 +244,16 @@ class Pipeline:
             f0 = model.get_f0(x, p_len, filter_radius=0.006)
             del model
 
+        else:
+            raise ValueError(f"Desteklenmeyen F0 yöntemi: {f0_method}")
+
+        f0 = np.asarray(f0, dtype=np.float32).reshape(-1)
+        f0[~np.isfinite(f0) | (f0 < 0)] = 0
+        f0 = np.pad(f0[:p_len], (0, max(0, p_len - len(f0))))
         # f0 adjustments
         if f0_autotune is True:
             f0 = self.autotune.autotune_f0(f0, f0_autotune_strength)
+            f0 *= pow(2, pitch / 12)
         elif proposed_pitch is True:
             limit = 12
             # calculate median f0 of the audio
@@ -281,17 +287,7 @@ class Pipeline:
 
         # SOTA: Dinamik F0 Sinyal Optimizasyonu (Median + Savitzky-Golay Filtresi)
         # Anlık oktav sıçraması (spike) hatalarını temizler ve doğal vibratoyu bozmadan tonlamayı pürüzsüzleştirir.
-        try:
-            from scipy.signal import medfilt, savgol_filter
-            voiced_mask = f0 > 0
-            if np.sum(voiced_mask) > 11:
-                f0_voiced = f0[voiced_mask]
-                f0_voiced = medfilt(f0_voiced, kernel_size=3)
-                if len(f0_voiced) >= 7:
-                    f0_voiced = savgol_filter(f0_voiced, window_length=7, polyorder=3)
-                f0[voiced_mask] = np.maximum(f0_voiced, 0)
-        except Exception as e:
-            print(f"[F0 OPTİMİZASYONU UYARI] Filtreleme atlandı: {e}")
+        f0 = smooth_f0(f0)
 
         # quantizing f0 to 255 buckets to make coarse f0
         f0bak = f0.copy()
@@ -336,7 +332,7 @@ class Pipeline:
             protect: Protection level for preserving the original pitch.
         """
         with torch.no_grad():
-            pitch_guidance = pitch != None and pitchf != None
+            pitch_guidance = pitch is not None and pitchf is not None
             # prepare source audio
             feats = torch.from_numpy(audio0).float()
             feats = feats.mean(-1) if feats.dim() == 2 else feats
@@ -362,9 +358,11 @@ class Pipeline:
             # adjust the length if the audio is short
             p_len = min(audio0.shape[0] // self.window, feats.shape[1])
             if pitch_guidance:
+                p_len = min(p_len, pitch.shape[1], pitchf.shape[1])
                 feats0 = F.interpolate(feats0.permute(0, 2, 1), scale_factor=2).permute(
                     0, 2, 1
-                )
+                )[:, :p_len]
+                feats = feats[:, :p_len]
                 pitch, pitchf = pitch[:, :p_len], pitchf[:, :p_len].float()
                 # Pitch protection blending
                 if protect < 0.5:
@@ -377,6 +375,9 @@ class Pipeline:
                     feats = feats.to(feats0.dtype)
             else:
                 pitch, pitchf = None, None
+                feats = feats[:, :p_len]
+            if p_len <= 0:
+                raise ValueError("Ses parçası dönüşüm için çok kısa.")
             p_len = torch.tensor([p_len], device=self.device).long()
             audio1 = (
                 (net_g.infer(feats.float(), p_len, pitch, pitchf, sid)[0][0, 0])
@@ -392,12 +393,24 @@ class Pipeline:
 
     def _retrieve_speaker_embeddings(self, feats, index, big_npy, index_rate):
         npy = feats[0].cpu().numpy()
-        score, ix = index.search(npy, k=8)
+        if index.ntotal == 0:
+            return feats
+        if big_npy.ndim != 2 or big_npy.shape[1] != npy.shape[1] or len(big_npy) != index.ntotal:
+            raise ValueError("FAISS indeksi seçilen ses modeliyle uyumlu değil.")
+        score, ix = index.search(npy, k=min(8, index.ntotal))
         # SOTA: Sıfıra Bölünme Koruması ve Ters Mesafe Ağırlıklandırması (Inverse Distance Weighting)
         # Yüksek index oranlarında (>0.70) sesin boğuklaşmasını (muffling) önler.
-        weight = np.square(1 / np.maximum(score, 1e-5))
-        weight /= weight.sum(axis=1, keepdims=True)
-        npy = np.sum(big_npy[ix] * np.expand_dims(weight, axis=2), axis=1)
+        valid = (ix >= 0) & (ix < len(big_npy)) & np.isfinite(score)
+        weight = np.where(valid, np.square(1 / np.maximum(score, 1e-5)), 0)
+        totals = weight.sum(axis=1, keepdims=True)
+        weight /= np.maximum(totals, 1e-20)
+        neighbors = big_npy[np.clip(ix, 0, len(big_npy) - 1)]
+        valid &= np.isfinite(neighbors).all(axis=2)
+        weight = np.where(valid, weight, 0)
+        totals = weight.sum(axis=1, keepdims=True)
+        weight /= np.maximum(totals, 1e-20)
+        retrieved = np.sum(np.where(valid[:, :, None], neighbors, 0) * weight[:, :, None], axis=1)
+        npy = np.where(totals > 0, retrieved, npy)
         feats = (
             torch.from_numpy(npy).unsqueeze(0).to(self.device) * index_rate
             + (1 - index_rate) * feats
@@ -450,12 +463,16 @@ class Pipeline:
                 big_npy = index.reconstruct_n(0, index.ntotal)
                 print(f"[FAISS BİLGİ] İndeks başarıyla yüklendi: {os.path.basename(file_index)} (Vektör: {index.ntotal}, Oran: {index_rate})")
             except Exception as error:
-                print(f"[FAISS HATA] İndeks okunamadı: {error}")
-                index = big_npy = None
+                raise ValueError(
+                    "FAISS indeksi okunamadı. Geçerli bir index seçin veya model kaydını "
+                    f"index olmadan yeniden ekleyin. Ayrıntı: {error}"
+                ) from error
         else:
             if file_index != "" and not os.path.exists(file_index):
                 print(f"[FAISS UYARI] İndeks dosyası bulunamadı: {file_index}")
             index = big_npy = None
+        if len(audio) < self.window or not np.isfinite(audio).all():
+            raise ValueError("Ses boş, geçersiz veya 10 milisaniyeden kısa.")
         audio = signal.filtfilt(bh, ah, audio)
         audio_pad = np.pad(audio, (self.window // 2, self.window // 2), mode="reflect")
         opt_ts = []
@@ -563,6 +580,8 @@ class Pipeline:
                 )[self.t_pad_tgt : -self.t_pad_tgt]
             )
         audio_opt = np.concatenate(audio_opt)
+        if not len(audio_opt) or not np.isfinite(audio_opt).all():
+            raise ValueError("RVC motoru boş veya geçersiz ses üretti.")
         if volume_envelope != 1:
             audio_opt = AudioProcessor.change_rms(
                 audio, self.sample_rate, audio_opt, self.tgt_sr, volume_envelope

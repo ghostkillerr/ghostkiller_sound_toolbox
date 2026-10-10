@@ -1,12 +1,7 @@
 import os
-import sys
-import soxr
 import librosa
 import soundfile as sf
 import numpy as np
-import re
-import unicodedata
-import wget
 from torch import nn
 
 import logging
@@ -21,43 +16,11 @@ logging.getLogger("faiss.loader").setLevel(logging.ERROR)
 logging.getLogger("transformers").setLevel(logging.ERROR)
 logging.getLogger("torch").setLevel(logging.ERROR)
 
-now_dir = os.getcwd()
-sys.path.append(now_dir)
-
-base_path = os.path.join(now_dir, "rvc", "models", "formant", "stftpitchshift")
-stft = base_path + ".exe" if sys.platform == "win32" else base_path
-
-
+from app_runtime import model_directory, app_directory, download_model, copy_model
 class HubertModelWithFinalProj(HubertModel):
     def __init__(self, config):
         super().__init__(config)
         self.final_proj = nn.Linear(config.hidden_size, config.classifier_proj_size)
-
-
-def load_audio_16k(file):
-    # this is used by f0 and feature extractions that load preprocessed 16k files, so there's no need to resample
-    try:
-        audio, sr = librosa.load(file, sr=16000)
-    except Exception as error:
-        raise RuntimeError(f"An error occurred loading the audio: {error}")
-
-    return audio.flatten()
-
-
-def load_audio(file, sample_rate):
-    try:
-        file = file.strip(" ").strip('"').strip("\n").strip('"').strip(" ")
-        audio, sr = sf.read(file)
-        if len(audio.shape) > 1:
-            audio = librosa.to_mono(audio.T)
-        if sr != sample_rate:
-            audio = librosa.resample(
-                audio, orig_sr=sr, target_sr=sample_rate, res_type="soxr_vhq"
-            )
-    except Exception as error:
-        raise RuntimeError(f"An error occurred loading the audio: {error}")
-
-    return audio.flatten()
 
 
 def load_audio_infer(
@@ -95,16 +58,8 @@ def load_audio_infer(
     return np.array(audio).flatten()
 
 
-def format_title(title):
-    formatted_title = unicodedata.normalize("NFC", title)
-    formatted_title = re.sub(r"[\u2500-\u257F]+", "", formatted_title)
-    formatted_title = re.sub(r"[^\w\s.-]", "", formatted_title, flags=re.UNICODE)
-    formatted_title = re.sub(r"\s+", "_", formatted_title)
-    return formatted_title
-
-
-def load_embedding(embedder_model, custom_embedder=None):
-    embedder_root = os.path.join(now_dir, "rvc", "models", "embedders")
+def load_embedding(embedder_model, custom_embedder=None, allow_download=True):
+    embedder_root = os.path.join(model_directory(), "embedders")
     embedding_list = {
         "contentvec": os.path.join(embedder_root, "contentvec"),
         "spin": os.path.join(embedder_root, "spin"),
@@ -133,24 +88,28 @@ def load_embedding(embedder_model, custom_embedder=None):
     }
 
     if embedder_model == "custom":
-        if os.path.exists(custom_embedder):
+        if custom_embedder and os.path.isdir(custom_embedder):
             model_path = custom_embedder
+            return HubertModelWithFinalProj.from_pretrained(model_path)
         else:
             print(f"Custom embedder not found: {custom_embedder}, using contentvec")
-            model_path = embedding_list["contentvec"]
-    else:
-        model_path = embedding_list[embedder_model]
-        bin_file = os.path.join(model_path, "pytorch_model.bin")
-        json_file = os.path.join(model_path, "config.json")
-        os.makedirs(model_path, exist_ok=True)
-        if not os.path.exists(bin_file):
-            url = online_embedders[embedder_model]
+            embedder_model = 'contentvec'
+    if embedder_model not in embedding_list:
+        raise ValueError(f"Desteklenmeyen embedder: {embedder_model}")
+    model_path = embedding_list[embedder_model]
+    os.makedirs(model_path, exist_ok=True)
+    for filename, urls in (("pytorch_model.bin", online_embedders), ("config.json", config_files)):
+        target = os.path.join(model_path, filename)
+        if not os.path.isfile(target) or not os.path.getsize(target):
+            if not allow_download:
+                raise FileNotFoundError(f"Eksik embedder dosyası: {filename}. Ayarlar sekmesinden indirin veya onarın.")
+            legacy = os.path.join(app_directory(), 'rvc', 'models', 'embedders', os.path.basename(model_path), filename)
+            if os.path.isfile(legacy) and os.path.getsize(legacy):
+                copy_model(legacy, target)
+                continue
+            url = urls[embedder_model]
             print(f"Downloading {url} to {model_path}...")
-            wget.download(url, out=bin_file)
-        if not os.path.exists(json_file):
-            url = config_files[embedder_model]
-            print(f"Downloading {url} to {model_path}...")
-            wget.download(url, out=json_file)
+            download_model(url, target)
 
     models = HubertModelWithFinalProj.from_pretrained(model_path)
     return models

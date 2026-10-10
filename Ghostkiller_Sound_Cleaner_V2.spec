@@ -2,20 +2,24 @@
 from PyInstaller.utils.hooks import collect_all
 
 datas = [
-    ('models.json', '.'),
     ('version.json', '.'),
     ('logo.ico', '.'),
     ('lisans.txt', '.'),
-    ('rvc', 'rvc'),
-    ('modeller', 'modeller'),
+    ('rvc/configs/*.json', 'rvc/configs'),
 ]
 binaries = []
 hiddenimports = [
     'updater',
+    'app_runtime',
+    'app_settings',
+    'hardware',
+    'model_manager',
+    'separator_backend',
+    'separation_steps',
+    'ui_settings',
     'ui_separator',
     'ui_cover',
     'wx',
-    'wx.lib.scrolledpanel',
     'pydub',
     'scipy.special',
     'scipy.spatial.transform._rotation_groups',
@@ -38,7 +42,6 @@ hiddenimports = [
     'stftpitchshift',
     'pedalboard',
     'soxr',
-    'edge_tts',
     'noisereduce'
 ]
 
