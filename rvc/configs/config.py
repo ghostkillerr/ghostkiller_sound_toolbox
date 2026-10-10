@@ -10,21 +10,21 @@ version_config_paths = [
 ]
 
 
-def singleton(cls):
-    instances = {}
-
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
-
-    return get_instance
-
-
-@singleton
 class Config:
-    def __init__(self):
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    def __init__(self, device=None):
+        self.device = device or ("cuda:0" if torch.cuda.is_available() else "cpu")
+        if self.device == "cuda":
+            self.device = "cuda:0"
+        try:
+            selected = torch.device(self.device)
+        except (RuntimeError, ValueError, TypeError) as error:
+            raise ValueError("Geçersiz işlem cihazı.") from error
+        if selected.type not in ('cpu', 'cuda'):
+            raise ValueError("Bu uygulama CPU veya CUDA destekler.")
+        if selected.type == 'cpu':
+            self.device = 'cpu'
+        if self.device.startswith("cuda") and not torch.cuda.is_available():
+            raise RuntimeError("CUDA kullanılamıyor. CPU seçerek tekrar deneyin.")
         self.gpu_name = (
             torch.cuda.get_device_name(int(self.device.split(":")[-1]))
             if self.device.startswith("cuda")
@@ -37,7 +37,7 @@ class Config:
     def load_config_json(self):
         configs = {}
         for config_file in version_config_paths:
-            config_path = os.path.join("rvc", "configs", config_file)
+            config_path = os.path.join(os.path.dirname(__file__), config_file)
             with open(config_path, "r", encoding="utf-8") as f:
                 configs[config_file] = json.load(f)
         return configs
@@ -62,38 +62,3 @@ class Config:
         self.gpu_mem = torch.cuda.get_device_properties(i_device).total_memory // (
             1024**3
         )
-
-
-def max_vram_gpu(gpu):
-    if torch.cuda.is_available():
-        gpu_properties = torch.cuda.get_device_properties(gpu)
-        total_memory_gb = round(gpu_properties.total_memory / 1024 / 1024 / 1024)
-        return total_memory_gb
-    else:
-        return "8"
-
-
-def get_gpu_info():
-    ngpu = torch.cuda.device_count()
-    gpu_infos = []
-    if torch.cuda.is_available() or ngpu != 0:
-        for i in range(ngpu):
-            gpu_name = torch.cuda.get_device_name(i)
-            mem = int(
-                torch.cuda.get_device_properties(i).total_memory / 1024 / 1024 / 1024
-                + 0.4
-            )
-            gpu_infos.append(f"{i}: {gpu_name} ({mem} GB)")
-    if len(gpu_infos) > 0:
-        gpu_info = "\n".join(gpu_infos)
-    else:
-        gpu_info = "Unfortunately, there is no compatible GPU available to support your training."
-    return gpu_info
-
-
-def get_number_of_gpus():
-    if torch.cuda.is_available():
-        num_gpus = torch.cuda.device_count()
-        return "-".join(map(str, range(num_gpus)))
-    else:
-        return "-"

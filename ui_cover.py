@@ -12,7 +12,7 @@ ve model yönetim sistemini modüler bir wx.Panel (CoverPanel) olarak sağlar.
 2. 'models.json' üzerinden kalıcı model (.pth ve opsiyonel .index) yönetimi (Ekle / Sil).
 3. RTX 5060 Ti 16 GB VRAM sınırlarını korumak için tekli kuyruk (queue) threading mimarisi.
    Aynı anda birden fazla model asla çalıştırılmaz, her işlem arası VRAM/GC temizliği yapılır.
-4. Pitch (Nota kaydırma), Donanım (cuda/cpu), F0 Algoritması (rmvpe / mangio-crepe) ve
+4. Pitch (Nota kaydırma), Donanım (cuda/cpu), F0 Algoritması (rmvpe / crepe) ve
    Index Rate ayarlarının erişilebilir biçimde yapılandırılması.
 """
 
@@ -20,10 +20,12 @@ import wx
 import os
 import sys
 import json
-import time
 import gc
+import math
+import tempfile
 import threading
-import subprocess
+from app_runtime import (JOB_LOCK, post_ui, append_log, safe_filename, data_directory, model_directory,
+                         copy_model, download_model, same_path, validate_audio_file, finish_job)
 
 
 def get_app_dir():
@@ -35,56 +37,95 @@ def get_app_dir():
 
 def get_models_file_path(app_dir):
     """models.json dosyasının yolunu döndürür."""
-    return os.path.join(app_dir, "models.json")
+    directory = data_directory() if getattr(sys, "frozen", False) else app_dir
+    target = os.path.join(directory, "models.json")
+    legacy = os.path.join(app_dir, "models.json")
+    if target != legacy and not os.path.exists(target) and os.path.isfile(legacy):
+        copy_model(legacy, target)
+    return target
+
+
+def validate_models(models):
+    if not isinstance(models, dict) or any(
+        not isinstance(name, str) or not name.strip() or not isinstance(data, dict)
+        or not isinstance(data.get("pth"), str) or not data["pth"]
+        or not isinstance(data.get("index", ""), str)
+        for name, data in models.items()
+    ):
+        raise ValueError("Model kayıt biçimi geçersiz.")
+    return models
 
 
 def load_models(app_dir):
     """models.json içinden kayıtlı modelleri yükler."""
-    file_path = get_models_file_path(app_dir)
-    if not os.path.exists(file_path):
-        return {}
     try:
+        file_path = get_models_file_path(app_dir)
+        if not os.path.exists(file_path):
+            return {}
         with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
+            models = json.load(f)
+        return validate_models(models)
+    except Exception as error:
+        wx.MessageBox(f"Model kayıtları okunamadı. Dosya korunuyor; model eklemeden önce dosyayı onarın.\n{error}", "Model Kayıt Hatası", wx.OK | wx.ICON_ERROR)
         return {}
 
 
 def save_models(app_dir, models):
     """modelleri models.json dosyasına kaydeder."""
-    file_path = get_models_file_path(app_dir)
+    temporary_path = None
     try:
-        with open(file_path, "w", encoding="utf-8") as f:
+        file_path = get_models_file_path(app_dir)
+        validate_models(models)
+        # Refuse to overwrite an unreadable existing registry.
+        if os.path.exists(file_path):
+            with open(file_path, encoding="utf-8") as existing:
+                previous = json.load(existing)
+            validate_models(previous)
+        fd, temporary_path = tempfile.mkstemp(dir=os.path.dirname(file_path), suffix=".json")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(models, f, indent=4, ensure_ascii=False)
+        os.replace(temporary_path, file_path)
+        return True
     except Exception as e:
-        print(f"models.json kaydedilemedi: {e}")
+        wx.MessageBox(f"Model kayıtları kaydedilemedi:\n{e}", "Kayıt Hatası", wx.OK | wx.ICON_ERROR)
+        return False
+    finally:
+        if temporary_path and os.path.exists(temporary_path):
+            os.remove(temporary_path)
 
 
-def ensure_rvc_prerequisites(app_dir, log_func=None):
+def ensure_rvc_prerequisites(app_dir, log_func=None, f0_method="rmvpe", cancelled=None, allow_download=False):
     """
     RVC için gereken temel model dosyalarını (rmvpe.pt ve contentvec/pytorch_model.bin)
-    1. Önce programın 'rvc/models' klasöründe kontrol eder.
-    2. Sonra sistemdeki olası önbellek/Applio klasörlerinde arar; bulursa kopyalar (internetten tekrar indirmez!).
-    3. Hiçbir yerde bulamazsa HuggingFace'ten otomatik indirir.
+    1. Programın 'models' klasöründe kontrol eder.
+    2. Eski yerel model/önbellek klasörlerinde arar; bulursa atomik kopyalar.
+    3. GUI indirme yapmaz; eksik dosyalar Ayarlar'dan hazırlanır.
+       Eski API'nin indirme yolu yalnız allow_download=True ile kullanılabilir.
     """
-    import shutil
-    import urllib.request
-
-    pred_dir = os.path.join(app_dir, "rvc", "models", "predictors")
+    model_root = model_directory(app_dir)
+    if not allow_download:
+        required = [os.path.join(model_root, "embedders", "contentvec", filename)
+                    for filename in ("pytorch_model.bin", "config.json")]
+        if f0_method == "rmvpe":
+            required.append(os.path.join(model_root, "predictors", "rmvpe.pt"))
+        if any(not os.path.isfile(path) or not os.path.getsize(path) for path in required):
+            raise FileNotFoundError("AI Cover yardımcı modelleri eksik. Ayarlar sekmesinden indirin veya onarın.")
+        return
+    pred_dir = os.path.join(model_root, "predictors")
     os.makedirs(pred_dir, exist_ok=True)
     rmvpe_target = os.path.join(pred_dir, "rmvpe.pt")
 
-    if not os.path.exists(rmvpe_target):
+    if f0_method == "rmvpe" and (not os.path.isfile(rmvpe_target) or not os.path.getsize(rmvpe_target)):
         possible_sources = [
-            "D:\\modeller\\Applio\\rvc\\models\\predictors\\rmvpe.pt",
+            os.path.join(app_dir, "rvc", "models", "predictors", "rmvpe.pt"),
             os.path.join(os.path.expanduser("~"), ".cache", "audio-separator", "models", "rmvpe.pt"),
             os.path.join(os.path.expanduser("~"), ".cache", "rvc", "models", "predictors", "rmvpe.pt"),
         ]
         found = False
         for src in possible_sources:
-            if os.path.exists(src):
+            if os.path.isfile(src) and os.path.getsize(src) and not same_path(src, rmvpe_target):
                 try:
-                    shutil.copyfile(src, rmvpe_target)
+                    copy_model(src, rmvpe_target)
                     found = True
                     if log_func:
                         log_func(f"[BİLGİ] 'rmvpe.pt' önbellekten kopyalandı (tekrar indirilmedi).")
@@ -96,22 +137,24 @@ def ensure_rvc_prerequisites(app_dir, log_func=None):
             if log_func:
                 log_func("[BİLGİ] 'rmvpe.pt' modeli indiriliyor...")
             try:
-                urllib.request.urlretrieve(url, rmvpe_target)
+                download_model(url, rmvpe_target, cancelled=cancelled)
             except Exception as e:
                 if log_func:
                     log_func(f"[HATA] rmvpe.pt indirilemedi: {e}")
+                raise
 
-    embed_dir = os.path.join(app_dir, "rvc", "models", "embedders", "contentvec")
+    embed_dir = os.path.join(model_root, "embedders", "contentvec")
     os.makedirs(embed_dir, exist_ok=True)
     for fn in ["pytorch_model.bin", "config.json"]:
         target = os.path.join(embed_dir, fn)
-        if not os.path.exists(target):
-            src = os.path.join("D:\\modeller\\Applio\\rvc\\models\\embedders\\contentvec", fn)
-            if os.path.exists(src):
+        if not os.path.isfile(target) or not os.path.getsize(target):
+            src = os.path.join(app_dir, "rvc", "models", "embedders", "contentvec", fn)
+            if os.path.isfile(src) and os.path.getsize(src) and not same_path(src, target):
                 try:
-                    shutil.copyfile(src, target)
-                except Exception:
-                    pass
+                    copy_model(src, target)
+                except OSError as error:
+                    if log_func:
+                        log_func(f"[UYARI] Önbellek kopyalanamadı: {error}")
 
 
 def resolve_model_file_path(app_dir, file_path):
@@ -122,17 +165,21 @@ def resolve_model_file_path(app_dir, file_path):
     """
     if not file_path:
         return ""
-    if os.path.exists(file_path):
+    if not os.path.isabs(file_path):
+        file_path = os.path.join(app_dir, file_path)
+    if os.path.isfile(file_path):
         return file_path
     filename = os.path.basename(file_path)
-    p1 = os.path.join(app_dir, "modeller", filename)
-    if os.path.exists(p1):
-        return p1
-    modeller_dir = os.path.join(app_dir, "modeller")
-    if os.path.exists(modeller_dir):
+    directories = [os.path.join(app_dir, "models"), os.path.join(app_dir, "modeller")]
+    matches = []
+    for modeller_dir in dict.fromkeys(directories):
         for root, dirs, files in os.walk(modeller_dir):
             if filename in files:
-                return os.path.join(root, filename)
+                matches.append(os.path.join(root, filename))
+    if len(matches) > 1:
+        raise ValueError(f"Aynı isimde birden fazla model dosyası bulundu: {filename}. Modeli tam yoluyla tekrar ekleyin.")
+    if matches:
+        return matches[0]
     return file_path
 
 
@@ -158,8 +205,16 @@ class ModelToggleList(wx.ScrolledWindow):
         self.bg_btn_active = wx.Colour(0, 120, 215)
         self.fg_light = wx.Colour(240, 240, 240)
 
-    def SetModels(self, model_names):
+    def SetModels(self, model_names, labels=None, checked_models=None):
         """Mevcut butonları temizler ve her model için yeni wx.ToggleButton oluşturur."""
+        checked = set(self.GetCheckedModels() if checked_models is None else checked_models)
+        labels = labels or {}
+        if model_names and model_names == [button.model_name for button in self.buttons]:
+            for button in self.buttons:
+                button.display_name = labels.get(button.model_name, button.model_name)
+                button.SetValue(button.model_name in checked)
+                self.UpdateModelButton(button)
+            return
         self.sizer.Clear(True)
         self.buttons = []
 
@@ -175,12 +230,15 @@ class ModelToggleList(wx.ScrolledWindow):
             self.sizer.Add(lbl_empty, 0, wx.ALL, 10)
         else:
             for i, name in enumerate(model_names):
-                btn = wx.ToggleButton(self, label=f"{name} - [KAPALI]", size=(-1, 42))
+                selected = name in checked
+                display_name = labels.get(name, name)
+                btn = wx.ToggleButton(self, label=f"{display_name} - [{'AÇIK' if selected else 'KAPALI'}]", size=(-1, 42))
                 btn.SetFont(font_normal)
                 btn.SetForegroundColour(self.fg_light)
-                btn.SetBackgroundColour(self.bg_btn)
-                btn.SetValue(False)
+                btn.SetBackgroundColour(self.bg_btn_active if selected else self.bg_btn)
+                btn.SetValue(selected)
                 btn.model_name = name
+                btn.display_name = display_name
                 btn.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggleModel)
                 btn.Bind(wx.EVT_KEY_DOWN, lambda event, idx=i: self.OnKeyDown(event, idx))
                 self.buttons.append(btn)
@@ -193,11 +251,14 @@ class ModelToggleList(wx.ScrolledWindow):
     def OnToggleModel(self, event):
         """Bir model düğmesine tıklandığında [AÇIK]/[KAPALI] etiketini ve rengini günceller."""
         btn = event.GetEventObject()
+        self.UpdateModelButton(btn)
+
+    def UpdateModelButton(self, btn):
         if btn.GetValue():
-            btn.SetLabel(f"{btn.model_name} - [AÇIK]")
+            btn.SetLabel(f"{btn.display_name} - [AÇIK]")
             btn.SetBackgroundColour(self.bg_btn_active)
         else:
-            btn.SetLabel(f"{btn.model_name} - [KAPALI]")
+            btn.SetLabel(f"{btn.display_name} - [KAPALI]")
             btn.SetBackgroundColour(self.bg_btn)
         btn.Refresh()
 
@@ -206,12 +267,25 @@ class ModelToggleList(wx.ScrolledWindow):
         keycode = event.GetKeyCode()
         if keycode == wx.WXK_DOWN:
             if idx + 1 < len(self.buttons):
-                self.buttons[idx + 1].SetFocus()
+                self.FocusModel(idx + 1)
         elif keycode == wx.WXK_UP:
             if idx - 1 >= 0:
-                self.buttons[idx - 1].SetFocus()
+                self.FocusModel(idx - 1)
         else:
             event.Skip()
+
+    def FocusModel(self, idx):
+        button = self.buttons[idx]
+        button.SetFocus()
+        _, top = self.CalcUnscrolledPosition(button.GetPosition())
+        _, unit = self.GetScrollPixelsPerUnit()
+        _, view = self.GetViewStart()
+        height = self.GetClientSize().height
+        bottom = top + button.GetSize().height
+        if unit and top < view * unit:
+            self.Scroll(-1, top // unit)
+        elif unit and bottom > view * unit + height:
+            self.Scroll(-1, max(0, math.ceil((bottom - height) / unit)))
 
     def GetCheckedModels(self):
         """[AÇIK] / Basılı durumda olan model adlerinin listesini döndürür."""
@@ -222,9 +296,11 @@ class CoverPanel(wx.Panel):
     """
     AI Cover Sekmesi Paneli (wx.Notebook ile uyumlu)
     """
-    def __init__(self, parent):
+    def __init__(self, parent, settings=None):
         """AI Cover paneli değişkenlerini, modellerini ve renk paletini başlatır."""
         super(CoverPanel, self).__init__(parent)
+        from app_settings import AppSettings
+        self.settings = settings or AppSettings()
 
         self.app_dir = get_app_dir()
         self.models = load_models(self.app_dir)
@@ -257,19 +333,19 @@ class CoverPanel(wx.Panel):
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         # 1. MODEL YÖNETİMİ BÖLÜMÜ
-        box_models = wx.StaticBox(self, label="1. Vokal Model Kütüphanesi & Çoklu Çıkarım (Batch Inference)")
+        box_models = wx.StaticBox(self, label="1. Ses Modeli Seçimi")
         box_models.SetForegroundColour(self.fg_light)
         box_models.SetFont(font_large)
         sizer_models = wx.StaticBoxSizer(box_models, wx.VERTICAL)
 
         btn_model_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_add_model = wx.Button(self, label="Stüdyo Vokal Modeli Ekle (.pth & .index)", size=(-1, 40))
+        self.btn_add_model = wx.Button(self, label="Yeni Model Ekle (.pth ve .index)", size=(-1, 40))
         self.btn_add_model.SetFont(font_normal)
         self.btn_add_model.SetBackgroundColour(self.bg_btn)
         self.btn_add_model.SetForegroundColour(self.fg_light)
         self.btn_add_model.Bind(wx.EVT_BUTTON, self.OnAddModel)
 
-        self.btn_del_model = wx.Button(self, label="Seçili Modeli Kütüphaneden Kaldır", size=(-1, 40))
+        self.btn_del_model = wx.Button(self, label="Seçili Modeli Sil", size=(-1, 40))
         self.btn_del_model.SetFont(font_normal)
         self.btn_del_model.SetBackgroundColour(wx.Colour(150, 60, 60))
         self.btn_del_model.SetForegroundColour(self.fg_light)
@@ -281,7 +357,7 @@ class CoverPanel(wx.Panel):
 
         lbl_select_info = wx.StaticText(
             self,
-            label="Sentezleme Yapılacak Vokal Modellerini Seçin ([AÇIK]/[KAPALI] ve basılı/basılı değil olarak okur):"
+            label="Kullanmak istediğiniz ses modellerini seçin ([AÇIK]/[KAPALI] ve basılı/basılı değil olarak seslendirir):"
         )
         lbl_select_info.SetFont(font_normal)
         sizer_models.Add(lbl_select_info, 0, wx.ALL, 5)
@@ -295,14 +371,14 @@ class CoverPanel(wx.Panel):
         vbox.Add(sizer_models, 1, wx.EXPAND | wx.ALL, 5)
 
         # 2. DOSYA YOLLARI (Girdi ve Çıktı)
-        box_paths = wx.StaticBox(self, label="2. Ses Kaynak & Hedef Dizin Ayarları")
+        box_paths = wx.StaticBox(self, label="2. Dosya Seçimi")
         box_paths.SetForegroundColour(self.fg_light)
         box_paths.SetFont(font_large)
         sizer_paths = wx.StaticBoxSizer(box_paths, wx.VERTICAL)
 
         # Girdi Dosyası (.wav)
         input_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_input = wx.Button(self, label="Kılavuz Vokal Kaynağı Seç (.wav / .flac)", size=(-1, 40))
+        self.btn_select_input = wx.Button(self, label="Ses Dosyası Seç (.wav / .flac / .mp3)", size=(-1, 40))
         self.btn_select_input.SetFont(font_normal)
         self.btn_select_input.SetBackgroundColour(self.bg_btn)
         self.btn_select_input.SetForegroundColour(self.fg_light)
@@ -319,7 +395,7 @@ class CoverPanel(wx.Panel):
 
         # Çıktı Klasörü
         output_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_output = wx.Button(self, label="Hedef Çıktı Dizini Seç", size=(-1, 40))
+        self.btn_select_output = wx.Button(self, label="Çıktı Klasörünü Seç", size=(-1, 40))
         self.btn_select_output.SetFont(font_normal)
         self.btn_select_output.SetBackgroundColour(self.bg_btn)
         self.btn_select_output.SetForegroundColour(self.fg_light)
@@ -337,7 +413,7 @@ class CoverPanel(wx.Panel):
         vbox.Add(sizer_paths, 0, wx.EXPAND | wx.ALL, 5)
 
         # 3. ÇIKARIM (INFERENCE) AYARLARI
-        box_settings = wx.StaticBox(self, label="3. SOTA Vokal Sentez & DSP Akustik Parametreleri")
+        box_settings = wx.StaticBox(self, label="3. Ses Ayarları")
         box_settings.SetForegroundColour(self.fg_light)
         box_settings.SetFont(font_large)
         sizer_settings = wx.StaticBoxSizer(box_settings, wx.VERTICAL)
@@ -347,7 +423,7 @@ class CoverPanel(wx.Panel):
         grid.AddGrowableCol(3, 1)
 
         # Pitch
-        lbl_pitch = wx.StaticText(self, label="Tonlandırma / Pitch (Yarım Ses):")
+        lbl_pitch = wx.StaticText(self, label="Ses Tonu / Nota (Pitch):")
         lbl_pitch.SetFont(font_normal)
         grid.Add(lbl_pitch, 0, wx.ALIGN_CENTER_VERTICAL)
         self.pitch_ctrl = wx.SpinCtrl(self, value="0", min=-24, max=24)
@@ -355,25 +431,25 @@ class CoverPanel(wx.Panel):
         grid.Add(self.pitch_ctrl, 1, wx.EXPAND)
 
         # Donanım
-        lbl_device = wx.StaticText(self, label="Sentez Motoru / Donanım (CUDA/CPU):")
+        lbl_device = wx.StaticText(self, label="Donanım ve Modeller:")
         lbl_device.SetFont(font_normal)
         grid.Add(lbl_device, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.device_choice = wx.Choice(self, choices=["cuda", "cpu"])
-        self.device_choice.SetSelection(0)
-        self.device_choice.SetFont(font_normal)
-        grid.Add(self.device_choice, 1, wx.EXPAND)
+        self.btn_settings = wx.Button(self, label="Ayarlar sekmesini aç")
+        self.btn_settings.Bind(wx.EVT_BUTTON, lambda event: self.settings.open_settings())
+        self.btn_settings.SetFont(font_normal)
+        grid.Add(self.btn_settings, 1, wx.EXPAND)
 
         # F0 Algoritması
-        lbl_f0 = wx.StaticText(self, label="F0 Algılayıcı (Pitch Tracker):")
+        lbl_f0 = wx.StaticText(self, label="Ses Algılama Yöntemi:")
         lbl_f0.SetFont(font_normal)
         grid.Add(lbl_f0, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.f0_choice = wx.Choice(self, choices=["rmvpe", "mangio-crepe"])
+        self.f0_choice = wx.Choice(self, choices=["rmvpe", "crepe"])
         self.f0_choice.SetSelection(0)
         self.f0_choice.SetFont(font_normal)
         grid.Add(self.f0_choice, 1, wx.EXPAND)
 
         # Index Rate
-        lbl_index = wx.StaticText(self, label="Tını Harmanlama (FAISS Index Rate):")
+        lbl_index = wx.StaticText(self, label="Ses Benzerlik Oranı:")
         lbl_index.SetFont(font_normal)
         grid.Add(lbl_index, 0, wx.ALIGN_CENTER_VERTICAL)
         self.index_rate_ctrl = wx.TextCtrl(self, value="0.75")
@@ -385,7 +461,7 @@ class CoverPanel(wx.Panel):
 
         # 4. İŞLEM BUTONLARI (Başlat / İptal)
         btn_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_start = wx.Button(self, label="SOTA AI Vokal Sentezleme Kuyruğunu Başlat", size=(-1, 60))
+        self.btn_start = wx.Button(self, label="Ses Değiştirmeyi Başlat", size=(-1, 60))
         self.btn_start.SetFont(font_large)
         self.btn_start.SetBackgroundColour(wx.Colour(0, 150, 100))
         self.btn_start.SetForegroundColour(self.fg_light)
@@ -420,6 +496,15 @@ class CoverPanel(wx.Panel):
         vbox.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 5)
 
         self.SetSizer(vbox)
+        self.pitch_ctrl.SetName("Ses tonu, yarım ses")
+        self.btn_settings.SetName("Donanım tercihi ve model indirme ayarlarını aç")
+        self.f0_choice.SetName("Ses algılama yöntemi")
+        self.index_rate_ctrl.SetName("Ses benzerlik oranı, 0 ile 1 arası")
+        self.txt_selected_input.SetName("Seçilen ses dosyası")
+        self.txt_selected_output.SetName("Çıktı klasörü")
+        self.txt_log.SetName("İşlem günlüğü")
+        self.txt_status.SetName("İşlem durumu ve yüzde")
+        self.gauge.SetName("İşlem ilerlemesi")
         self.LogMessage("Sistem Hazır. İşlem yapmak için dosya seçin.")
 
     def UpdateModelCheckList(self):
@@ -430,13 +515,18 @@ class CoverPanel(wx.Panel):
         """Yeni model ekleme penceresi ve veritabanı kaydı."""
         name_dlg = wx.TextEntryDialog(
             self,
-            "Model için açıklayıcı bir stüdyo etiketi girin (Örn: Stüdyo_Vokal_Lead, Erkek_Vokal_48k, Solo_Soprano vb.):",
-            "Stüdyo Vokal Modeli Ekle (RVC)"
+            "Model için kolay anlaşılır bir isim girin (Örn: Ahmet Sesi, Ayşe Sesi vb.):",
+            "Yeni Ses Modeli Ekle"
         )
         if name_dlg.ShowModal() == wx.ID_OK:
             model_name = name_dlg.GetValue().strip()
             if not model_name:
                 wx.MessageBox("Model adı boş olamaz.", "Uyarı", wx.OK | wx.ICON_WARNING)
+                name_dlg.Destroy()
+                return
+
+            if model_name in self.models:
+                wx.MessageBox("Bu isimde bir model zaten var. Farklı bir isim girin.", "Model Adı", wx.OK | wx.ICON_WARNING)
                 name_dlg.Destroy()
                 return
 
@@ -453,15 +543,20 @@ class CoverPanel(wx.Panel):
                     self,
                     "Index Dosyasını Seçin (Opsiyonel, iptal edilebilir)",
                     wildcard="Index dosyaları (*.index)|*.index|Tüm Dosyalar (*.*)|*.*",
-                    style=wx.FD_OPEN
+                    style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
                 )
                 index_path = ""
                 if index_dlg.ShowModal() == wx.ID_OK:
                     index_path = index_dlg.GetPath()
                 index_dlg.Destroy()
 
-                self.models[model_name] = {"pth": pth_path, "index": index_path}
-                save_models(self.app_dir, self.models)
+                updated = dict(self.models)
+                updated[model_name] = {"pth": pth_path, "index": index_path}
+                if not save_models(self.app_dir, updated):
+                    pth_dlg.Destroy()
+                    name_dlg.Destroy()
+                    return
+                self.models = updated
                 self.UpdateModelCheckList()
                 self.LogMessage(f"Yeni model eklendi: {model_name}")
                 wx.MessageBox(f"'{model_name}' başarıyla eklendi.", "Bilgi", wx.OK | wx.ICON_INFORMATION)
@@ -481,10 +576,10 @@ class CoverPanel(wx.Panel):
             wx.YES_NO | wx.ICON_QUESTION
         )
         if confirm == wx.YES:
-            for name in selected_names:
-                if name in self.models:
-                    del self.models[name]
-            save_models(self.app_dir, self.models)
+            updated = {name: data for name, data in self.models.items() if name not in selected_names}
+            if not save_models(self.app_dir, updated):
+                return
+            self.models = updated
             self.UpdateModelCheckList()
             self.LogMessage(f"Silinen modeller: {', '.join(selected_names)}")
 
@@ -520,26 +615,30 @@ class CoverPanel(wx.Panel):
         """Log ekranına zaman damgalı/satır sonlu metin ekler ve en alta kaydırır."""
         clean_message = message.strip()
         if clean_message:
-            wx.CallAfter(self.txt_log.AppendText, clean_message + "\n")
-            wx.CallAfter(self.txt_log.ShowPosition, self.txt_log.GetLastPosition())
+            append_log(self, clean_message)
 
     def UpdateStatus(self, text, percent=None):
         """Durum çubuğu metnini ve opsiyonel ilerleme yüzdesini günceller."""
         status_msg = f"Durum: {text}"
         if percent is not None:
+            percent = max(0, min(100, int(percent)))
             status_msg += f" - %{percent}"
-            wx.CallAfter(self.gauge.SetValue, percent)
-        wx.CallAfter(self.txt_status.SetValue, status_msg)
+            post_ui(self, self.gauge.SetValue, percent)
+        post_ui(self, self.txt_status.SetValue, status_msg)
 
     def EnableUI(self, enable):
         """İşlem sürerken veya bittiğinde arayüz butonlarını ve kontrollerini kilitler/açar."""
-        wx.CallAfter(self.btn_add_model.Enable, enable)
-        wx.CallAfter(self.btn_del_model.Enable, enable)
-        wx.CallAfter(self.btn_select_input.Enable, enable)
-        wx.CallAfter(self.btn_select_output.Enable, enable)
-        wx.CallAfter(self.btn_start.Enable, enable)
-        wx.CallAfter(self.btn_cancel.Enable, not enable)
-        wx.CallAfter(self.model_list.Enable, enable)
+        post_ui(self, self.btn_add_model.Enable, enable)
+        post_ui(self, self.btn_del_model.Enable, enable)
+        post_ui(self, self.btn_select_input.Enable, enable)
+        post_ui(self, self.btn_select_output.Enable, enable)
+        post_ui(self, self.btn_start.Enable, enable)
+        post_ui(self, self.btn_cancel.Enable, not enable)
+        post_ui(self, self.model_list.Enable, enable)
+        post_ui(self, self.pitch_ctrl.Enable, enable)
+        post_ui(self, self.btn_settings.Enable, enable)
+        post_ui(self, self.f0_choice.Enable, enable)
+        post_ui(self, self.index_rate_ctrl.Enable, enable)
 
     def OnCancel(self, event):
         """Devam eden yapay zeka cover çıkarım kuyruğunu iptal etme bayrağını tetikler."""
@@ -563,42 +662,82 @@ class CoverPanel(wx.Panel):
         try:
             index_rate_val = float(self.index_rate_ctrl.GetValue().strip())
         except ValueError:
-            index_rate_val = 0.75
+            index_rate_val = float("nan")
+        if not math.isfinite(index_rate_val) or not 0 <= index_rate_val <= 1:
+            wx.MessageBox("Ses benzerlik oranı 0 ile 1 arasında bir sayı olmalıdır.", "Hata", wx.OK | wx.ICON_ERROR)
+            self.index_rate_ctrl.SetFocus()
+            return
 
         settings = {
             "pitch": int(self.pitch_ctrl.GetValue()),
-            "device": self.device_choice.GetStringSelection(),
+            "device": "cpu",
             "f0_method": self.f0_choice.GetStringSelection(),
-            "index_rate": index_rate_val
+            "index_rate": index_rate_val,
+            "input_path": self.input_audio_path,
+            "output_directory": self.output_folder_path,
+            "models": {name: dict(self.models[name]) for name in selected_model_names}
         }
 
-        self.txt_log.Clear()
-        self.LogMessage(f"Seçilen {len(selected_model_names)} model için toplu çıkarım kuyruğu başlatılıyor...")
-        self.LogMessage(f"Ayarlar: Pitch={settings['pitch']}, Cihaz={settings['device']}, F0={settings['f0_method']}, IndexRate={settings['index_rate']}")
-
-        self.EnableUI(False)
-        self.is_cancelled = False
-
-        thread = threading.Thread(
-            target=self.run_inference_queue,
-            args=(selected_model_names, settings),
-            daemon=True
-        )
-        thread.start()
+        if not os.path.isfile(self.input_audio_path) or not os.path.isdir(self.output_folder_path):
+            wx.MessageBox("Giriş dosyası veya çıktı klasörü bulunamadı.", "Hata", wx.OK | wx.ICON_ERROR)
+            return
+        names = [safe_filename(os.path.splitext(os.path.basename(self.input_audio_path))[0]) + "_" + safe_filename(name) + ".wav" for name in selected_model_names]
+        if len({name.casefold() for name in names}) != len(names):
+            wx.MessageBox("Seçilen model adları aynı çıktı adına dönüşüyor. Model adlarını değiştirin.", "Hata", wx.OK | wx.ICON_ERROR)
+            return
+        if any(same_path(os.path.join(self.output_folder_path, name), self.input_audio_path) for name in names):
+            wx.MessageBox("Çıktı giriş dosyasının üzerine yazamaz.", "Hata", wx.OK | wx.ICON_ERROR)
+            return
+        try:
+            required = ["contentvec"] + (["rmvpe"] if settings["f0_method"] == "rmvpe" else [])
+            settings["device"] = self.settings.prepare_job(required)
+        except Exception as error:
+            wx.MessageBox(str(error), "Donanım ve model kontrolü", wx.OK | wx.ICON_WARNING)
+            self.settings.open_settings()
+            return
+        if not JOB_LOCK.acquire(blocking=False):
+            wx.MessageBox("Başka bir ses işlemi çalışıyor. Bitmesini bekleyin.", "İşlem Sürüyor", wx.OK | wx.ICON_INFORMATION)
+            return
+        try:
+            self.txt_log.Clear()
+            self.LogMessage(f"Seçilen {len(selected_model_names)} model için toplu çıkarım kuyruğu başlatılıyor...")
+            self.LogMessage(f"Ayarlar: Pitch={settings['pitch']}, Cihaz={settings['device']}, F0={settings['f0_method']}, IndexRate={settings['index_rate']}")
+            self.EnableUI(False)
+            self.is_cancelled = False
+            thread = threading.Thread(target=self.run_inference_queue, args=(selected_model_names, settings), daemon=True)
+            thread.start()
+        except Exception:
+            JOB_LOCK.release()
+            self.EnableUI(True)
+            raise
 
     def run_inference_queue(self, model_names, settings):
+        try:
+            self._run_inference_queue(model_names, settings)
+        except Exception as error:
+            self.LogMessage(f"[HATA] {error}")
+            self.UpdateStatus("İşlem Kuyruğu İptal Edildi" if self.is_cancelled else "İşlem başarısız", 0)
+            post_ui(self, wx.MessageBox, str(error), "İşlem Hatası", wx.OK | wx.ICON_WARNING)
+        finally:
+            finish_job(self)
+
+    def _run_inference_queue(self, model_names, settings):
         """
         VRAM & OOM Korumalı Çıkarım Kuyruğu (Inference Queue):
         Modeller kesinlikle sırayla (tekli iş parçacığı üzerinden) çalıştırılır.
         Her model bitiminde gc.collect() çağrılır.
         """
-        input_filename = os.path.basename(self.input_audio_path)
+        from hardware import configure_runtime
+        configure_runtime(settings["device"])
+        input_path = settings.get("input_path", self.input_audio_path)
+        output_directory = settings.get("output_directory", self.output_folder_path)
+        models = settings.get("models", self.models)
+        input_filename = os.path.basename(input_path)
         base_name, ext = os.path.splitext(input_filename)
         total_models = len(model_names)
+        succeeded = 0
 
-        # Ön koşulları (rmvpe.pt, contentvec) kontrol et/hazırla
-        ensure_rvc_prerequisites(self.app_dir, self.LogMessage)
-
+        prerequisites_ready = False
         for idx, model_name in enumerate(model_names, 1):
             if self.is_cancelled:
                 self.LogMessage("[İPTAL] Kullanıcı tarafından işlem kuyruğu durduruldu.")
@@ -608,28 +747,38 @@ class CoverPanel(wx.Panel):
             self.UpdateStatus(f"[{idx}/{total_models}] İşleniyor -> {model_name}", percent_start)
             self.LogMessage(f"\n--- [{idx}/{total_models}] MODEL İŞLENİYOR: {model_name} ---")
 
-            model_data = self.models.get(model_name, {})
-            pth_path = resolve_model_file_path(self.app_dir, model_data.get("pth", ""))
-            index_path = resolve_model_file_path(self.app_dir, model_data.get("index", ""))
-            output_name = f"{base_name}_{model_name}.wav"
-            output_path = os.path.join(self.output_folder_path, output_name)
-
-            if not os.path.exists(pth_path):
-                self.LogMessage(f"[HATA] Model dosyası bulunamadı: '{model_name}' ({pth_path}). Lütfen modeli kontrol edin veya listeden tekrar ekleyin.")
-                continue
-
-            if index_path and os.path.exists(index_path):
-                self.LogMessage(f"[BİLGİ] FAISS İndeks Dosyası Aktif: {os.path.basename(index_path)} (İndeks Oranı: {settings['index_rate']})")
-            else:
-                self.LogMessage(f"[UYARI] İndeks dosyası bulunamadı ('{index_path}'). Ses dönüşümü indeks olmadan gerçekleştirilecek.")
-
+            output_name = f"{safe_filename(base_name)}_{safe_filename(model_name)}.wav"
+            output_path = os.path.join(output_directory, output_name)
+            vc = None
+            temporary_path = None
             try:
+                model_data = models.get(model_name, {})
+                pth_path = resolve_model_file_path(self.app_dir, model_data.get("pth", ""))
+                index_path = resolve_model_file_path(self.app_dir, model_data.get("index", ""))
+                if not os.path.isfile(pth_path):
+                    raise FileNotFoundError(f"Model dosyası bulunamadı: {pth_path}. Modeli tekrar ekleyin.")
+                if same_path(output_path, input_path) or same_path(output_path, pth_path) or (index_path and same_path(output_path, index_path)):
+                    raise ValueError("Çıktı, giriş veya model dosyasının üzerine yazamaz.")
+                if index_path and os.path.isfile(index_path):
+                    self.LogMessage(f"[BİLGİ] FAISS İndeks Dosyası Aktif: {os.path.basename(index_path)} (İndeks Oranı: {settings['index_rate']})")
+                else:
+                    if index_path:
+                        self.LogMessage(f"[UYARI] İndeks bulunamadı: {index_path}. Dönüşüm indeks olmadan yapılacak.")
+                    index_path = ""
+                if not prerequisites_ready:
+                    ensure_rvc_prerequisites(self.app_dir, self.LogMessage, f0_method=settings["f0_method"], cancelled=lambda: self.is_cancelled)
+                    prerequisites_ready = True
+                if self.is_cancelled:
+                    break
                 from rvc.infer.infer import VoiceConverter
                 self.LogMessage(f"RVC Yapay Zeka Motoru Çalıştırılıyor ({model_name})...")
-                vc = VoiceConverter()
+                vc = VoiceConverter(device=settings["device"])
+                vc.allow_model_download = False
+                fd, temporary_path = tempfile.mkstemp(suffix=".wav", dir=output_directory)
+                os.close(fd)
                 vc.convert_audio(
-                    audio_input_path=self.input_audio_path,
-                    audio_output_path=output_path,
+                    audio_input_path=input_path,
+                    audio_output_path=temporary_path,
                     model_path=pth_path,
                     index_path=index_path,
                     pitch=settings["pitch"],
@@ -641,34 +790,48 @@ class CoverPanel(wx.Panel):
                     f0_autotune=False,
                     f0_autotune_strength=1.0,
                     proposed_pitch=False,
-                    proposed_pitch_threshold=0.05,
+                    proposed_pitch_threshold=155.0,
                     clean_audio=False,
                     clean_strength=0.7,
                     export_format="WAV",
                     embedder_model="contentvec",
                     post_process=False
                 )
-                if os.path.exists(output_path):
-                    self.LogMessage(f"[BAŞARILI] {output_name} başarıyla oluşturuldu.")
-                else:
-                    self.LogMessage(f"[HATA] {output_name} dosyası oluşturulamadı.")
+                if self.is_cancelled:
+                    break
+                validate_audio_file(temporary_path)
+                if self.is_cancelled:
+                    break
+                os.replace(temporary_path, output_path)
+                succeeded += 1
+                self.LogMessage(f"[BAŞARILI] {output_name} başarıyla oluşturuldu.")
 
             except Exception as e:
                 self.LogMessage(f"[KRİTİK HATA] {model_name}: {str(e)}")
             finally:
                 # VRAM ve Çöp Toplayıcı Temizliği (OOM Koruması)
+                try:
+                    if temporary_path and os.path.exists(temporary_path):
+                        os.remove(temporary_path)
+                except OSError as error:
+                    self.LogMessage(f"[UYARI] Geçici dosya silinemedi: {error}")
+                try:
+                    if vc is not None:
+                        vc.cleanup_model()
+                except Exception as error:
+                    self.LogMessage(f"[UYARI] Model temizliği başarısız: {error}")
+                vc = None
                 gc.collect()
 
         if self.is_cancelled:
             self.UpdateStatus("İşlem Kuyruğu İptal Edildi", 0)
-            wx.CallAfter(wx.MessageBox, "AI Cover dönüştürme işlemi iptal edildi.", "İptal", wx.OK | wx.ICON_WARNING)
+            post_ui(self, wx.MessageBox, "AI Cover dönüştürme işlemi iptal edildi.", "İptal", wx.OK | wx.ICON_WARNING)
         else:
-            self.UpdateStatus("Tüm Modeller Başarıyla İşlendi", 100)
-            self.LogMessage("\n--- AI COVER TOPLU İŞLEM KUYRUĞU TAMAMLANDI ---")
-            wx.CallAfter(wx.MessageBox, "Seçilen tüm modeller için dönüştürme tamamlandı.", "İşlem Bitti", wx.OK | wx.ICON_INFORMATION)
-
-        self.EnableUI(True)
-
+            failed = total_models - succeeded
+            summary = f"Başarılı: {succeeded}, başarısız: {failed}."
+            self.UpdateStatus(summary, 100)
+            self.LogMessage(summary)
+            post_ui(self, wx.MessageBox, summary, "İşlem Sonucu", wx.OK | (wx.ICON_WARNING if failed else wx.ICON_INFORMATION))
 
 if __name__ == '__main__':
     app = wx.App(False)

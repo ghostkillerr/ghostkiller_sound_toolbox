@@ -10,6 +10,9 @@ dist/
 
 # Model dosyaları (GitHub dosya boyutu sınırını aşmaması ve disk kaplamaması için)
 modeller/
+models/
+/models.json
+/settings.json
 *.pth
 *.ckpt
 *.index
@@ -24,6 +27,7 @@ modeller/
 *.log
 Ghostkiller_CrashLog.txt
 Setup/
+/tools/ffmpeg/*.exe
 
 # IDE / Editör
 .vscode/
