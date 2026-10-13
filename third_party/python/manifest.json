@@ -1,0 +1,52 @@
+{
+  "cython": {
+    "version": "3.2.5",
+    "files": [
+      {
+        "path": "third_party/python/cython/COPYING.txt",
+        "sha256": "e1eb1c49a8508e8173dac30157e4a6439a44ad8846194746c424fbc3fc2b95d7",
+        "source": "https://raw.githubusercontent.com/cython/cython/3.2.5/COPYING.txt"
+      },
+      {
+        "path": "third_party/python/cython/LICENSE.txt",
+        "sha256": "9568a2b155e66ac3e0ba1fd80b52b827b9460e6cf6f233125e7cbca8e206ddc3",
+        "source": "https://raw.githubusercontent.com/cython/cython/3.2.5/LICENSE.txt"
+      }
+    ]
+  },
+  "samplerate": {
+    "version": "0.1.0",
+    "files": [
+      {
+        "path": "third_party/python/samplerate/LICENSE.rst",
+        "sha256": "32497d59054696f50430bcf8490250028487784c963c6d6b88e1389eab2650cb",
+        "source": "https://raw.githubusercontent.com/tuxu/python-samplerate/v0.1.0/LICENSE.rst"
+      },
+      {
+        "path": "third_party/python/samplerate/LIBSAMPLERATE_COPYING",
+        "sha256": "2c1f76ce2effdddb425018405d5690c0b1ab4e6976e35296b0a6db65c5e1a55d",
+        "source": "https://raw.githubusercontent.com/libsndfile/libsamplerate/0.1.9/COPYING"
+      }
+    ]
+  },
+  "tokenizers": {
+    "version": "0.22.2",
+    "files": [
+      {
+        "path": "third_party/python/tokenizers/LICENSE",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "source": "https://raw.githubusercontent.com/huggingface/tokenizers/v0.22.2/LICENSE"
+      }
+    ]
+  },
+  "flatbuffers": {
+    "version": "25.12.19",
+    "files": [
+      {
+        "path": "third_party/python/flatbuffers/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+        "source": "https://raw.githubusercontent.com/google/flatbuffers/v25.12.19/LICENSE"
+      }
+    ]
+  }
+}

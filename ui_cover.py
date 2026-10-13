@@ -41,7 +41,10 @@ def get_models_file_path(app_dir):
     target = os.path.join(directory, "models.json")
     legacy = os.path.join(app_dir, "models.json")
     if target != legacy and not os.path.exists(target) and os.path.isfile(legacy):
-        copy_model(legacy, target)
+        from registry_store import registry_lock
+        with registry_lock(target):
+            if not os.path.exists(target):
+                copy_model(legacy, target)
     return target
 
 
@@ -70,28 +73,17 @@ def load_models(app_dir):
         return {}
 
 
-def save_models(app_dir, models):
+def save_models(app_dir, models, previous=None):
     """modelleri models.json dosyasına kaydeder."""
-    temporary_path = None
     try:
+        from registry_store import apply_model_changes
         file_path = get_models_file_path(app_dir)
         validate_models(models)
-        # Refuse to overwrite an unreadable existing registry.
-        if os.path.exists(file_path):
-            with open(file_path, encoding="utf-8") as existing:
-                previous = json.load(existing)
-            validate_models(previous)
-        fd, temporary_path = tempfile.mkstemp(dir=os.path.dirname(file_path), suffix=".json")
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(models, f, indent=4, ensure_ascii=False)
-        os.replace(temporary_path, file_path)
+        apply_model_changes(file_path,models,previous,validate_models)
         return True
     except Exception as e:
         wx.MessageBox(f"Model kayıtları kaydedilemedi:\n{e}", "Kayıt Hatası", wx.OK | wx.ICON_ERROR)
         return False
-    finally:
-        if temporary_path and os.path.exists(temporary_path):
-            os.remove(temporary_path)
 
 
 def ensure_rvc_prerequisites(app_dir, log_func=None, f0_method="rmvpe", cancelled=None, allow_download=False):
@@ -111,50 +103,13 @@ def ensure_rvc_prerequisites(app_dir, log_func=None, f0_method="rmvpe", cancelle
         if any(not os.path.isfile(path) or not os.path.getsize(path) for path in required):
             raise FileNotFoundError("AI Cover yardımcı modelleri eksik. Ayarlar sekmesinden indirin veya onarın.")
         return
-    pred_dir = os.path.join(model_root, "predictors")
-    os.makedirs(pred_dir, exist_ok=True)
-    rmvpe_target = os.path.join(pred_dir, "rmvpe.pt")
+    from model_manager import ModelManager
+    manager = ModelManager(app_dir)
+    required = ['contentvec'] + (['rmvpe'] if f0_method == 'rmvpe' else [])
+    failures = manager.process(required, 'install', cancelled=cancelled, log=log_func)
+    if failures:
+        raise RuntimeError('; '.join(f'{name}: {error}' for name,error in failures.items()))
 
-    if f0_method == "rmvpe" and (not os.path.isfile(rmvpe_target) or not os.path.getsize(rmvpe_target)):
-        possible_sources = [
-            os.path.join(app_dir, "rvc", "models", "predictors", "rmvpe.pt"),
-            os.path.join(os.path.expanduser("~"), ".cache", "audio-separator", "models", "rmvpe.pt"),
-            os.path.join(os.path.expanduser("~"), ".cache", "rvc", "models", "predictors", "rmvpe.pt"),
-        ]
-        found = False
-        for src in possible_sources:
-            if os.path.isfile(src) and os.path.getsize(src) and not same_path(src, rmvpe_target):
-                try:
-                    copy_model(src, rmvpe_target)
-                    found = True
-                    if log_func:
-                        log_func(f"[BİLGİ] 'rmvpe.pt' önbellekten kopyalandı (tekrar indirilmedi).")
-                    break
-                except Exception:
-                    pass
-        if not found:
-            url = "https://huggingface.co/IAHispano/Applio/resolve/main/Resources/predictors/rmvpe.pt"
-            if log_func:
-                log_func("[BİLGİ] 'rmvpe.pt' modeli indiriliyor...")
-            try:
-                download_model(url, rmvpe_target, cancelled=cancelled)
-            except Exception as e:
-                if log_func:
-                    log_func(f"[HATA] rmvpe.pt indirilemedi: {e}")
-                raise
-
-    embed_dir = os.path.join(model_root, "embedders", "contentvec")
-    os.makedirs(embed_dir, exist_ok=True)
-    for fn in ["pytorch_model.bin", "config.json"]:
-        target = os.path.join(embed_dir, fn)
-        if not os.path.isfile(target) or not os.path.getsize(target):
-            src = os.path.join(app_dir, "rvc", "models", "embedders", "contentvec", fn)
-            if os.path.isfile(src) and os.path.getsize(src) and not same_path(src, target):
-                try:
-                    copy_model(src, target)
-                except OSError as error:
-                    if log_func:
-                        log_func(f"[UYARI] Önbellek kopyalanamadı: {error}")
 
 
 def resolve_model_file_path(app_dir, file_path):
@@ -292,13 +247,14 @@ class ModelToggleList(wx.ScrolledWindow):
         return [btn.model_name for btn in self.buttons if btn.GetValue()]
 
 
-class CoverPanel(wx.Panel):
+class CoverPanel(wx.ScrolledWindow):
     """
     AI Cover Sekmesi Paneli (wx.Notebook ile uyumlu)
     """
     def __init__(self, parent, settings=None):
         """AI Cover paneli değişkenlerini, modellerini ve renk paletini başlatır."""
         super(CoverPanel, self).__init__(parent)
+        self.SetScrollRate(0,20)
         from app_settings import AppSettings
         self.settings = settings or AppSettings()
 
@@ -308,6 +264,9 @@ class CoverPanel(wx.Panel):
         self.input_audio_path = ""
         self.output_folder_path = ""
         self.is_cancelled = False
+        from audio_service import NativeAudioSession
+        self.audio_session_factory = NativeAudioSession
+        self.audio_session = None
 
         # Temalı Renk Tanımlamaları
         self.bg_main = wx.Colour(30, 30, 30)
@@ -457,6 +416,14 @@ class CoverPanel(wx.Panel):
         grid.Add(self.index_rate_ctrl, 1, wx.EXPAND)
 
         sizer_settings.Add(grid, 0, wx.EXPAND | wx.ALL, 5)
+        self.quality_controls = {}
+        for key, label in (('input_highpass_80hz', '80 Hz altındaki giriş sesini filtrele'),
+                           ('pipeline_highpass_48hz', '48 Hz altındaki sesi filtrele'),
+                           ('smooth_pitch', 'Nota geçişlerini yumuşat')):
+            control = wx.CheckBox(self, label=label)
+            control.SetValue(True)
+            self.quality_controls[key] = control
+            sizer_settings.Add(control, 0, wx.ALL, 3)
         vbox.Add(sizer_settings, 0, wx.EXPAND | wx.ALL, 5)
 
         # 4. İŞLEM BUTONLARI (Başlat / İptal)
@@ -473,9 +440,13 @@ class CoverPanel(wx.Panel):
         self.btn_cancel.SetForegroundColour(self.fg_light)
         self.btn_cancel.Enable(False)
         self.btn_cancel.Bind(wx.EVT_BUTTON, self.OnCancel)
+        self.btn_force_stop = wx.Button(self, label="Zorla Durdur")
+        self.btn_force_stop.Enable(False)
+        self.btn_force_stop.Bind(wx.EVT_BUTTON, self.OnForceStop)
 
         btn_box.Add(self.btn_start, 1, wx.EXPAND | wx.ALL, 5)
         btn_box.Add(self.btn_cancel, 0, wx.EXPAND | wx.ALL, 5)
+        btn_box.Add(self.btn_force_stop, 0, wx.EXPAND | wx.ALL, 5)
         vbox.Add(btn_box, 0, wx.EXPAND | wx.ALL, 5)
 
         # 5. LOG VE DURUM GÖSTERGESİ
@@ -496,6 +467,7 @@ class CoverPanel(wx.Panel):
         vbox.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 5)
 
         self.SetSizer(vbox)
+        self.FitInside()
         self.pitch_ctrl.SetName("Ses tonu, yarım ses")
         self.btn_settings.SetName("Donanım tercihi ve model indirme ayarlarını aç")
         self.f0_choice.SetName("Ses algılama yöntemi")
@@ -513,6 +485,9 @@ class CoverPanel(wx.Panel):
 
     def OnAddModel(self, event):
         """Yeni model ekleme penceresi ve veritabanı kaydı."""
+        if JOB_LOCK.locked():
+            wx.MessageBox("İşlem bitmeden model kayıtları değiştirilemez.", "İşlem sürüyor", wx.OK | wx.ICON_INFORMATION)
+            return
         name_dlg = wx.TextEntryDialog(
             self,
             "Model için kolay anlaşılır bir isim girin (Örn: Ahmet Sesi, Ayşe Sesi vb.):",
@@ -552,11 +527,11 @@ class CoverPanel(wx.Panel):
 
                 updated = dict(self.models)
                 updated[model_name] = {"pth": pth_path, "index": index_path}
-                if not save_models(self.app_dir, updated):
+                if not save_models(self.app_dir, updated, previous=self.models):
                     pth_dlg.Destroy()
                     name_dlg.Destroy()
                     return
-                self.models = updated
+                self.models = load_models(self.app_dir)
                 self.UpdateModelCheckList()
                 self.LogMessage(f"Yeni model eklendi: {model_name}")
                 wx.MessageBox(f"'{model_name}' başarıyla eklendi.", "Bilgi", wx.OK | wx.ICON_INFORMATION)
@@ -565,6 +540,9 @@ class CoverPanel(wx.Panel):
 
     def OnDelModel(self, event):
         """Seçili/İşaretli modelleri listeden ve models.json dosyasından siler."""
+        if JOB_LOCK.locked():
+            wx.MessageBox("İşlem bitmeden model kayıtları değiştirilemez.", "İşlem sürüyor", wx.OK | wx.ICON_INFORMATION)
+            return
         selected_names = self.model_list.GetCheckedModels()
         if not selected_names:
             wx.MessageBox("Lütfen silmek istediğiniz model(ler)i listeden basarak [AÇIK] duruma getirin.", "Uyarı", wx.OK | wx.ICON_WARNING)
@@ -577,9 +555,9 @@ class CoverPanel(wx.Panel):
         )
         if confirm == wx.YES:
             updated = {name: data for name, data in self.models.items() if name not in selected_names}
-            if not save_models(self.app_dir, updated):
+            if not save_models(self.app_dir, updated, previous=self.models):
                 return
-            self.models = updated
+            self.models = load_models(self.app_dir)
             self.UpdateModelCheckList()
             self.LogMessage(f"Silinen modeller: {', '.join(selected_names)}")
 
@@ -634,6 +612,9 @@ class CoverPanel(wx.Panel):
         post_ui(self, self.btn_select_output.Enable, enable)
         post_ui(self, self.btn_start.Enable, enable)
         post_ui(self, self.btn_cancel.Enable, not enable)
+        post_ui(self, self.btn_force_stop.Enable, False)
+        for control in self.quality_controls.values():
+            post_ui(self, control.Enable, enable)
         post_ui(self, self.model_list.Enable, enable)
         post_ui(self, self.pitch_ctrl.Enable, enable)
         post_ui(self, self.btn_settings.Enable, enable)
@@ -645,6 +626,14 @@ class CoverPanel(wx.Panel):
         self.is_cancelled = True
         self.UpdateStatus("İptal ediliyor... (Mevcut model işlemi bitince duracak)", 0)
         self.btn_cancel.Enable(False)
+        self.btn_force_stop.Enable(True)
+
+    def OnForceStop(self, event):
+        self.is_cancelled = True
+        if self.audio_session is not None:
+            self.audio_session.request_force_stop()
+        self.btn_force_stop.Enable(False)
+        self.UpdateStatus("Ses motoru durduruluyor...", 0)
 
     def OnStart(self, event):
         """Seçili modeller ve ayarlar için çıkarım kuyruğunu (threading) başlatır."""
@@ -673,6 +662,7 @@ class CoverPanel(wx.Panel):
             "device": "cpu",
             "f0_method": self.f0_choice.GetStringSelection(),
             "index_rate": index_rate_val,
+            "quality_policy": {key:control.GetValue() for key,control in self.quality_controls.items()},
             "input_path": self.input_audio_path,
             "output_directory": self.output_folder_path,
             "models": {name: dict(self.models[name]) for name in selected_model_names}
@@ -719,6 +709,12 @@ class CoverPanel(wx.Panel):
             self.UpdateStatus("İşlem Kuyruğu İptal Edildi" if self.is_cancelled else "İşlem başarısız", 0)
             post_ui(self, wx.MessageBox, str(error), "İşlem Hatası", wx.OK | wx.ICON_WARNING)
         finally:
+            try:
+                if getattr(self, 'audio_session', None) is not None:
+                    self.audio_session.close()
+                    self.audio_session = None
+            except Exception as error:
+                self.LogMessage(f"[UYARI] Worker kapatılamadı: {error}")
             finish_job(self)
 
     def _run_inference_queue(self, model_names, settings):
@@ -727,8 +723,12 @@ class CoverPanel(wx.Panel):
         Modeller kesinlikle sırayla (tekli iş parçacığı üzerinden) çalıştırılır.
         Her model bitiminde gc.collect() çağrılır.
         """
-        from hardware import configure_runtime
-        configure_runtime(settings["device"])
+        factory = getattr(self, 'audio_session_factory', None)
+        if factory is not None:
+            self.audio_session = factory()
+        else:
+            from hardware import configure_runtime
+            configure_runtime(settings["device"])
         input_path = settings.get("input_path", self.input_audio_path)
         output_directory = settings.get("output_directory", self.output_folder_path)
         models = settings.get("models", self.models)
@@ -770,13 +770,10 @@ class CoverPanel(wx.Panel):
                     prerequisites_ready = True
                 if self.is_cancelled:
                     break
-                from rvc.infer.infer import VoiceConverter
                 self.LogMessage(f"RVC Yapay Zeka Motoru Çalıştırılıyor ({model_name})...")
-                vc = VoiceConverter(device=settings["device"])
-                vc.allow_model_download = False
                 fd, temporary_path = tempfile.mkstemp(suffix=".wav", dir=output_directory)
                 os.close(fd)
-                vc.convert_audio(
+                options = dict(
                     audio_input_path=input_path,
                     audio_output_path=temporary_path,
                     model_path=pth_path,
@@ -797,6 +794,18 @@ class CoverPanel(wx.Panel):
                     embedder_model="contentvec",
                     post_process=False
                 )
+                if getattr(self, 'audio_session', None) is not None:
+                    self.audio_session.execute('cover', {'device':settings['device'], 'options':options,
+                        'quality_policy':settings.get('quality_policy',{})}, cancelled=lambda:self.is_cancelled,
+                        progress=lambda text:self.UpdateStatus(f'{model_name}: {text}'))
+                else:
+                    from rvc.infer.infer import VoiceConverter
+                    vc = VoiceConverter(device=settings["device"])
+                    vc.allow_model_download = False
+                    if 'quality_policy' in settings:
+                        from rvc.infer.quality_policy import InferenceQualityPolicy
+                        options['quality_policy'] = InferenceQualityPolicy(**settings['quality_policy'])
+                    vc.convert_audio(**options)
                 if self.is_cancelled:
                     break
                 validate_audio_file(temporary_path)

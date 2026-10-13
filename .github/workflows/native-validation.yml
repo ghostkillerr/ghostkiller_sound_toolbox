@@ -1,0 +1,54 @@
+name: Native Windows runtime validation
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-runtime:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [cpu, cuda, xpu]
+    env:
+      GHOSTKILLER_BACKEND: ${{ matrix.backend }}
+      PYTHONUTF8: '1'
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Create clean environment from SHA-256 locks
+        shell: pwsh
+        run: |
+          python -m venv build/ci-venv
+          build/ci-venv/Scripts/python.exe -m pip install --no-deps --require-hashes -r requirements/bootstrap.lock
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          build/ci-venv/Scripts/python.exe -m pip install --require-hashes --no-build-isolation -r "requirements/$env:GHOSTKILLER_BACKEND.lock"
+          exit $LASTEXITCODE
+      - name: Check metadata, runtime and ORT exclusivity
+        shell: pwsh
+        run: |
+          build/ci-venv/Scripts/python.exe -m pip check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($env:GHOSTKILLER_BACKEND -eq 'cpu') {
+            build/ci-venv/Scripts/python.exe -m tools.release.preflight --backend cpu --hardware-check
+          } else {
+            # Hosted runners have no supported GPU; this checks runtime imports,
+            # pinned wheel versions and provider availability, not physical GPU use.
+            build/ci-venv/Scripts/python.exe -m tools.release.preflight --backend $env:GHOSTKILLER_BACKEND
+          }
+          exit $LASTEXITCODE
+      - name: Offline update, native launch contract and packaging regressions
+        shell: pwsh
+        run: build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_release_update.py -v

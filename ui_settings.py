@@ -9,9 +9,10 @@ from model_manager import model_catalog
 from ui_cover import ModelToggleList
 
 
-class SettingsPanel(wx.Panel):
+class SettingsPanel(wx.ScrolledWindow):
     def __init__(self, parent, settings, auto_detect=True):
-        super().__init__(parent)
+        super().__init__(parent,style=wx.VSCROLL | wx.TAB_TRAVERSAL)
+        self.SetScrollRate(0,20)
         self.settings = settings
         self.model_ids = list(model_catalog())
         self.is_cancelled = False
@@ -67,6 +68,7 @@ class SettingsPanel(wx.Panel):
             control.SetBackgroundColour(wx.Colour(40, 40, 40))
             control.SetForegroundColour(wx.Colour(240, 240, 240))
         self.SetSizer(layout)
+        self.FitInside()
         for message in (settings.error, settings.manager.warning):
             if message:
                 self.LogMessage(message)
@@ -95,7 +97,7 @@ class SettingsPanel(wx.Panel):
                 raise RuntimeError("İşlem sürerken donanım değiştirilemez. İşlemin bitmesini bekleyin.")
             preference = "cpu" if self.device_choice.GetSelection() == 0 else "gpu"
             self.settings.select(preference)
-            self.txt_status.SetValue("Donanım tercihi kaydedildi; iki ses sekmesinde de kullanılacak.")
+            self.txt_status.SetValue("Donanım tercihi kaydedildi; ses işlemleri ve model eğitiminde kullanılacak.")
         except Exception as error:
             self.device_choice.SetSelection(0 if previous == "cpu" else 1)
             wx.MessageBox(str(error), "Donanım seçimi", wx.OK | wx.ICON_WARNING)

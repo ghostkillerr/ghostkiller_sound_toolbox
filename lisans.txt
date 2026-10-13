@@ -1,14 +1,20 @@
-Ghostkiller SOUND CLEANER - SON KULLANICI LİSANS SÖZLEŞMESİ (EULA)
+Ghostkiller SOUND TOOLBOX - SON KULLANICI LİSANS SÖZLEŞMESİ (EULA)
 
 Yazılım Geliştiricisi: Yasin Talha Gençsoy (Ghostkiller)
-Sürüm: 1.0
+Sürüm: 2.0.0
 
 Bu yazılımı bilgisayarınıza kurarak ve kullanarak, aşağıda belirtilen tüm şartları ve koşulları okuduğunuzu, anladığınızı ve gayrikabili rücu (geri dönülemez) şekilde kabul ettiğinizi beyan etmiş olursunuz. Şartları kabul etmiyorsanız, kurulumu iptal ediniz.
 
 1. KULLANIM HAKLARI VE LİSANS
-Ghostkiller Sound Cleaner tamamen ücretsiz (Freeware) bir yazılımdır. Yazılımı kişisel veya profesyonel ses/müzik işleme süreçlerinizde herhangi bir kısıtlama olmaksızın kullanabilirsiniz. 
+Ghostkiller Sound Toolbox tamamen ücretsiz (Freeware) bir yazılımdır. Yazılımı kişisel veya profesyonel ses/müzik işleme süreçlerinizde herhangi bir kısıtlama olmaksızın kullanabilirsiniz.
 
 2. KISITLAMALAR
+Bu bölüm yalnız geliştiriciye ait uygulama bileşenlerini kapsar. FFmpeg,
+PyTorch ve diğer üçüncü taraf bileşenler kendi lisanslarına tabidir; bu
+sözleşme o lisansların verdiği kullanım, değiştirme, yeniden dağıtım veya
+tersine mühendislik haklarını sınırlamaz. Paket içindeki
+THIRD_PARTY_NOTICES.md ve third_party klasöründeki lisans/kaynak bilgilerini
+inceleyebilirsiniz.
 - Bu yazılım hiçbir şekilde, hiçbir platformda ücret karşılığında satılamaz veya ticari bir ürünün parçası olarak paketlenemez.
 - Yazılımın arayüzü, yapısı veya kodları tersine mühendisliğe (reverse engineering) tabi tutulamaz.
 - Geliştiricinin (Yasin Talha Gençsoy) adı ve "Ghostkiller" markası programın üzerinden silinerek başka bir isimle yeniden dağıtılamaz.
@@ -17,7 +23,7 @@ Ghostkiller Sound Cleaner tamamen ücretsiz (Freeware) bir yazılımdır. Yazıl
 Bu yazılım "olduğu gibi" (as is) esasına göre, herhangi bir açık veya zımni garanti verilmeksizin sunulmaktadır. Yazılım, yapay zeka modelleri ve yüksek donanım gücü (GPU/CPU) kullanmaktadır. Yazılımın kullanımı sırasında veya sonucunda oluşabilecek veri kayıpları, donanımsal aşırı ısınma/yıpranma, donanım arızaları veya ticari kayıplardan yapımcı Yasin Talha Gençsoy hiçbir şart altında sorumlu tutulamaz. Tüm risk kullanıcıya aittir.
 
 4. GİZLİLİK VE VERİ GÜVENLİĞİ
-Ghostkiller Sound Cleaner, tamamen çevrimdışı (offline) çalışacak şekilde tasarlanmıştır. Seçtiğiniz ses dosyaları veya çıktılar hiçbir şekilde harici bir sunucuya yüklenmez, işlenmez veya yedeklenmez. Tüm işlemler kendi donanımınızın içinde gerçekleşir.
+Ghostkiller Sound Toolbox sesleri yerel bilgisayarda işler. Seçtiğiniz ses dosyaları veya çıktılar hiçbir şekilde harici bir sunucuya yüklenmez, işlenmez veya yedeklenmez. Eksik model indirmeleri ve güncelleme kontrolleri için internet kullanılabilir.
 
 5. İLETİŞİM VE DESTEK
 Geri bildirim, hata bildirimi veya projeler hakkında iletişim kurmak için aşağıdaki e-posta adreslerini kullanabilirsiniz:

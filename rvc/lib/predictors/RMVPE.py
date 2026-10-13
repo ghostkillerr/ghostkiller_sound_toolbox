@@ -5,6 +5,7 @@ import numpy as np
 
 from librosa.filters import mel
 from typing import List
+from compute_backend import memory_info, trim_cache
 
 N_MELS = 128
 N_CLASS = 360
@@ -426,7 +427,7 @@ class RMVPE0Predictor:
         device (str, optional): Device to use for computation. Defaults to None, which uses CUDA if available.
     """
 
-    def __init__(self, model_path, device=None):
+    def __init__(self, model_path, device=None, max_forward_frames=None, context_frames=256):
         self.resample_kernel = {}
         model = E2E(4, 1, (2, 2))
         ckpt = torch.load(model_path, map_location="cpu", weights_only=True)
@@ -434,52 +435,65 @@ class RMVPE0Predictor:
         model.eval()
         self.model = model
         self.resample_kernel = {}
-        self.device = device
+        self.device = device or ("cuda:0" if torch.cuda.is_available() else
+                                 "xpu:0" if hasattr(torch, "xpu") and torch.xpu.is_available() else "cpu")
+        self.max_forward_frames = max_forward_frames
+        self.context_frames = context_frames
         self.mel_extractor = MelSpectrogram(
             N_MELS, 16000, 1024, 160, None, 30, 8000
-        ).to(device)
-        self.model = self.model.to(device)
+        ).to(self.device)
+        self.model = self.model.to(self.device)
         cents_mapping = 20 * np.arange(N_CLASS) + 1997.3794084376191
         self.cents_mapping = np.pad(cents_mapping, (4, 4))
 
-    def mel2hidden(self, mel, chunk_size=32000):
-        """
-        Converts Mel-spectrogram features to hidden representation.
+    def _window_limits(self, chunk_size=None):
+        limit = chunk_size if chunk_size is not None else getattr(self, "max_forward_frames", None)
+        if limit is None:
+            info = memory_info(self.device)
+            free = info[0] if info else None
+            # Bound activations even when the backend cannot report free VRAM.
+            limit = 512 if free is not None and free < 1024**3 else (
+                1024 if free is not None and free < 2 * 1024**3 else 2048)
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 256 or limit > 8192 or limit % 32:
+            raise ValueError("RMVPE penceresi 256..8192 arasında, 32'nin katı olmalıdır.")
+        requested_context = getattr(self, "context_frames", 256)
+        if isinstance(requested_context, bool) or not isinstance(requested_context, int) or requested_context < 32 or requested_context % 32:
+            raise ValueError("RMVPE örtüşme bağlamı en az 32 ve 32'nin katı olmalıdır.")
+        context = min(requested_context, limit // 4)
+        return limit, context, limit - 2 * context
 
-        Args:
-            mel (torch.Tensor): Mel-spectrogram features.
-        """
+    def _forward_mel(self, mel):
+        frames = mel.shape[-1]
+        padding = (-frames) % 32
+        if padding:
+            mel = F.pad(mel, (0, padding), mode="reflect" if frames > padding else "replicate")
         with torch.no_grad():
-            n_frames = mel.shape[-1]
-            # print('n_frames', n_frames)
-            # print('mel shape before padding', mel.shape)
-            mel = F.pad(
-                mel, (0, 32 * ((n_frames - 1) // 32 + 1) - n_frames), mode="reflect"
-            )
-            # print('mel shape after padding', mel.shape)
+            hidden = self.model(mel.to(self.device))
+            return hidden[:, :frames].cpu()
 
-            output_chunks = []
-            pad_frames = mel.shape[-1]
-            for start in range(0, pad_frames, chunk_size):
-                # print('chunk @', start)
-                end = min(start + chunk_size, pad_frames)
-                mel_chunk = mel[..., start:end]
-                assert (
-                    mel_chunk.shape[-1] % 32 == 0
-                ), "chunk_size must be divisible by 32"
-                # print(' before padding', mel_chunk.shape)
-                # mel_chunk = F.pad(mel_chunk, (320, 320), mode="reflect")
-                # print(' after padding', mel_chunk.shape)
+    def mel2hidden(self, mel, chunk_size=None):
+        """Bounded overlapping forwards; stage completed salience on the CPU.
 
-                out_chunk = self.model(mel_chunk)
-                # print(' result chunk', out_chunk.shape)
-                # out_chunk = out_chunk[:, 320:-320, :]
-                # print(' trimmed chunk', out_chunk.shape)
-                output_chunks.append(out_chunk)
-
-            hidden = torch.cat(output_chunks, dim=1)
-        # print('output', hidden[:, :n_frames].shape)
-        return hidden[:, :n_frames]
+        Short inputs use exactly one forward with the historical multiple-of-32
+        padding. Long inputs retain only each core, with surrounding context.
+        Bidirectional RMVPE is not mathematically identical to an unbounded
+        forward on long recordings; boundary quality must be measured separately.
+        """
+        limit, context, core = self._window_limits(chunk_size)
+        frames = mel.shape[-1]
+        if frames < 1:
+            raise ValueError("RMVPE mel girdisi boş.")
+        if frames <= limit:
+            return self._forward_mel(mel)
+        result = torch.empty((mel.shape[0], frames, N_CLASS), dtype=torch.float32)
+        for start in range(0, frames, core):
+            stop = min(start + core, frames)
+            left, right = max(0, start - context), min(frames, stop + context)
+            hidden = self._forward_mel(mel[..., left:right])
+            result[:, start:stop] = hidden[:, start - left:stop - left]
+            del hidden
+            trim_cache(self.device)
+        return result
 
     def decode(self, hidden, thred=0.03):
         """
@@ -495,22 +509,38 @@ class RMVPE0Predictor:
         return f0
 
     def infer_from_audio(self, audio, thred=0.03):
-        """
-        Infers F0 from audio.
+        """Stream overlapping audio/mel windows and accumulate only CPU F0.
 
-        Args:
-            audio (np.ndarray): Audio signal.
-            thred (float, optional): Threshold for salience. Defaults to 0.03.
+        Both the input transfer and U-Net forward are bounded by the selected
+        window. No full-song mel or salience tensor is retained on the GPU.
         """
-        audio = torch.from_numpy(audio).float().to(self.device).unsqueeze(0)
-        mel = self.mel_extractor(audio, center=True)
-        del audio
-        with torch.no_grad():
-            torch.cuda.empty_cache()
-        hidden = self.mel2hidden(mel)
-        hidden = hidden.squeeze(0).cpu().numpy()
-        f0 = self.decode(hidden, thred=thred)
-        return f0
+        audio = np.asarray(audio, dtype=np.float32).reshape(-1)
+        if not len(audio) or not np.isfinite(audio).all():
+            raise ValueError("RMVPE ses girdisi boş veya geçersiz.")
+        frames = len(audio) // 160 + 1
+        limit, context, core = self._window_limits()
+        output = np.empty(frames, dtype=np.float64)
+        # Four extra frames each side provide the 1024-sample centered STFT
+        # halo. Halo samples are trimmed before the bounded U-Net forward.
+        for start in range(0, frames, core if frames > limit else frames):
+            stop = min(start + (core if frames > limit else frames), frames)
+            left, right = max(0, start - context), min(frames, stop + context)
+            sample_left = max(0, (left - 4) * 160)
+            sample_right = min(len(audio), (right + 4) * 160)
+            samples = audio[sample_left:sample_right]
+            if len(samples) <= 512:
+                samples = np.pad(samples, (0, 513 - len(samples)), mode="reflect" if len(samples) > 1 else "edge")
+            tensor = torch.from_numpy(np.ascontiguousarray(samples)).to(self.device).unsqueeze(0)
+            with torch.no_grad():
+                mel = self.mel_extractor(tensor, center=True)
+                offset = left - sample_left // 160
+                mel = mel[..., offset:offset + right - left]
+                hidden = self._forward_mel(mel)
+            retained = hidden[0, start - left:stop - left].numpy()
+            output[start:stop] = self.decode(retained, thred=thred)
+            del tensor, mel, hidden, retained
+            trim_cache(self.device)
+        return output
 
     def to_local_average_cents(self, salience, thred=0.05):
         """
@@ -528,7 +558,7 @@ class RMVPE0Predictor:
         local_salience = salience[np.arange(salience.shape[0])[:, None], idx]
         product_sum = np.sum(local_salience * self.cents_mapping[idx], axis=1)
         weight_sum = np.sum(local_salience, axis=1)
-        devided = product_sum / weight_sum
+        devided = np.divide(product_sum, weight_sum, out=np.zeros_like(product_sum), where=weight_sum > 0)
         maxx = np.max(salience, axis=1)
         devided[maxx <= thred] = 0
         return devided

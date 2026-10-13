@@ -6,7 +6,7 @@ Bu modül, orijinal 'vocal_chain.py' içindeki VocalChainApp sınıfının ayrı
 ve arayüzünü modüler bir wx.Panel (SeparatorPanel) bileşenine dönüştürür.
 
 Özellikler:
-1. Standart wxPython bileşenleri ile tam NVDA/JAWS ekran okuyucu uyumluluğu (Erişilebilirlik - A11y).
+1. Standart wxPython kontrolleriyle ekran okuyucu erişilebilirliğini hedefler; gerçek NVDA/JAWS testi ayrıca gerekir.
 2. Modeller uygulama altındaki 'models' klasörüne indirilir; eski önbellekler gerektiğinde kopyalanır.
 3. 5 Aşamalı ses temizleme zinciri (Enstrümantal, Ana Vokal Roformer, Arka Vokal Karaoke, DeReverb, DeNoise).
 4. Arayüzün donmaması için threading ile iş parçacığı yönetimi ve OOM önlemleri.
@@ -19,15 +19,23 @@ import re
 import gc
 import tempfile
 import threading
+import importlib.util
 from app_runtime import (JOB_LOCK, post_ui, append_log, model_directory, copy_model,
-                         same_path, validate_audio_file, finish_job)
+                         same_path, validate_audio_file, finish_job, output_filename)
 
 from separation_steps import SEPARATION_STEPS
 
-try:
-    from separator_backend import LocalSeparator as Separator
-except ImportError:
+def separator_factory(**kwargs):
+    # The GUI can open even if a native motor DLL cannot be imported.
+    from separator_backend import LocalSeparator
+    return LocalSeparator(**kwargs)
+
+
+if (('separator_backend' in sys.modules and sys.modules['separator_backend'] is None)
+        or importlib.util.find_spec('audio_separator') is None):
     Separator = None
+else:
+    Separator = separator_factory
 
 
 def get_app_dir():
@@ -88,13 +96,14 @@ def prepare_separator_model(app_dir, model_dir, model_name):
             return
 
 
-class SeparatorPanel(wx.Panel):
+class SeparatorPanel(wx.ScrolledWindow):
     """
     Ses Ayrıştırma Sekmesi Paneli (wx.Notebook ile uyumlu)
     """
     def __init__(self, parent, settings=None):
         """Ses Ayrıştırma paneli yollarını, renk paletini ve durumlarını başlatır."""
         super(SeparatorPanel, self).__init__(parent)
+        self.SetScrollRate(0,20)
         from app_settings import AppSettings
         self.settings = settings or AppSettings()
 
@@ -105,6 +114,9 @@ class SeparatorPanel(wx.Panel):
         self.current_input_file = ""
         self.output_directory = ""
         self.is_cancelled = False
+        from audio_service import NativeAudioSession
+        self.audio_session_factory = NativeAudioSession
+        self.audio_session = None
 
         # Temalı Renk Tanımlamaları
         self.bg_main = wx.Colour(30, 30, 30)
@@ -212,9 +224,13 @@ class SeparatorPanel(wx.Panel):
         self.btn_cancel.SetForegroundColour(self.fg_light)
         self.btn_cancel.Enable(False)
         self.btn_cancel.Bind(wx.EVT_BUTTON, self.OnCancel)
+        self.btn_force_stop = wx.Button(self, label="Zorla Durdur")
+        self.btn_force_stop.Enable(False)
+        self.btn_force_stop.Bind(wx.EVT_BUTTON, self.OnForceStop)
 
         btn_box.Add(self.btn_start, 1, wx.EXPAND | wx.ALL, 5)
         btn_box.Add(self.btn_cancel, 0, wx.EXPAND | wx.ALL, 5)
+        btn_box.Add(self.btn_force_stop, 0, wx.EXPAND | wx.ALL, 5)
         vbox.Add(btn_box, 0, wx.EXPAND | wx.ALL, 5)
 
         # 5. Log ve Durum Göstergesi
@@ -235,6 +251,7 @@ class SeparatorPanel(wx.Panel):
         vbox.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 5)
 
         self.SetSizer(vbox)
+        self.FitInside()
         self.txt_selected_file.SetName("Seçilen ses dosyası")
         self.txt_selected_dir.SetName("Çıktı klasörü")
         self.txt_log.SetName("İşlem günlüğü")
@@ -303,6 +320,7 @@ class SeparatorPanel(wx.Panel):
         post_ui(self, self.btn_select_dir.Enable, enable)
         post_ui(self, self.btn_start.Enable, enable)
         post_ui(self, self.btn_cancel.Enable, not enable)
+        post_ui(self, self.btn_force_stop.Enable, False)
         post_ui(self, self.chk_inst.Enable, enable)
         post_ui(self, self.chk_step1.Enable, enable)
         post_ui(self, self.chk_step2.Enable, enable)
@@ -314,9 +332,22 @@ class SeparatorPanel(wx.Panel):
         self.is_cancelled = True
         self.UpdateStatus("İptal ediliyor... (Mevcut işlem bitince duracak)", 0)
         self.btn_cancel.Enable(False)
+        self.btn_force_stop.Enable(True)
+
+    def OnForceStop(self, event):
+        self.is_cancelled = True
+        if self.audio_session is not None:
+            self.audio_session.request_force_stop()
+        self.btn_force_stop.Enable(False)
+        self.UpdateStatus("Ses motoru durduruluyor...", 0)
 
     def RunSeparatorCommand(self, input_file, model_name, step_name, output_dir):
         """Belirtilen model ile tekli ses ayırma adımını çalıştırır ve VRAM/GC temizliği yapar."""
+        if getattr(self, 'audio_session', None) is not None:
+            return self.audio_session.execute('separate', {
+                'input_file':input_file,'model_name':model_name,'output_dir':output_dir,
+                'model_dir':self.model_dir,'device':self.job_device},
+                cancelled=lambda:self.is_cancelled, progress=lambda text:self.UpdateStatus(f'{step_name}: {text}'))
         if Separator is None:
             self.LogMessage("HATA: audio-separator kütüphanesi yüklü değil veya bulunamadı!")
             return False
@@ -392,8 +423,8 @@ class SeparatorPanel(wx.Panel):
                 paths.append(path)
             return paths
 
-        except Exception as e:
-            self.LogMessage(f"SİSTEM HATASI: {str(e)}")
+        except (Exception, SystemExit) as e:
+            self.LogMessage(f"SİSTEM HATASI: {type(e).__name__}: {str(e) or 'Motor beklenmeden sonlandı.'}")
             return False
         finally:
             try:
@@ -417,8 +448,12 @@ class SeparatorPanel(wx.Panel):
         base_name = os.path.splitext(os.path.basename(working_file))[0]
         steps = SEPARATION_STEPS
         try:
-            from hardware import configure_runtime
-            configure_runtime(device)
+            factory = getattr(self, 'audio_session_factory', None)
+            if factory is not None:
+                self.audio_session = factory()
+            else:
+                from hardware import configure_runtime
+                configure_runtime(device)
             for idx, (model, label, keyword, suffix) in enumerate(steps):
                 if not selected_steps[idx]:
                     continue
@@ -436,7 +471,7 @@ class SeparatorPanel(wx.Panel):
                     matches = [path for path in outputs if re.findall(r'_\([^()]*\)', os.path.basename(path))[-1:] == ['_' + keyword]]
                     if len(matches) != 1:
                         raise RuntimeError(f"{label}: beklenen çıktı bulunamadı veya belirsiz.")
-                    destination = os.path.join(output_directory, base_name + suffix)
+                    destination = os.path.join(output_directory, output_filename(base_name,suffix))
                     if same_path(destination, input_file):
                         raise RuntimeError("Çıktı giriş dosyasının üzerine yazamaz.")
                     validate_audio_file(matches[0])
@@ -452,6 +487,13 @@ class SeparatorPanel(wx.Panel):
             self.LogMessage(f"HATA: {error}")
         finally:
             try:
+                if getattr(self, 'audio_session', None) is not None:
+                    try:
+                        self.audio_session.close()
+                    except Exception as error:
+                        self.LogMessage(f'Worker kapatılamadı: {error}')
+                    finally:
+                        self.audio_session = None
                 if self.is_cancelled:
                     summary = f"İşlem iptal edildi. Tamamlanan adım: {completed}."
                 elif failed:

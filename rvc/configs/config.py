@@ -1,6 +1,7 @@
 import torch
 import json
 import os
+from compute_backend import backend_module, is_gpu_device
 
 version_config_paths = [
     os.path.join("48000.json"),
@@ -12,22 +13,30 @@ version_config_paths = [
 
 class Config:
     def __init__(self, device=None):
-        self.device = device or ("cuda:0" if torch.cuda.is_available() else "cpu")
-        if self.device == "cuda":
-            self.device = "cuda:0"
+        self.device = device or ("cuda:0" if torch.cuda.is_available() else
+                                 "xpu:0" if hasattr(torch, "xpu") and torch.xpu.is_available() else "cpu")
+        if self.device in ("cuda", "xpu"):
+            self.device += ":0"
         try:
             selected = torch.device(self.device)
         except (RuntimeError, ValueError, TypeError) as error:
             raise ValueError("Geçersiz işlem cihazı.") from error
-        if selected.type not in ('cpu', 'cuda'):
-            raise ValueError("Bu uygulama CPU veya CUDA destekler.")
+        if selected.type not in ('cpu', 'cuda', 'xpu'):
+            raise ValueError("Bu uygulama CPU, CUDA/HIP veya Intel XPU destekler.")
         if selected.type == 'cpu':
             self.device = 'cpu'
-        if self.device.startswith("cuda") and not torch.cuda.is_available():
-            raise RuntimeError("CUDA kullanılamıyor. CPU seçerek tekrar deneyin.")
+        else:
+            self.device = f"{selected.type}:{selected.index if selected.index is not None else 0}"
+            selected = torch.device(self.device)
+        api = backend_module(self.device)
+        if api is not None:
+            if not api.is_available():
+                raise RuntimeError(f"{selected.type.upper()} kullanılamıyor. CPU seçerek tekrar deneyin.")
+            if selected.index is None or not 0 <= selected.index < api.device_count():
+                raise ValueError("Seçilen GPU numarası kullanılamıyor.")
         self.gpu_name = (
-            torch.cuda.get_device_name(int(self.device.split(":")[-1]))
-            if self.device.startswith("cuda")
+            api.get_device_name(selected.index)
+            if api is not None
             else None
         )
         self.json_config = self.load_config_json()
@@ -43,10 +52,8 @@ class Config:
         return configs
 
     def device_config(self):
-        if self.device.startswith("cuda"):
-            self.set_cuda_config()
-        else:
-            self.device = "cpu"
+        if is_gpu_device(self.device):
+            self.set_gpu_config()
 
         # Configuration for 6GB GPU memory
         x_pad, x_query, x_center, x_max = (1, 6, 38, 41)
@@ -56,9 +63,10 @@ class Config:
 
         return x_pad, x_query, x_center, x_max
 
-    def set_cuda_config(self):
+    def set_gpu_config(self):
         i_device = int(self.device.split(":")[-1])
-        self.gpu_name = torch.cuda.get_device_name(i_device)
-        self.gpu_mem = torch.cuda.get_device_properties(i_device).total_memory // (
+        api = backend_module(self.device)
+        self.gpu_name = api.get_device_name(i_device)
+        self.gpu_mem = api.get_device_properties(i_device).total_memory // (
             1024**3
         )

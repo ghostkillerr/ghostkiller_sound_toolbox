@@ -31,8 +31,15 @@ class MotorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
             root = Path(folder)
             destination = root / 'models'
-            def download(url, target):
-                Path(target).write_bytes(b'downloaded')
+            def download(url, target, validate=None):
+                if Path(target).name == 'config.json':
+                    import json
+                    config = {'model_type':'hubert','hidden_size':768,'intermediate_size':3072,
+                              'num_hidden_layers':12,'num_attention_heads':12,'classifier_proj_size':256,
+                              'conv_dim':[512]*7,'conv_kernel':[10,3,3,3,3,2,2],'conv_stride':[5,2,2,2,2,2,2]}
+                    Path(target).write_text(json.dumps(config),encoding='utf-8')
+                else:
+                    torch.save({'fixture':torch.zeros(1)},target)
             with patch.object(audio_utils, 'model_directory', return_value=str(destination)), patch.object(audio_utils, 'app_directory', return_value=folder), patch.object(audio_utils, 'download_model', side_effect=download) as fetch, patch.object(audio_utils.HubertModelWithFinalProj, 'from_pretrained') as load:
                 audio_utils.load_embedding('custom', None)
                 self.assertEqual(fetch.call_count, 2)

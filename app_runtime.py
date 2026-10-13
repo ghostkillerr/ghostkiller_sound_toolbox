@@ -5,6 +5,7 @@ import sys
 import threading
 import tempfile
 import urllib.request
+import hashlib
 
 JOB_LOCK = threading.Lock()
 
@@ -41,12 +42,34 @@ def configure_runtime_cache():
         os.environ["NUMBA_CACHE_DIR"] = cache
 
 
+def truncate_utf16(value, limit):
+    return value.encode('utf-16-le')[:max(0,limit)*2].decode('utf-16-le',errors='ignore')
+
+
 def safe_filename(value):
     value = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', value).strip().rstrip('. ')
-    value = value[:120].rstrip('. ') or 'ses'
+    value = truncate_utf16(value,120).rstrip('. ') or 'ses'
     if value.split('.')[0].upper() in {'CON', 'PRN', 'AUX', 'NUL', *(f'COM{i}' for i in range(1, 10)), *(f'LPT{i}' for i in range(1, 10))}:
         value = '_' + value
     return value
+
+
+def output_filename(base, suffix):
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', str(base)).strip().rstrip('. ') or 'ses'
+    maximum = min(120,255-len(suffix.encode('utf-16-le'))//2)
+    if maximum < 12 or re.search(r'[<>:"/\\|?*\x00-\x1f]',suffix):
+        raise ValueError('Çıktı dosyası son eki çok uzun veya geçersiz.')
+    if len(cleaned.encode('utf-16-le'))//2 > maximum:
+        digest = hashlib.sha256(cleaned.encode('utf-8')).hexdigest()[:10]
+        cleaned = truncate_utf16(cleaned,maximum-11).rstrip('. ')+'_'+digest
+    cleaned = safe_filename(cleaned)
+    return truncate_utf16(cleaned,maximum).rstrip('. ')+suffix
+
+
+def configure_thread_environment(threads=None):
+    threads = threads or max(1,min(8,(os.cpu_count() or 2)//2))
+    for key in ('OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS','NUMEXPR_NUM_THREADS'):
+        os.environ.setdefault(key,str(threads))
 
 
 def same_path(first, second):
@@ -149,6 +172,8 @@ def finish_job(window):
 
 def append_log(window, message):
     def append():
+        if window.txt_log.GetLastPosition() > 48000:
+            window.txt_log.SetValue(window.txt_log.GetValue()[-24000:])
         window.txt_log.AppendText(message.strip() + '\n')
         window.txt_log.ShowPosition(window.txt_log.GetLastPosition())
     post_ui(window, append)
