@@ -9,6 +9,22 @@ from audio_separator.separator import Separator
 
 
 class LocalSeparator(Separator):
+    def load_model(self, *args, **kwargs):
+        result = super().load_model(*args,**kwargs)
+        if self.output_format.upper()=='FLAC':
+            from types import MethodType
+            from separation_audio import write_flac24, finite_values
+            self.model_instance.write_audio = MethodType(write_flac24,self.model_instance)
+            if hasattr(self.model_instance,'inference_vr'):
+                original = self.model_instance.inference_vr
+                def checked_inference(*args,**kwargs):
+                    outputs = original(*args,**kwargs)
+                    for output in outputs:
+                        finite_values(output)
+                    return outputs
+                self.model_instance.inference_vr = checked_inference
+        return result
+
     @property
     def model_file_dir(self):
         return self._app_model_dir

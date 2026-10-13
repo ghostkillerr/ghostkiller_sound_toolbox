@@ -11,10 +11,16 @@ from torch import Tensor
 
 from rvc.lib.predictors.f0 import CREPE, FCPE, RMVPE
 from rvc.infer.f0_utils import smooth_f0
+from rvc.infer.safe_index import load_index
+from rvc.infer.helper_cache import InferenceHelperCache, file_identity
+from rvc.infer.quality_policy import InferenceQualityPolicy
+from app_runtime import model_directory
+from compute_backend import trim_cache
 
 import logging
 
 logging.getLogger("faiss").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 FILTER_ORDER = 5
 CUTOFF_FREQUENCY = 48  # Hz
@@ -167,7 +173,7 @@ class Pipeline:
     voice conversion using a model, and post-processing.
     """
 
-    def __init__(self, tgt_sr, config):
+    def __init__(self, tgt_sr, config, helper_cache=None, quality_policy=None):
         """
         Initializes the Pipeline class with target sampling rate and configuration parameters.
 
@@ -195,6 +201,10 @@ class Pipeline:
         self.f0_mel_max = 1127 * np.log(1 + self.f0_max / 700)
         self.device = config.device
         self.autotune = Autotune()
+        self.helper_cache = helper_cache if helper_cache is not None else InferenceHelperCache()
+        if quality_policy is not None and not isinstance(quality_policy, InferenceQualityPolicy):
+            raise ValueError("Geçersiz kalite politikası.")
+        self.quality_policy = quality_policy or InferenceQualityPolicy()
 
     def get_f0(
         self,
@@ -232,8 +242,10 @@ class Pipeline:
             f0 = model.get_f0(x, self.f0_min, self.f0_max, p_len, "tiny")
             del model
         elif f0_method == "rmvpe":
-            model = RMVPE(
-                device=self.device, sample_rate=self.sample_rate, hop_size=self.window
+            key = ("rmvpe", str(self.device), "float32",
+                   file_identity(os.path.join(model_directory(), "predictors", "rmvpe.pt")))
+            model = self.helper_cache.get_or_create(
+                key, lambda: RMVPE(device=self.device, sample_rate=self.sample_rate, hop_size=self.window)
             )
             f0 = model.get_f0(x, filter_radius=0.03)
             del model
@@ -285,9 +297,9 @@ class Pipeline:
         else:
             f0 *= pow(2, pitch / 12)
 
-        # SOTA: Dinamik F0 Sinyal Optimizasyonu (Median + Savitzky-Golay Filtresi)
-        # Anlık oktav sıçraması (spike) hatalarını temizler ve doğal vibratoyu bozmadan tonlamayı pürüzsüzleştirir.
-        f0 = smooth_f0(f0)
+        # Compatibility default; users may disable smoothing for explicit A/B.
+        if self.quality_policy.smooth_pitch:
+            f0 = smooth_f0(f0)
 
         # quantizing f0 to 255 buckets to make coarse f0
         f0bak = f0.copy()
@@ -314,6 +326,7 @@ class Pipeline:
         index_rate,
         version,
         protect,
+        target_frames=None,
     ):
         """
         Performs voice conversion on a given audio segment.
@@ -338,6 +351,27 @@ class Pipeline:
             feats = feats.mean(-1) if feats.dim() == 2 else feats
             assert feats.dim() == 1, feats.dim()
             feats = feats.view(1, -1).to(self.device)
+            # HuBERT/ContentVec uses valid convolutions (400-sample receptive
+            # field, 320-sample hop). Supply reflected tail context so its last
+            # feature also covers the requested 100-fps synthesis frames.
+            maximum_frames = (len(audio0) + self.window - 1) // self.window
+            target_frames = maximum_frames if target_frames is None else target_frames
+            if isinstance(target_frames, (bool, np.bool_)) or not isinstance(target_frames, (int, np.integer)) or not 1 <= target_frames <= maximum_frames:
+                raise ValueError("RVC hedef çerçeve sayısı ses parçasıyla uyumsuz.")
+            target_frames = int(target_frames)
+            encoder_config = getattr(model, "config", None)
+            kernels = getattr(encoder_config, "conv_kernel", (10, 3, 3, 3, 3, 2, 2))
+            strides = getattr(encoder_config, "conv_stride", (5, 2, 2, 2, 2, 2, 2))
+            receptive, encoder_hop = 1, 1
+            for kernel, stride in zip(kernels, strides):
+                receptive += (kernel - 1) * encoder_hop
+                encoder_hop *= stride
+            if encoder_hop != self.window * 2:
+                raise ValueError("Embedder 50 fps özellik üretmelidir; RVC 100 fps sözleşmesiyle uyumlu değil.")
+            required_features = (target_frames + 1) // 2
+            padding = max(0, receptive + (required_features - 1) * encoder_hop - feats.shape[-1])
+            if padding:
+                feats = F.pad(feats, (0, padding), mode="reflect" if padding < feats.shape[-1] else "replicate")
             # extract features
             feats = model(feats)["last_hidden_state"]
             feats = (
@@ -356,7 +390,9 @@ class Pipeline:
                 0, 2, 1
             )
             # adjust the length if the audio is short
-            p_len = min(audio0.shape[0] // self.window, feats.shape[1])
+            if feats.shape[1] < target_frames:
+                raise ValueError("Embedder istenen ses süresi için yeterli özellik çerçevesi üretmedi.")
+            p_len = target_frames
             if pitch_guidance:
                 p_len = min(p_len, pitch.shape[1], pitchf.shape[1])
                 feats0 = F.interpolate(feats0.permute(0, 2, 1), scale_factor=2).permute(
@@ -387,32 +423,39 @@ class Pipeline:
             )
             # clean up
             del feats, feats0, p_len
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            trim_cache(self.device)
         return audio1
 
     def _retrieve_speaker_embeddings(self, feats, index, big_npy, index_rate):
-        npy = feats[0].cpu().numpy()
+        npy = np.ascontiguousarray(feats[0].float().cpu().numpy())
         if index.ntotal == 0:
             return feats
-        if big_npy.ndim != 2 or big_npy.shape[1] != npy.shape[1] or len(big_npy) != index.ntotal:
+        if getattr(index, "metric_type", faiss.METRIC_L2) != faiss.METRIC_L2:
+            raise ValueError("FAISS indeksi L2 uzaklık metriği kullanmalıdır.")
+        if getattr(index, "d", npy.shape[1]) != npy.shape[1]:
             raise ValueError("FAISS indeksi seçilen ses modeliyle uyumlu değil.")
-        score, ix = index.search(npy, k=min(8, index.ntotal))
-        # SOTA: Sıfıra Bölünme Koruması ve Ters Mesafe Ağırlıklandırması (Inverse Distance Weighting)
-        # Yüksek index oranlarında (>0.70) sesin boğuklaşmasını (muffling) önler.
-        valid = (ix >= 0) & (ix < len(big_npy)) & np.isfinite(score)
-        weight = np.where(valid, np.square(1 / np.maximum(score, 1e-5)), 0)
-        totals = weight.sum(axis=1, keepdims=True)
-        weight /= np.maximum(totals, 1e-20)
-        neighbors = big_npy[np.clip(ix, 0, len(big_npy) - 1)]
-        valid &= np.isfinite(neighbors).all(axis=2)
-        weight = np.where(valid, weight, 0)
-        totals = weight.sum(axis=1, keepdims=True)
-        weight /= np.maximum(totals, 1e-20)
-        retrieved = np.sum(np.where(valid[:, :, None], neighbors, 0) * weight[:, :, None], axis=1)
-        npy = np.where(totals > 0, retrieved, npy)
+        # Legacy array argument remains supported for existing API callers.
+        # Production uses search_and_reconstruct: no full reconstruct_n copy.
+        if big_npy is not None and (big_npy.ndim != 2 or big_npy.shape[1] != npy.shape[1] or len(big_npy) != index.ntotal):
+            raise ValueError("FAISS indeksi seçilen ses modeliyle uyumlu değil.")
+        result = np.empty_like(npy)
+        for start in range(0, len(npy), 256):
+            block = npy[start:start + 256]
+            if big_npy is None:
+                score, ix, neighbors = index.search_and_reconstruct(block, min(8, index.ntotal))
+            else:
+                score, ix = index.search(block, k=min(8, index.ntotal))
+                neighbors = big_npy[np.clip(ix, 0, index.ntotal - 1)]
+            valid = (ix >= 0) & (ix < index.ntotal) & np.isfinite(score)
+            valid &= np.isfinite(neighbors).all(axis=2)
+            # Existing squared inverse-L2-distance weighting, bounded per block.
+            weight = np.where(valid, np.square(1 / np.maximum(score, 1e-5)), 0)
+            totals = weight.sum(axis=1, keepdims=True)
+            weight /= np.maximum(totals, 1e-20)
+            retrieved = np.sum(np.where(valid[:, :, None], neighbors, 0) * weight[:, :, None], axis=1)
+            result[start:start + len(block)] = np.where(totals > 0, retrieved, block)
         feats = (
-            torch.from_numpy(npy).unsqueeze(0).to(self.device) * index_rate
+            torch.from_numpy(result).unsqueeze(0).to(self.device) * index_rate
             + (1 - index_rate) * feats
         )
         return feats
@@ -459,9 +502,9 @@ class Pipeline:
         """
         if file_index != "" and os.path.exists(file_index) and index_rate > 0:
             try:
-                index = faiss.read_index(file_index)
-                big_npy = index.reconstruct_n(0, index.ntotal)
-                print(f"[FAISS BİLGİ] İndeks başarıyla yüklendi: {os.path.basename(file_index)} (Vektör: {index.ntotal}, Oran: {index_rate})")
+                index = load_index(file_index, 768 if version == "v2" else 256)
+                big_npy = None
+                logger.info("FAISS index loaded: %r; vectors=%d, rate=%s", os.path.basename(file_index), index.ntotal, index_rate)
             except Exception as error:
                 raise ValueError(
                     "FAISS indeksi okunamadı. Geçerli bir index seçin veya model kaydını "
@@ -469,11 +512,12 @@ class Pipeline:
                 ) from error
         else:
             if file_index != "" and not os.path.exists(file_index):
-                print(f"[FAISS UYARI] İndeks dosyası bulunamadı: {file_index}")
+                logger.warning("FAISS index not found: %r", file_index)
             index = big_npy = None
         if len(audio) < self.window or not np.isfinite(audio).all():
             raise ValueError("Ses boş, geçersiz veya 10 milisaniyeden kısa.")
-        audio = signal.filtfilt(bh, ah, audio)
+        if self.quality_policy.pipeline_highpass_48hz:
+            audio = signal.filtfilt(bh, ah, audio)
         audio_pad = np.pad(audio, (self.window // 2, self.window // 2), mode="reflect")
         opt_ts = []
         if audio_pad.shape[0] > self.t_max:
@@ -493,7 +537,7 @@ class Pipeline:
         audio_opt = []
         t = None
         audio_pad = np.pad(audio, (self.t_pad, self.t_pad), mode="reflect")
-        p_len = audio_pad.shape[0] // self.window
+        p_len = (audio_pad.shape[0] + self.window - 1) // self.window
         sid = torch.tensor(sid, device=self.device).unsqueeze(0).long()
         if pitch_guidance:
             pitch, pitchf = self.get_f0(
@@ -528,6 +572,7 @@ class Pipeline:
                         index_rate,
                         version,
                         protect,
+                        target_frames=(t + self.t_pad2 - s) // self.window,
                     )[self.t_pad_tgt : -self.t_pad_tgt]
                 )
             else:
@@ -544,6 +589,7 @@ class Pipeline:
                         index_rate,
                         version,
                         protect,
+                        target_frames=(t + self.t_pad2 - s) // self.window,
                     )[self.t_pad_tgt : -self.t_pad_tgt]
                 )
             s = t
@@ -580,6 +626,12 @@ class Pipeline:
                 )[self.t_pad_tgt : -self.t_pad_tgt]
             )
         audio_opt = np.concatenate(audio_opt)
+        expected_length = round(len(audio) * self.tgt_sr / self.sample_rate)
+        if len(audio_opt) < expected_length:
+            raise ValueError("RVC modeli beklenen ses süresinden kısa çıktı üretti; çıktı kaydedilmedi.")
+        # The last partial 10-ms frame has been synthesized with tail context;
+        # discard only the extra generated samples beyond the source timeline.
+        audio_opt = audio_opt[:expected_length]
         if not len(audio_opt) or not np.isfinite(audio_opt).all():
             raise ValueError("RVC motoru boş veya geçersiz ses üretti.")
         if volume_envelope != 1:
@@ -592,6 +644,5 @@ class Pipeline:
         if pitch_guidance:
             del pitch, pitchf
         del sid
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        trim_cache(self.device)
         return audio_opt

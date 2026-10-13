@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "backend": "cuda:0",
+  "gpu": "NVIDIA GeForce RTX 5060 Ti",
+  "torch": "2.11.0+cu128",
+  "steps": 10,
+  "periodic_checkpoint_step": 5,
+  "generator_discriminator_bitwise_equal": true,
+  "scheduler_equal": true,
+  "torch_cpu_and_gpu_rng_bitwise_equal": true,
+  "python_numpy_rng_equal": true,
+  "fixture": "substituted small networks with actual CUDA AdamW and device RNG",
+  "limitation": "This validates checkpoint control flow; it is not real GAN numerical reproducibility or a voice-quality score."
+}

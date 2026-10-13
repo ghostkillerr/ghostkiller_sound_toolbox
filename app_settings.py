@@ -1,4 +1,4 @@
-"""One persisted CPU/GPU preference shared by both processing tabs."""
+"""One persisted CPU/GPU preference shared by audio processing and training."""
 import json
 import os
 import tempfile

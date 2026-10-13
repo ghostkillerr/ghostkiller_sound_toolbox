@@ -1,0 +1,157 @@
+{
+  "client_date": "2026-10-13",
+  "passed": true,
+  "backend": "cuda:0",
+  "gpu": "NVIDIA GeForce RTX 5060 Ti",
+  "torch": "2.11.0+cu128",
+  "scenario": "FP32 real RVC V2 GAN, two 6-second synthetic recordings, 40 kHz, batch 1, 2 CPU threads, 2 epochs, stop at step 6 and resume, exact FlatL2 and four cover conversions",
+  "cancel_checkpoint_cursor": {
+    "epoch": 1,
+    "next_batch": 6,
+    "step": 6,
+    "batch": 1
+  },
+  "final_checkpoint": {
+    "epoch": 3,
+    "next_batch": 0,
+    "step": 12,
+    "batch": 1,
+    "rng_layout": {
+      "kind": "cuda",
+      "runtime": "cuda",
+      "device_count": 1,
+      "device_index": 0
+    },
+    "scheduler_g_epoch": 2,
+    "scheduler_d_epoch": 2,
+    "generator_tensors": 560,
+    "discriminator_tensors": 165,
+    "optimizer_g_states": 560,
+    "optimizer_d_states": 165,
+    "cpu_rng_bytes": 5056,
+    "gpu_rng_bytes": [
+      16
+    ],
+    "bytes": 1295040257
+  },
+  "result_summary": {
+    "epochs": 2,
+    "steps": 12,
+    "batch": 1,
+    "holdout_mel_l1": 0.7791772286097208,
+    "index_vectors": 354
+  },
+  "index": {
+    "kind": "FlatL2",
+    "dimension": 768,
+    "vectors": 354,
+    "sha256": "32087ba54ca0a583387dd41628bada658bb0269cd0ed5108dec21e94eec8dff9"
+  },
+  "four_cover_outputs": [
+    {
+      "candidate": "latest.pth",
+      "index_enabled": false,
+      "frames": 47200,
+      "sample_rate": 40000,
+      "channels": 1,
+      "finite": true,
+      "peak": 0.238311767578125,
+      "rms": 0.06316068777084469,
+      "sha256": "76d6c04b3c1a403708b1ab527f3bf799aae8fa1d5af312cb79a592a5aa4a6dda"
+    },
+    {
+      "candidate": "latest.pth",
+      "index_enabled": true,
+      "frames": 47200,
+      "sample_rate": 40000,
+      "channels": 1,
+      "finite": true,
+      "peak": 0.211334228515625,
+      "rms": 0.051202935487190356,
+      "sha256": "e719b94708f179c76558174e87933fe58202042b0b3dba40ca8cf0d6ed66b2bb"
+    },
+    {
+      "candidate": "best_validation.pth",
+      "index_enabled": false,
+      "frames": 47200,
+      "sample_rate": 40000,
+      "channels": 1,
+      "finite": true,
+      "peak": 0.232208251953125,
+      "rms": 0.06453039901040941,
+      "sha256": "28684b9f81b26aad8e8670cf443082e07386859dfb460c906f6787295cb22408"
+    },
+    {
+      "candidate": "best_validation.pth",
+      "index_enabled": true,
+      "frames": 47200,
+      "sample_rate": 40000,
+      "channels": 1,
+      "finite": true,
+      "peak": 0.19818115234375,
+      "rms": 0.05247041888326629,
+      "sha256": "c87fb0d005dd165501ff69d5731484857d075b637313e8be8c0d95009b6f81e1"
+    }
+  ],
+  "sampled_peak_vram_mb": 10164.203125,
+  "sampled_peak_worker_rss_mb": 3678.8515625,
+  "event_span_seconds": 182.46014380455017,
+  "protected_files_unchanged": true,
+  "synthetic_sources_unchanged": true,
+  "protected_sha256": {
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\models.json": "143a69d6ebb29f72ecb03104c45dfa7142b5a8018137949486174bdacc22744b",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\settings.json": "f71d63586591a0fb862137dc0d402451a7d5fcbe1c2ccdbfa26159c3f57f9c74",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\models\\.integrity.json": "09db62b808a52f6f250a034eff35dd7acbd65bf476e79209d7939c121ab96fc2",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\models\\embedders\\contentvec\\config.json": "2ddde063b795d38d9051a7215a092fecf4cfe148b54251e38de51d88d356898b",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\models\\embedders\\contentvec\\pytorch_model.bin": "d8dd400e054ddf4e6be75dab5a2549db748cc99e756a097c496c099f65a4854e",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\models\\predictors\\rmvpe.pt": "6d62215f4306e3ca278246188607209f09af3dc77ed4232efdd069798c4ec193",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\models\\pretrained\\v2\\f0G40k.pth": "3b2c44035e782c4b14ddc0bede9e2f4a724d025cd073f736d4f43708453adfcb",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\models\\pretrained\\v2\\f0D40k.pth": "6b6ab091e70801b28e3f41f335f2fc5f3f35c75b39ae2628d419644ec2b0fa09"
+  },
+  "asset_verification": "Full real schema, CRC and pinned publisher SHA-256; only temporary integrity manifest written",
+  "cuda_exact_fixture": {
+    "passed": true,
+    "backend": "cuda:0",
+    "gpu": "NVIDIA GeForce RTX 5060 Ti",
+    "torch": "2.11.0+cu128",
+    "steps": 10,
+    "periodic_checkpoint_step": 5,
+    "generator_discriminator_bitwise_equal": true,
+    "scheduler_equal": true,
+    "torch_cpu_and_gpu_rng_bitwise_equal": true,
+    "python_numpy_rng_equal": true,
+    "fixture": "substituted small networks with actual CUDA AdamW and device RNG",
+    "limitation": "This validates checkpoint control flow; it is not real GAN numerical reproducibility or a voice-quality score."
+  },
+  "readonly_findings_fixed": [
+    "Resume could drop incompatible GPU RNG on backend migration; explicit backend/runtime/count/index guard added.",
+    "Duplicate parent controller could clear session markers before child guard; parent controller lock and active-worker startup guard added.",
+    "Official RMVPE frozen FP16 BN counter +Inf was rejected by generic finiteness; root narrowed exception to exact published RMVPE hash and scalar positive-infinite num_batches_tracked counters.",
+    "Real measured checkpoint exposed missing FP16-to-FP32 factor in fresh disk reserve; corrected before release with a dedicated regression."
+  ],
+  "limitations": [
+    "Small synthetic audio validates execution and formats, not voice quality.",
+    "Real GAN bitwise reproducibility across CUDA kernels is not asserted; separate small deterministic CUDA checkpoint fixture is bitwise equal.",
+    "No physical AMD/Intel GPU, packaged clean Windows, NVDA/JAWS or long-recording quality claim."
+  ],
+  "temporary_sessions": [
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\training_runs\\Synthetic compatibility test_13538e4b1caa",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\training_runs\\release_verification_4c2bb97ea810"
+  ],
+  "temporary_sessions_cleaned": true,
+  "cleanup_absolute_targets": [
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\training_runs\\fixture_150a6e12",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\training_runs\\fixture_de94341b",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\training_runs\\release_verification_4c2bb97ea810",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\training_runs\\release_verification_df7dcaf593b4",
+    "C:\\Users\\User\\Desktop\\kodlamalar\\cover\\training_runs\\Synthetic compatibility test_13538e4b1caa"
+  ],
+  "fp16_pretrain_storage_followup": {
+    "generator_bytes": 73106273,
+    "discriminator_bytes": 142875703,
+    "real_checkpoint_bytes": 1295040257,
+    "corrected_fresh_reserve_bytes": 3047198566,
+    "covers_two_checkpoint_generations": true,
+    "regression": "FP16 pretrained weights expand to FP32 train weights and two Adam slots, both atomic generations and three exports"
+  }
+}

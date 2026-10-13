@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-13",
+  "tests_per_environment": 224,
+  "total_failures": 0,
+  "total_errors": 0,
+  "environments": [
+    {
+      "python": "3.12",
+      "torch": "2.11.0+cu128",
+      "test_runner_seconds": 19.282,
+      "status": "passed"
+    },
+    {
+      "python": "3.12",
+      "torch": "2.11.0+cpu",
+      "hash_locked_clean_venv": true,
+      "test_runner_seconds": 19.729,
+      "status": "passed"
+    }
+  ],
+  "source_compile": {
+    "date": "2026-10-13",
+    "status": "passed",
+    "python_files": 91,
+    "scope": "Project Python sources; existing vendor and build environments excluded."
+  },
+  "native_model_checks": [
+    "NATIVE_AUDIO_REAL_CHECK.json",
+    "NATIVE_AUDIO_CUDA_0_REAL_CHECK.json"
+  ],
+  "training_checks": [
+    "TRAINING_FIXED_REAL_CHECK.json",
+    "TRAINING_FIXED_CUDA_CHECKPOINT_EXACT.json"
+  ],
+  "exe_executed": false,
+  "note": "Physical AMD/Intel GPU, full model matrix and blind audio/screen-reader validation remain external checks."
+}

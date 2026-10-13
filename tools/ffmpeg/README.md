@@ -2,6 +2,14 @@
 
 Kurulum derlemesi burada `ffmpeg.exe` ve `ffprobe.exe` bekler. Yerel geliştirme ortamında mevcut araçlar bu klasöre kopyalanmıştır; büyük ikili dosyalar Git'e eklenmez.
 
-Yeni bir kaynak klonunda Windows x64 FFmpeg araçlarını bu klasöre yerleştirin. Inno Setup derlemesinde `/DFFmpegDir=...` verilerek farklı bir dizin de seçilebilir. Kurulum tanımı iki aracı EXE'nin yanına kurar; bu klasörün README dosyası setup'a dahil edilmez.
+Kaynak çalıştırmada Windows x64 FFmpeg araçları bu klasörde olabilir. Yayın
+derlemesinde `GHOSTKILLER_FFMPEG_DIR` ile tam bir bundle seçilir: EXE/DLL,
+gerçek SHA-256 `manifest.json`, lisanslar, eşleşen kaynak arşivleri ve build
+reçetesi. PyInstaller bu materyali toplar; Inno Setup bütün EXE ağacını kurar.
+Yalnız iki EXE içeren klasör yayın derlemesinden geçmez.
 
-Kaynak koddan çalıştırırken FFmpeg/FFprobe sistem PATH'inde olmalıdır. `main.py` ayrıca bu klasörü PATH'e ekler. Dağıtımda kullanılan FFmpeg derlemesinin lisans/dağıtım belgeleri, ilgili derlemenin gerektirdiği şekilde pakete eklenmelidir.
+`main.py` bu klasörü PATH'e ekler. Mevcut 8.1.1 full build'in resmi provenance,
+lisansları ve sabit FFmpeg commit kaynağı `tools.release.fetch_ffmpeg_material`
+ile `build/ffmpeg_material` altında doğrulanabilir. Bu full build'in bağlı
+kütüphane kaynakları henüz tamam değildir; yayımlanabilir kabul edilmez.
+Tam akış için [yayın derleme rehberini](../../docs/RELEASE_BUILD.md) okuyun.

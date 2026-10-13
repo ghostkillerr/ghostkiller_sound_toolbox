@@ -1,0 +1,57 @@
+{
+  "xpu_rejected": "Bu uygulama CPU veya CUDA destekler.",
+  "onnx_runtime": {
+    "version": "1.29.0",
+    "providers": [
+      "AzureExecutionProvider",
+      "CPUExecutionProvider"
+    ]
+  },
+  "separator_system_exit": {
+    "exit": 1,
+    "final_status": "Seçilen 0 işlem başarıyla tamamlandı.",
+    "lock_released": true
+  },
+  "stale_registry_lost_update": {
+    "remaining": [
+      "base",
+      "first"
+    ],
+    "lost": "second"
+  },
+  "rounded_segment_step": 0,
+  "separator_invalid_weights_pass_schema": true,
+  "worker_failure_message": "",
+  "rmvpe_forward_frame_counts": [
+    32000,
+    1024
+  ],
+  "separator_output_component_length": 274,
+  "cover_output_component_length": 245,
+  "inner_product_index_accepted_with_l2_weighting": {
+    "scores": [
+      [
+        10.0,
+        1.0
+      ]
+    ],
+    "retrieved": [
+      [
+        [
+          1.089108943939209,
+          0.9900990128517151
+        ]
+      ]
+    ]
+  },
+  "single_batch_epoch_checkpoint_times": [
+    {
+      "step": 0,
+      "virtual_seconds": 0.0
+    },
+    {
+      "step": 10,
+      "virtual_seconds": 610.0
+    }
+  ]
+}

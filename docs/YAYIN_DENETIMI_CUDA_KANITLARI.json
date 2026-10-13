@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-13",
+  "cpu": "AMD Ryzen 5 7500F 6-Core Processor",
+  "device": "NVIDIA GeForce RTX 5060 Ti",
+  "profile": {
+    "sample_rate": 40000,
+    "precision": "fp32",
+    "batch": 1,
+    "cpu_threads": 2,
+    "epochs": 2,
+    "source_seconds": [
+      6,
+      6
+    ]
+  },
+  "steps": 12,
+  "index_vectors": 354,
+  "all_cover_checks_passed": true,
+  "cover_count": 4,
+  "cancelled_event": true,
+  "completed_event": true,
+  "peak_sampled_worker_ram_mib": 2606.27734375,
+  "peak_cuda_allocated_mib": 10166.93212890625,
+  "events_elapsed_seconds": 161.525,
+  "resume_checkpoint_mib": 1235.054,
+  "note": "Synthetic compatibility test, not voice quality or universal minimum requirements."
+}

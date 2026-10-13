@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-13",
+  "action": "offline_verify",
+  "seconds": 30.578,
+  "failures": {},
+  "status": {
+    "contentvec": "Hazır",
+    "rmvpe": "Hazır",
+    "training_v2_40k": "Hazır",
+    "model_bs_roformer_ep_317_sdr_12.9755.ckpt": "Hazır",
+    "UVR-DeEcho-DeReverb.pth": "Hazır"
+  },
+  "weight_bytes_unchanged": true,
+  "changed_file": "models/.integrity.json derived cache only"
+}

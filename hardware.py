@@ -4,6 +4,8 @@ import os
 import platform
 import subprocess
 import json
+import re
+from compute_backend import backend_module, clear_cache, synchronize, is_gpu_device
 
 
 @dataclass(frozen=True)
@@ -47,12 +49,48 @@ class HardwareReport:
             lines.append("Windows'un gördüğü kartlar: " + ", ".join(self.detected_cards))
         lines.extend([
             f"Çalışma ortamı: {self.runtime}",
-            "NVIDIA: CUDA; AMD: uyumlu ROCm/PyTorch kurulumu ve başarılı hesaplama testi gerekir.",
+            "NVIDIA: CUDA. AMD ROCm: işletim sistemi ve resmi destek matrisi ayrıca kontrol edilmelidir.",
+            "Intel Arc ve uyumlu Core Ultra: ayrı native PyTorch XPU paketi gerekir. Eski Intel iGPU'lar bu destekten otomatik yararlanmaz.",
+            "Windows ROCm eğitiminde runtime sürümü ve gerçek backward testi kontrol edilir. Forward testi bütün modellerin eğitim desteğini garanti etmez.",
             "Bu programın RVC ve RoFormer zinciri için DirectML etkinleştirilmez.",
             "CPU ve GPU aynı model dosyalarını kullanır. Sürücüler bu ekrandan kurulmaz.",
             "Hesaplama testi, tüm modellerin belleğe sığacağını garanti etmez.",
         ])
         return "\n".join(lines)
+
+
+def ensure_training_backend(device):
+    import torch
+    if backend_module(device) is None:
+        return
+    if os.name == "nt" and str(device).startswith("cuda") and torch.version.hip:
+        def version(value):
+            return tuple(int(x) for x in re.findall(r"\d+", str(value).split("+")[0])[:3])
+        if version(torch.__version__) < (2,12) or version(torch.version.hip) < (7,14):
+            raise RuntimeError("Bu eski Windows ROCm/PyTorch sürümünde resmi eğitim desteği doğrulanmamış. Native ROCm 7.14+ / PyTorch 2.12+ paketini kullanın veya Ayarlar'dan İşlemci seçin.")
+    probe_training_operations(device)
+
+
+def probe_training_operations(device):
+    """Exercise FP32 backward kernels; not a full model compatibility guarantee."""
+    import torch
+    import torch.nn.functional as F
+    devices = [torch.device(device).index or 0] if is_gpu_device(device) else []
+    kind = str(device).split(":")[0] if is_gpu_device(device) else "cuda"
+    with torch.enable_grad(), torch.random.fork_rng(devices=devices,device_type=kind):
+        data = torch.linspace(-1,1,1024,device=device).reshape(1,1,-1).requires_grad_()
+        weight = torch.ones(2,1,5,device=device,requires_grad=True)
+        conv = F.conv1d(data,weight)
+        recurrent = torch.nn.LSTM(2,4,batch_first=True).to(device)
+        sequence,_ = recurrent(conv[:,:,:16].transpose(1,2))
+        spectrum = torch.stft(data.flatten(),128,32,window=torch.hann_window(128,device=device),return_complex=True)
+        attention = F.scaled_dot_product_attention(conv[:,:,:32],conv[:,:,:32],conv[:,:,:32])
+        loss = sequence.square().mean()+spectrum.abs().square().mean()+attention.square().mean()
+        loss.backward()
+        gradients = [data.grad,weight.grad]+[p.grad for p in recurrent.parameters()]
+        if not torch.isfinite(loss).item() or any(g is None or not torch.isfinite(g).all().item() for g in gradients):
+            raise RuntimeError("Seçilen GPU geçerli FP32 backward sonucu üretmedi; eğitim başlatılmadı.")
+    synchronize(device)
 
 
 def windows_cards():
@@ -95,8 +133,7 @@ def probe_operations(device):
         for output in (spectrum.abs(), attention, sequence):
             if not torch.isfinite(output).all().item():
                 raise RuntimeError("Hesaplama testi geçersiz değer üretti.")
-    if str(device).startswith("cuda"):
-        torch.cuda.synchronize(device)
+    synchronize(device)
 
 
 def detect_hardware():
@@ -108,26 +145,31 @@ def detect_hardware():
         cpu = DeviceSupport("cpu", cpu_name(), False, f"İşlemci testi başarısız: {error}")
     backend = "ROCm" if torch.version.hip else "CUDA"
     report = HardwareReport(cpu, detected_cards=windows_cards(), runtime=f"PyTorch {torch.__version__}")
-    try:
-        count = torch.cuda.device_count() if torch.cuda.is_available() else 0
-        for index in range(count):
-            device = f"cuda:{index}"
-            name, memory = device, 0
-            try:
-                name = torch.cuda.get_device_name(index)
-                memory = torch.cuda.get_device_properties(index).total_memory / 1024 ** 3
-                probe_operations(device)
-                report.gpus.append(DeviceSupport(device, name, True, memory_gb=memory, backend=backend))
-            except Exception as error:
-                report.gpus.append(DeviceSupport(device, name, False, f"GPU testi başarısız: {error}", memory, backend))
-            finally:
-                with torch.cuda.device(index):
-                    torch.cuda.empty_cache()
-        if not count:
-            report.gpus.append(DeviceSupport("cuda:0", ", ".join(report.detected_cards) or "GPU", False,
-                                            "Kurulu PyTorch ve sürücüyle GPU kullanılamıyor.", backend=backend))
-    except Exception as error:
-        report.gpus.append(DeviceSupport("cuda:0", "GPU", False, f"GPU sorgusu başarısız: {error}", backend=backend))
+    for kind, api, label in (("cuda",torch.cuda,backend),("xpu",getattr(torch,"xpu",None),"Intel XPU")):
+        if api is None:
+            continue
+        try:
+            count = api.device_count() if api.is_available() else 0
+            for index in range(count):
+                device = f"{kind}:{index}"
+                name, memory = device, 0
+                try:
+                    name = api.get_device_name(index)
+                    memory = api.get_device_properties(index).total_memory / 1024**3
+                    probe_operations(device)
+                    report.gpus.append(DeviceSupport(device,name,True,memory_gb=memory,backend=label))
+                except Exception as error:
+                    report.gpus.append(DeviceSupport(device,name,False,f"GPU testi başarısız: {error}",memory,label))
+                finally:
+                    try:
+                        clear_cache(device)
+                    except Exception:
+                        pass
+        except Exception as error:
+            report.gpus.append(DeviceSupport(f"{kind}:0","GPU",False,f"GPU sorgusu başarısız: {error}",backend=label))
+    if not report.gpus:
+        report.gpus.append(DeviceSupport("cuda:0",", ".join(report.detected_cards) or "GPU",False,
+                                        "Kurulu PyTorch paketi ve sürücüyle GPU kullanılamıyor. Cihazınıza uygun CPU/CUDA/ROCm/XPU dağıtımını kullanın.",backend=backend))
     return report
 
 
@@ -135,6 +177,13 @@ def configure_runtime(device):
     """Avoid CPU thread oversubscription and retain FP32 model compatibility."""
     import torch
     # GPU jobs also perform preprocessing and retrieval on the host CPU.
-    torch.set_num_threads(max(1, min(8, (os.cpu_count() or 2) // 2)))
-    if str(device).startswith("cuda"):
-        torch.cuda.set_device(device)
+    threads = max(1,min(8,(os.cpu_count() or 2)//2))
+    torch.set_num_threads(threads)
+    try:
+        import faiss
+        faiss.omp_set_num_threads(threads)
+    except ImportError:
+        pass
+    api = backend_module(device)
+    if api is not None:
+        api.set_device(device)

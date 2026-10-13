@@ -38,12 +38,12 @@ class Response(io.BytesIO):
 class SettingsTests(unittest.TestCase):
     def test_uvr_band_stages_accept_real_layout_and_reject_missing_groups(self):
         from model_manager import validate_weight_schema
-        groups = ('stg1_low_band_net', 'stg1_high_band_net', 'stg2_low_band_net',
-                  'stg2_high_band_net', 'stg3_full_band_net', 'out', 'aux_out')
-        weights = {group + '.weight': torch.ones(1) for group in groups}
+        from audio_separator.separator.uvr_lib_v5.vr_network.nets_new import CascadedNet
+        with torch.device('meta'):
+            weights = CascadedNet(1344,218409,nout=64,nout_lstm=128).state_dict()
         for relative in ('UVR-DeNoise.pth', 'UVR-DeEcho-DeReverb.pth'):
             validate_weight_schema(weights, relative)
-            for key in weights:
+            for key in ('out.weight','aux_out.weight','stg3_full_band_net.lstm_dec2.dense.0.weight',next(iter(weights))):
                 with self.subTest(relative=relative, missing=key), self.assertRaises(ValueError):
                     validate_weight_schema({name: tensor for name, tensor in weights.items() if name != key}, relative)
 
@@ -59,11 +59,11 @@ class SettingsTests(unittest.TestCase):
             with patch.dict(sys.modules, {'separator_backend': None}), tempfile.TemporaryDirectory(dir=ROOT) as folder:
                 spec.loader.exec_module(module)
                 self.assertIsNone(module.Separator)
-                self.assertEqual(len(model_catalog()), 7)
+                self.assertEqual(len(model_catalog()), 10)
                 settings = AppSettings(str(Path(folder) / 'settings.json'), ModelManager(folder))
                 panel = module.SeparatorPanel(frame, settings)
                 maintenance = SettingsPanel(frame, settings, auto_detect=False)
-                self.assertEqual(len(maintenance.model_list.buttons), 7)
+                self.assertEqual(len(maintenance.model_list.buttons), 10)
                 with patch.object(panel, 'LogMessage') as log:
                     self.assertFalse(panel.RunSeparatorCommand('unused', 'unused', 'test', folder))
                     self.assertIn('audio-separator', log.call_args.args[0])
@@ -182,6 +182,7 @@ class SettingsTests(unittest.TestCase):
             self.assertTrue(settings.error)
             self.assertTrue(manager.warning)
 
+    @patch('model_manager.PUBLISHED_ASSET_HASHES', new={})
     @patch('model_manager.validate_weight_schema', new=lambda *args: None)
     def test_model_install_verify_corruption_and_repair_are_offline_except_download(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder:
@@ -207,6 +208,7 @@ class SettingsTests(unittest.TestCase):
             self.assertEqual(file_digest(path), original)
             self.assertEqual(ModelManager(folder).status('rmvpe'), 'Hazır')
 
+    @patch('model_manager.PUBLISHED_ASSET_HASHES', new={})
     @patch('model_manager.validate_weight_schema', new=lambda *args: None)
     def test_changed_weight_with_preserved_file_stat_is_detected_by_sha256(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder:
@@ -221,6 +223,7 @@ class SettingsTests(unittest.TestCase):
             failures = manager.process(['rmvpe'], 'verify')
             self.assertIn('SHA-256', failures['rmvpe'])
 
+    @patch('model_manager.PUBLISHED_ASSET_HASHES', new={})
     @patch('model_manager.validate_weight_schema', new=lambda *args: None)
     def test_repair_invalid_download_preserves_existing_file(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder:
@@ -234,6 +237,7 @@ class SettingsTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), b'old broken model')
             self.assertEqual(list(path.parent.glob('*.part')), [])
 
+    @patch('model_manager.PUBLISHED_ASSET_HASHES', new={})
     @patch('model_manager.validate_weight_schema', new=lambda *args: None)
     def test_repair_different_valid_weight_cannot_replace_known_model(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder:
@@ -322,7 +326,7 @@ class SettingsTests(unittest.TestCase):
                 settings = AppSettings(str(Path(folder) / 'settings.json'), ModelManager(folder))
                 panel = SettingsPanel(frame, settings, auto_detect=False)
                 self.assertEqual(panel.device_choice.GetCount(), 2)
-                self.assertEqual(len(panel.model_list.GetCheckedModels()), 7)
+                self.assertEqual(len(panel.model_list.GetCheckedModels()), 10)
                 first = panel.model_list.buttons[0]
                 self.assertIsInstance(first, wx.ToggleButton)
                 self.assertIn('[AÇIK]', first.GetLabel())
@@ -412,11 +416,12 @@ class SettingsTests(unittest.TestCase):
         with patch.object(wx, 'CallAfter'), patch.object(ui_cover, 'load_models', return_value={}):
             frame = main.GhostkillerMainFrame()
             try:
-                self.assertEqual(frame.notebook.GetPageCount(), 3)
+                self.assertEqual(frame.notebook.GetPageCount(), 4)
                 self.assertIs(frame.separator_tab.settings, frame.cover_tab.settings)
                 self.assertIs(frame.settings_tab.settings, frame.settings)
+                self.assertIs(frame.training_tab.settings, frame.settings)
                 frame.OpenSettings()
-                self.assertEqual(frame.notebook.GetSelection(), 2)
+                self.assertEqual(frame.notebook.GetSelection(), 3)
             finally:
                 frame.Destroy()
         app.ProcessPendingEvents()

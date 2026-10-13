@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "frozen": false,
+  "pid": 24932,
+  "python": "3.12.0 (tags/v3.12.0:0fb18b0, Oct  2 2023, 13:03:39) [MSC v.1935 64 bit (AMD64)]",
+  "scope": "Local host native smoke; not a clean Windows VM or AMD/Intel GPU validation.",
+  "build": {
+    "purpose": "source"
+  },
+  "torch": "2.11.0+cpu",
+  "cpu_forward_backward": true,
+  "onnx_cpu_session": true,
+  "wx": "4.2.5 msw (phoenix) wxWidgets 3.2.9",
+  "hidden_native_controls": true,
+  "ffmpeg_flac_roundtrip_unicode": true,
+  "audio_worker": {
+    "pid": 9208,
+    "device": "cpu",
+    "helper_cache_entries": 0
+  },
+  "training_worker": {
+    "ok": true,
+    "pid": 21876,
+    "device": "cpu",
+    "torch_version": "2.11.0+cpu",
+    "torch": "2.11.0+cpu",
+    "forward_backward": true
+  },
+  "seconds": 34.312
+}

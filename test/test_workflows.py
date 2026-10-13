@@ -16,6 +16,14 @@ import app_runtime
 import numpy as np
 import soundfile as sf
 
+UPDATE_TEST_URL = 'https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller_V2_Setup_cpu.exe'
+
+
+def update_manifest(payload=b'MZtest'):
+    import hashlib
+    return {'version': '2.1.0', 'backend': 'cpu', 'download_url': UPDATE_TEST_URL,
+            'sha256': hashlib.sha256(payload).hexdigest()}
+
 
 class Harness:
     def __init__(self, root):
@@ -269,6 +277,7 @@ class Workflows(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
             response = io.BytesIO(b'MZ' + b'x' * 30000)
             response.headers = {}
+            response.geturl = lambda: UPDATE_TEST_URL
             # BytesIO closes on context exit; record the amount consumed before closing.
             positions = []
             real_read = response.read
@@ -278,7 +287,7 @@ class Workflows(unittest.TestCase):
                 return result
             response.read = read
             with patch.object(updater.tempfile, 'mkdtemp', return_value=folder), patch.object(updater.wx, 'ProgressDialog', return_value=Progress()), patch.object(updater.threading, 'Thread', Thread), patch.object(updater.urllib.request, 'urlopen', return_value=response), patch.object(updater, '_launch_setup_and_exit') as launch:
-                updater._download_and_run_installer(Harness(Path(folder)), 'https://example.test/setup.exe')
+                updater._download_and_run_installer(Harness(Path(folder)), update_manifest(b'MZ' + b'x' * 30000), backend='cpu')
             launch.assert_not_called()
             self.assertEqual(positions, [8192])
             self.assertFalse(JOB_LOCK.locked())
@@ -352,20 +361,13 @@ class Workflows(unittest.TestCase):
             self.assertEqual(app_runtime.model_directory(), str(Path(folder) / 'models'))
             self.assertEqual(app_runtime.resource_directory(), str(Path(folder) / '_internal'))
 
-    def test_legacy_rmvpe_download_api_targets_install_models_predictors(self):
-        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
-            root = Path(folder)
-            legacy_embedder = root / 'rvc' / 'models' / 'embedders' / 'contentvec'
-            legacy_embedder.mkdir(parents=True)
-            (legacy_embedder / 'config.json').touch()
-            (legacy_embedder / 'pytorch_model.bin').touch()
-            def download(url, target, **kwargs):
-                Path(target).write_bytes(b'weights')
-            with patch.object(ui_cover, 'download_model', side_effect=download) as fetch, patch.object(ui_cover.os.path, 'expanduser', return_value=folder):
-                ui_cover.ensure_rvc_prerequisites(folder, allow_download=True)
-            self.assertEqual(fetch.call_args.args[1], str(root / 'models' / 'predictors' / 'rmvpe.pt'))
-            self.assertTrue((root / 'models' / 'predictors' / 'rmvpe.pt').exists())
-            self.assertFalse((root / 'models' / 'embedders' / 'contentvec' / 'config.json').exists())
+    def test_legacy_download_api_delegates_to_pinned_model_manager(self):
+        with patch('model_manager.ModelManager') as manager:
+            manager.return_value.process.return_value = {}
+            ui_cover.ensure_rvc_prerequisites('application', allow_download=True)
+            manager.assert_called_once_with('application')
+            manager.return_value.process.assert_called_once_with(
+                ['contentvec','rmvpe'], 'install', cancelled=None, log=None)
 
     def test_crash_log_write_error_does_not_hide_error_dialog(self):
         import main
@@ -381,7 +383,7 @@ class Workflows(unittest.TestCase):
             def Destroy(self): pass
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder, patch.object(updater.tempfile, 'mkdtemp', return_value=folder), patch.object(updater.wx, 'ProgressDialog', return_value=Progress()), patch.object(updater.threading, 'Thread', side_effect=RuntimeError('thread unavailable')), patch.object(updater.wx, 'MessageBox') as message:
             parent = Harness(Path(folder))
-            updater._download_and_run_installer(parent, 'https://example.test/setup.exe')
+            updater._download_and_run_installer(parent, update_manifest(), backend='cpu')
             self.assertFalse(JOB_LOCK.locked())
             self.assertFalse(Path(folder).exists())
             self.assertIn('thread unavailable', message.call_args.args[0])
@@ -571,8 +573,9 @@ class Workflows(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
             response = io.BytesIO(b'MZ' + b'x' * 100)
             response.headers = {'Content-Length': '102'}
+            response.geturl = lambda: UPDATE_TEST_URL
             with patch.object(updater.tempfile, 'mkdtemp', return_value=folder), patch.object(updater.wx, 'ProgressDialog', return_value=Progress()), patch.object(updater.wx, 'CallAfter', side_effect=lambda fn, *args: fn(*args)), patch.object(updater.threading, 'Thread', Thread), patch.object(updater.urllib.request, 'urlopen', return_value=response), patch.object(updater, '_launch_setup_and_exit') as launch:
-                updater._download_and_run_installer(Parent(), 'https://example.test/setup.exe')
+                updater._download_and_run_installer(Parent(), update_manifest(b'MZ' + b'x' * 100), backend='cpu')
             launch.assert_not_called()
 
 

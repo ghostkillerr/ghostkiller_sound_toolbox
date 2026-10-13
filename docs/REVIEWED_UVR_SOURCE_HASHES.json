@@ -1,0 +1,16 @@
+[
+  {
+    "name": "UVR-DeEcho-DeReverb.pth",
+    "url": "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/UVR-DeEcho-DeReverb.pth",
+    "sha256": "e644028ec82865dc0fe082bc6fea85a43f7c71cfe375caee2da2d154aa661ee7",
+    "size": 223650277,
+    "hash_provenance": "Observed official HTTPS asset; GitHub digest is unavailable."
+  },
+  {
+    "name": "UVR-DeNoise.pth",
+    "url": "https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/UVR-DeNoise.pth",
+    "sha256": "5addf43ece5bddd18da9f575a02d7ffdb32342414e6ad7ac8d1dd7a04138a628",
+    "size": 127139365,
+    "hash_provenance": "Observed official HTTPS asset; GitHub digest is unavailable."
+  }
+]

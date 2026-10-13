@@ -1,0 +1,72 @@
+[
+  {
+    "device": "cpu",
+    "8": {
+      "frames": 801,
+      "forward_frames": [
+        832
+      ],
+      "old_seconds": 0.5779999999995198,
+      "new_seconds": 0.4680000000007567,
+      "old_peak_bytes": null,
+      "new_peak_bytes": null,
+      "maximum_f0_hz_difference": 0.0,
+      "voicing_disagreement_frames": 0,
+      "median_cents_difference": 0.0,
+      "p95_cents_difference": 0.0,
+      "boundary_p95_cents_difference": null
+    },
+    "45": {
+      "frames": 4501,
+      "forward_frames": [
+        1792,
+        2048,
+        1696
+      ],
+      "old_seconds": 2.9059999999990396,
+      "new_seconds": 3.4530000000013388,
+      "old_peak_bytes": null,
+      "new_peak_bytes": null,
+      "maximum_f0_hz_difference": 0.0614782593673624,
+      "voicing_disagreement_frames": 0,
+      "median_cents_difference": 0.006329411597539887,
+      "p95_cents_difference": 0.031027900336531588,
+      "boundary_p95_cents_difference": 0.070907432436597
+    }
+  },
+  {
+    "device": "cuda:0",
+    "8": {
+      "frames": 801,
+      "forward_frames": [
+        832
+      ],
+      "old_seconds": 15.218000000000757,
+      "new_seconds": 0.046999999998661224,
+      "old_peak_bytes": 433512960,
+      "new_peak_bytes": 434971648,
+      "maximum_f0_hz_difference": 0.0006619763423145741,
+      "voicing_disagreement_frames": 0,
+      "median_cents_difference": 9.863500523752018e-05,
+      "p95_cents_difference": 0.0008593202118804982,
+      "boundary_p95_cents_difference": null
+    },
+    "45": {
+      "frames": 4501,
+      "forward_frames": [
+        1792,
+        2048,
+        1696
+      ],
+      "old_seconds": 0.2970000000004802,
+      "new_seconds": 0.39099999999962165,
+      "old_peak_bytes": 696004096,
+      "new_peak_bytes": 520756224,
+      "maximum_f0_hz_difference": 0.061372394508055095,
+      "voicing_disagreement_frames": 0,
+      "median_cents_difference": 0.006889741108104205,
+      "p95_cents_difference": 0.03185676332128895,
+      "boundary_p95_cents_difference": 0.0718273543720105
+    }
+  }
+]

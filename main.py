@@ -9,17 +9,50 @@ Bu modül, uygulamanın giriş noktası (entry point) olup şu görevleri üstle
 3. wx.Notebook kullanılarak arayüzün erişilebilir sekmelere bölünmesi:
    - "Ses Ayrıştırma" -> ui_separator.SeparatorPanel
    - "AI Cover"       -> ui_cover.CoverPanel
+   - "Model Eğitimi"  -> ui_training.TrainingPanel
    - "Ayarlar"        -> ui_settings.SettingsPanel
 4. Ekran okuyucuların (NVDA / JAWS) rahatça gezebileceği standart sekmeli arayüz.
 """
 
-import wx
 import os
 import sys
-import traceback
-from app_runtime import JOB_LOCK, resource_directory, data_directory, post_ui, configure_runtime_cache
+from app_runtime import (JOB_LOCK, resource_directory, data_directory, post_ui,
+                         configure_runtime_cache, configure_thread_environment)
+
+os.environ["PYTHONIOENCODING"] = "utf-8"
+
+if __name__ == '__main__':
+    import multiprocessing
+    multiprocessing.freeze_support()
+    from startup_diagnostics import install
+    worker_flag = next((flag for flag in ('--audio-worker','--training-worker') if flag in sys.argv),None)
+    diagnostic_directory = None
+    if worker_flag and len(sys.argv)>sys.argv.index(worker_flag)+1:
+        worker_args = sys.argv[sys.argv.index(worker_flag)+1:]
+        if worker_args[0]=='--probe' and len(worker_args)>1:
+            diagnostic_directory = os.path.dirname(os.path.abspath(worker_args[1]))
+        elif worker_args[0]!='--probe':
+            diagnostic_directory = worker_args[0]
+    install(quiet='--self-test' in sys.argv or worker_flag is not None,
+            directory=diagnostic_directory,worker=worker_flag is not None)
 
 configure_runtime_cache()
+configure_thread_environment()
+
+if __name__ == '__main__' and '--self-test' in sys.argv:
+    from release_self_test import main as self_test_main
+    sys.exit(self_test_main(sys.argv[sys.argv.index('--self-test') + 1:]))
+
+if __name__ == '__main__' and '--training-worker' in sys.argv:
+    from training.worker import main as training_main
+    sys.exit(training_main(sys.argv[sys.argv.index('--training-worker') + 1:]))
+
+if __name__ == '__main__' and '--audio-worker' in sys.argv:
+    from audio_worker import main as audio_main
+    sys.exit(audio_main(sys.argv[sys.argv.index('--audio-worker') + 1:]))
+
+import wx
+import traceback
 
 # .exe (PyInstaller) ve farklı Windows ortamları için kodlama, PATH ve kaynak dizini korumaları
 os.environ["PYTHONIOENCODING"] = "utf-8"
@@ -107,6 +140,7 @@ class GhostkillerMainFrame(wx.Frame):
         """Arayüz bileşenlerini, Karanlık Modu ve wx.Notebook sekmelerini oluşturur."""
         from ui_separator import SeparatorPanel
         from ui_cover import CoverPanel
+        from ui_training import TrainingPanel
         from ui_settings import SettingsPanel
         from app_settings import AppSettings
         self.settings = AppSettings()
@@ -120,7 +154,7 @@ class GhostkillerMainFrame(wx.Frame):
 
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        # A11y: Standart wx.Notebook bileşeni ekran okuyucular (NVDA/JAWS) ile tam uyumludur.
+        # Native notebook controls expose roles/names; live NVDA/JAWS validation is separate.
         # Kullanıcılar Ctrl+Tab veya Ok tuşları ile sekmeler arasında kolayca dolaşabilir.
         self.notebook = wx.Notebook(panel, style=wx.NB_TOP)
         self.notebook.SetBackgroundColour(self.bg_main)
@@ -135,9 +169,12 @@ class GhostkillerMainFrame(wx.Frame):
 
         # 2. SEKME: AI Cover Paneli
         self.cover_tab = CoverPanel(self.notebook, settings=self.settings)
+        self.settings.refresh_cover = self.RefreshCoverModels
         self.notebook.AddPage(self.cover_tab, "2. Ses Değiştirme (AI Cover)")
+        self.training_tab = TrainingPanel(self.notebook, self.settings)
+        self.notebook.AddPage(self.training_tab, "3. Model Eğitimi")
         self.settings_tab = SettingsPanel(self.notebook, self.settings)
-        self.notebook.AddPage(self.settings_tab, "3. Ayarlar")
+        self.notebook.AddPage(self.settings_tab, "4. Ayarlar")
 
         vbox.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 5)
         panel.SetSizer(vbox)
@@ -147,8 +184,13 @@ class GhostkillerMainFrame(wx.Frame):
         self.notebook.SetFocus()
 
     def OpenSettings(self):
-        self.notebook.SetSelection(2)
+        self.notebook.SetSelection(self.notebook.FindPage(self.settings_tab))
         self.settings_tab.device_choice.SetFocus()
+
+    def RefreshCoverModels(self):
+        from ui_cover import load_models, get_app_dir
+        self.cover_tab.models = load_models(get_app_dir())
+        self.cover_tab.UpdateModelCheckList()
 
 
 def global_exception_handler(exc_type, exc_value, exc_tb):
@@ -160,9 +202,11 @@ def global_exception_handler(exc_type, exc_value, exc_tb):
     error_msg = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
     try:
         log_path = os.path.join(data_directory(), "Ghostkiller_CrashLog.txt")
+        if os.path.isfile(log_path) and os.path.getsize(log_path) > 2*1024**2:
+            os.replace(log_path,os.path.join(data_directory(),'Ghostkiller_CrashLog.previous.txt'))
 
         with open(log_path, "a", encoding="utf-8") as f:
-            f.write("--- GHOSTKILLER SOUND CLEANER V2 ÇÖKME RAPORU ---\n")
+            f.write("--- GHOSTKILLER SOUND TOOLBOX ÇÖKME RAPORU ---\n")
             f.write(error_msg + "\n\n")
 
         details = f"Hata günlüğü: {log_path}"
@@ -179,6 +223,14 @@ def global_exception_handler(exc_type, exc_value, exc_tb):
 if __name__ == '__main__':
     sys.excepthook = global_exception_handler
     app = wx.App(False)
-    frame = GhostkillerMainFrame()
-    frame.Show(True)
-    app.MainLoop()
+    from startup_diagnostics import SingleInstance
+    instance = SingleInstance(data_directory())
+    try:
+        if instance.existing:
+            wx.MessageBox("Program bu kullanıcı oturumunda zaten açık. Mevcut pencereyi kullanın.","Ghostkiller Sound Toolbox",wx.OK|wx.ICON_INFORMATION)
+        else:
+            frame = GhostkillerMainFrame()
+            frame.Show(True)
+            app.MainLoop()
+    finally:
+        instance.close()

@@ -13,6 +13,12 @@ modeller/
 models/
 /models.json
 /settings.json
+/models.json.lock
+/settings.json.lock
+/cache/
+/training_runs/
+/trained_models/
+/deneme/
 *.pth
 *.ckpt
 *.index

@@ -1,18 +1,40 @@
 # Ghostkiller Sound Toolbox — Proje ve ajan rehberi
 
-Bu belge projeyi devralan bir yapay zekâ ajanının uygulamanın amacını, çalışan akışlarını, dosya sorumluluklarını ve erişilebilirlik gereksinimlerini tek okumada anlaması için hazırlanmıştır. İlk inceleme: 8 Ekim 2026; düzeltme güncellemesi: 11 Ekim 2026. Kod ve mantık regresyonları otomatik testlerle kontrol edilir. İlk wxPython panel oluşturma kontrolü geçmiştir; gerçek ekran okuyucu, uçtan uca ses kalitesi ve paketli EXE testleri ayrı doğrulama gerektirir. Güncel düzeltme ayrıntıları `docs/HATA_DUZELTME_RAPORU.md` dosyasındadır.
+13 Ekim 2026 deney kararı: kullanıcı RVC sonucunu seçti. Seed-VC deney ortamı,
+ağırlıkları ve geçici karşılaştırma/eğitim çıktıları kaldırıldı. Seçilen RVC son
+modeli, doğrulama modeli ve index `models/voices/Deneme_RVC_200/` altında korunur;
+son model AI Cover listesinde `Deneme RVC (200 Epoch)` adıyla kayıtlıdır.
+Özgün sesler ve son RVC cover'ları Git dışında `deneme/` altında tutulur.
+Uygulamanın `training/` altyapısı ve gerekli yardımcı modeller korunmuştur.
+
+Eğitim sekmesinde kayıt analizi, kayıtlı oturumu açma ve süre tahmini bulunur.
+`training/analysis.py` özgün sesleri değiştirmeden akış halinde ölçer;
+rapor eğitim başlamadan önce de üretilir. Devam kaydı yaklaşık beş dakikada
+bir tam optimizasyon adımı sonrasında alınır. Yeni AI Cover kayıtları kalıcı
+`trained_models/` kopyalarına bağlanır; deney oturumunun temizliğine bağımlı
+değildir. Ayrıntılar `docs/MODEL_EGITIMI.md` içindedir.
+
+Araştırma raporu sonrası grup bazlı veri ayrımı, sınırlı bellekli F0 kapsam
+raporu, index kapalı/açık uyumluluk sesleri ve Windows ROCm eğitim kontrolü
+eklendi. Hangi önerilerin uygulanıp hangilerinin beklediği
+`docs/RAPOR_UYGULAMA.md` içinde açıkça belirtilmiştir. 40 kHz doğrulanmış
+profil ve tam aramalı FlatL2 index korunur; mel hatası otomatik kalite seçimi
+olarak kullanılmaz.
+
+Bu belge projeyi devralan bir yapay zekâ ajanının uygulamanın amacını, çalışan akışlarını, dosya sorumluluklarını ve erişilebilirlik gereksinimlerini tek okumada anlaması için hazırlanmıştır. İlk inceleme: 8 Ekim 2026; son güncelleme: 13 Ekim 2026. Güncel düzeltme/test/ikinci inceleme özeti `docs/YAYIN_DUZELTMELERI_VE_IKINCI_ANALIZ.md` içindedir. Tarihsel 110 testlik sonuç geliştirme öncesine aittir. wxPython panel kontrolleri ve gerçek CPU eğitim/durdur/devam/cover hattı doğrulanmıştır; gerçek NVDA/JAWS ve fiziksel AMD/Intel GPU doğrulaması ayrıca gerekir. Kullanıcının son yönlendirmesiyle EXE üretimi/çalıştırması geliştirme kapsamından çıkarılmıştır. Kullanıcı gerçek ses karşılaştırmasında RVC'yi seçmiştir; bu tercih bütün sesler için genel kalite üstünlüğü iddiası değildir. Hata düzeltmeleri `docs/HATA_DUZELTME_RAPORU.md`, araştırma sonrası kararlar `docs/RAPOR_UYGULAMA.md` içindedir.
 
 ## 1. Projenin amacı ve çalışma sınırları
 
-Ghostkiller Sound Toolbox, Windows için geliştirilmiş, Türkçe arayüzlü ve ekran okuyucularla kullanımı hedefleyen bir Python/wxPython masaüstü ses işleme uygulamasıdır. Geliştirici: Yasin Talha Gençsoy. Kullanıcı üç sekmeden işlem yapar:
+Ghostkiller Sound Toolbox, Windows için geliştirilmiş, Türkçe arayüzlü ve ekran okuyucularla kullanımı hedefleyen bir Python/wxPython masaüstü ses işleme uygulamasıdır. Geliştirici: Yasin Talha Gençsoy. Arayüz dört sekmeden oluşur:
 
 1. **Müzik ve Ses Temizleme:** Müziği ve vokali ayırma, arka vokalleri, yankıyı ve gürültüyü temizleme.
 2. **Ses Değiştirme (AI Cover):** Bir ses dosyasını seçilen RVC ses modelleriyle sırayla dönüştürme.
-3. **Ayarlar:** Ortak CPU/GPU tercihi, gerçek donanım testi, yedi temel model/paketin indirilmesi, dosya kontrolü ve onarımı.
+3. **Model Eğitimi:** Tek kişilik RVC V2 / ContentVec / F0 / HiFi-GAN eğitimi, değerlendirme, iptal/devam, test sesi ve AI Cover'a kayıt. Donanım ve yardımcı model yönetimi Ayarlar'da kalır.
+4. **Ayarlar:** Ortak CPU/GPU tercihi, gerçek donanım testi, yedi temel paket ve üç eğitim G/D paketinin indirilmesi, dosya kontrolü ve onarımı.
 
-Ses işleme yerel donanımda yapılır. Eksik modellerin indirilmesi ve güncelleme kontrolü internet kullanabilir. Aktif masaüstü akışında ses dosyalarını bir sunucuya yükleyen bir adım bulunmaz. Model eğitimi, canlı mikrofon dönüşümü, TTS ve dönüştürülmüş vokali müzikle otomatik birleştirme bu iki sekmenin sunduğu özellikler değildir. Kullanılmayan eğitim, realtime, TTS ve analiz altyapısı kaynak ağacından kaldırılmıştır.
+Ses işleme ve model eğitimi yerel donanımda yapılır. Eksik modellerin indirilmesi ve güncelleme kontrolü internet kullanabilir. Ses dosyalarını bir sunucuya yükleyen bir adım bulunmaz. Canlı mikrofon dönüşümü, TTS ve vokali müzikle otomatik birleştirme mevcut özellikler değildir. Eski kullanılmayan eğitim altyapısı kaldırılmış; yeni izole eğitim hattı training/ içinde kurulmuştur. Kullanım ve kaynak sınırları docs/MODEL_EGITIMI.md içindedir.
 
-Ürün adı arayüzde Sound Toolbox olsa da kaynak yorumları, EXE, kurulum, lisans ve sürüm metadatasında Sound Cleaner/V2 adları da vardır. `updater.CURRENT_VERSION` ve `version.json` şu anda `2.0.0` değerini kullanır.
+Ürün metinleri Sound Toolbox adını kullanır; eski dosya/EXE kimlikleri geçiş uyumluluğu için korunur. `updater.CURRENT_VERSION` ve `version.json` şu anda `2.0.0` değerini kullanır.
 
 ## 2. Dosya haritası
 
@@ -20,12 +42,20 @@ Ses işleme yerel donanımda yapılır. Eksik modellerin indirilmesi ve güncell
 | --- | --- |
 | `main.py` | Giriş noktası, FFmpeg PATH hazırlığı, ana pencere, sekmeler, F5 güncelleme menüsü ve global hata raporu. |
 | `app_runtime.py` | Uygulama/veri dizinleri, ortak iş kilidi, güvenli UI gönderimi, dosya adı temizleme ve atomik model indirme. |
-| `app_settings.py` | Tek CPU/GPU tercihini `settings.json` içinde atomik saklar; iki panelin cihaz ve model ön kontrolünü yapar. |
-| `hardware.py` | CPU ve CUDA/ROCm cihazlarında gerçek FP32/konvolüsyon/FFT/attention/LSTM denemesi; uygun GPU seçimi ve CPU thread sınırı. |
+| `app_settings.py` | Tek CPU/GPU tercihini `settings.json` içinde atomik saklar; ses/eğitim için ortak cihaz ve model ön kontrolü. |
+| `hardware.py` | CPU ve CUDA/ROCm/Intel XPU hesaplama denemesi, GPU seçimi, thread sınırı ve runtime sürümü ile gerçek backward ön kontrolü. Forward testi eğitim desteği değildir. |
 | `model_manager.py` | Yerel SHA-256 kayıtları, checkpoint CRC/yapı kontrolü, model/yardımcı dosya bağımlılıkları, eski cache ve atomik onarım. |
 | `separation_steps.py` | Motor bağımlılıklarını import etmeden kullanılan ortak beş adım tanımı. |
 | `separator_backend.py` | `LocalSeparator` adaptörü. Cihazı ve model dizinini zorlar; ses işinde eksik dosya indirmez. |
 | `ui_settings.py` | Standart wx kontrolleriyle donanım/model yönetimi; arka plan işi, iptal ve ortak kilit. |
+| `ui_training.py` | Üçüncü sekmede kayıt analizi/grupları, eğitim profili, perde kapsamı, süre/kaynaklar, oturum açma, durdur/devam, test dinleme ve AI Cover'a kayıt. |
+| `training/` | Veri hazırlama, F0/ContentVec, FP32 GAN, holdout değerlendirme, atomik resume, index, subprocess ve uyumluluk testi. |
+| `training/analysis.py` | Kayıtları değiştirmeden akış halinde süre/seviye/kanal ölçümü, SHA-256 tekrar kontrolü ve sezgisel uyarılar. |
+| `training/pitch_quality.py` | Sabit bellekli F0 histogramı, yaklaşık yüzdelikler, sesli çerçeve ve sınır dışı oranları; kalite puanı değildir. |
+| `training/service.py` | Oturum oluşturma/devam kontrolü, event-file IPC, iptal ve kalıcı model kopyası üzerinden atomik AI Cover kaydı. |
+| `test/test_training.py`, `test/test_training_analysis.py`, `test/test_training_report.py` | Eğitim, analiz, kayıt/grup sızıntısı, F0, kalıcı kayıt, backend ve wx arayüz regresyonları. |
+| `test/smoke_training.py` | Yerel yardımcı ağırlıklarla gerçek sentetik CPU/GPU eğitim ve isteğe bağlı durdur/devam denemesi; ses kalitesi ölçmez. |
+| `docs/MODEL_EGITIMI.md`, `docs/RAPOR_UYGULAMA.md` | Eğitim kullanımı, test kanıtları, araştırmadan uygulanan/korunan/bekleyen kararlar. |
 | `test/test_settings.py` | Donanım seçimi, iki motora cihaz aktarımı, indirme/CRC/SHA-256/onarım, ayar kaydı ve yeni sekme regresyonları. |
 | `test/test_workflows.py` | Gerçek model ağırlığı yüklemeden hata, iptal, çıktı koruma ve kayıt regresyonları. |
 | `test/test_motor.py` | Gerçek motor bağımlılıklarıyla CPU/CUDA yapılandırması, CWD, cleanup ve FAISS regresyonları. |
@@ -36,6 +66,9 @@ Ses işleme yerel donanımda yapılır. Eksik modellerin indirilmesi ve güncell
 | `version.json` | Uzak güncelleyicinin okuduğu sürüm, açıklama ve indirme adresleri. |
 | `models.json` | Kullanıcının yerel RVC model kayıtları; Git tarafından yok sayılır. |
 | `models/` | Uygulama/EXE yanındaki model indirme dizini. Ayrıştırma dosyaları kökte; RVC yardımcıları `predictors/` ve `embedders/` altında. Git ve kişisel model paketlemesi dışında. |
+| `trained_models/` | Yeni eğitim kayıtlarının model/index/provenance kopyaları; `models.json` yanında oluşturulur. Git ve kişisel model paketlemesi dışında. |
+| `training_runs/` | Eğitim oturumları, hazırlanmış veriler, raporlar, optimizer/RNG devam dosyası ve test sesleri; Git dışında. |
+| `deneme/` | Kullanıcının özgün sesleri, korunan RVC sonuçları ve kararlılık inceleme notu; Git dışında, topluca silinmez. |
 | `modeller/`, `rvc/models/` | Eski yerel model dizinleri. Mevcut veriler korunur; gerekli modeller yeni dizine kopyalanabilir. Git dışında. |
 | `rvc/infer/infer.py` | `VoiceConverter`: model yükleme, ses okuma, dönüşüm çağrısı ve çıktı yazma. |
 | `rvc/infer/pipeline.py` | F0, içerik özellikleri, FAISS harmanlama, parçalı işleme ve sentez akışı. |
@@ -55,7 +88,7 @@ Ses işleme yerel donanımda yapılır. Eksik modellerin indirilmesi ve güncell
 
 `python main.py` çalıştırıldığında kaynak dizini; paketlenmiş EXE çalıştırıldığında EXE dizini `app_dir` olarak seçilir. Paketli çalışmada `_MEIPASS` de PATH'e eklenir. Amaç FFmpeg/FFprobe gibi araçların bulunmasıdır.
 
-`GhostkillerMainFrame`, bir `wx.Notebook` içine `SeparatorPanel`, `CoverPanel` ve `SettingsPanel` yerleştirir. Hepsi aynı `AppSettings` nesnesini kullanır. Başlangıç odağı notebook'a verilir. `wx.CallAfter` ile başlangıç bilgi diyaloğu, sessiz güncelleme kontrolü ve donanım testi planlanır. Araçlar menüsünde F5 ve Ayarlar bulunur. Ayarlar olmadan bağımsız panel pencereleri ses işi başlatmak için yeterli değildir; geliştirmede `main.py` kullanın.
+`GhostkillerMainFrame`, bir `wx.Notebook` içine `SeparatorPanel`, `CoverPanel`, `TrainingPanel` ve `SettingsPanel` yerleştirir. Hepsi aynı `AppSettings` nesnesini kullanır. Başlangıç odağı notebook'a verilir. `wx.CallAfter` ile başlangıç bilgi diyaloğu, sessiz güncelleme kontrolü ve donanım testi planlanır. Araçlar menüsünde F5 ve Ayarlar bulunur. Ayarlar olmadan bağımsız panel pencereleri ses işi başlatmak için yeterli değildir; geliştirmede `main.py` kullanın.
 
 Ana blokta `sys.excepthook`, `global_exception_handler` ile değiştirilir. Beklenmeyen hatalar kullanıcı veri dizinindeki `Ghostkiller_CrashLog.txt` dosyasına eklenir ve mesaj kutusu gösterilir. Günlük yazılamazsa hata yine bildirilir. Modül importları bu atamadan önce gerçekleşir; bu mekanizma bütün açılış veya worker hatalarını kapsayan bir garanti değildir. Paketli simge yolu `_MEIPASS` içinden çözülür.
 
@@ -120,10 +153,10 @@ Göreli model yolları uygulama dizinine göre çözülür. `load_models`, dosya
 
 1. Dosya yolları, model kayıtları ve ayarlar başlangıçta kopyalanır. Model yolları uygulama dizinine göre çözülür. Eksik yol için `models/` ve eski `modeller/` alt dizinleri aranır. Aynı adlı birden fazla dosya varsa rastgele seçim yapılmaz, tam yol istenir.
 2. Başlatmadan önce ContentVec ve seçiliyse RMVPE için `ModelManager.require_ready` çalışır. RMVPE `models/predictors/rmvpe.pt`, ContentVec `models/embedders/contentvec/` içindedir. Worker'daki `ensure_rvc_prerequisites` GUI için yalnız yerel varlık kontrolü yapar. `VoiceConverter.allow_model_download=False` kullanılır; embedder eksikse internet erişimi yerine hata verir. Motor API'sinde eski indirme yolu `allow_model_download=True` / `allow_download=True` ile korunur; GUI bu yolu kullanmaz.
-3. Her model için `VoiceConverter(device=...)` oluşturulur. Geçici WAV yalnızca boyutuyla değil çözümlenen ses örnekleriyle doğrulanır; doğrulama sonrasında iptal yeniden kontrol edilir ve iptal edilmediyse `<temizlenmiş_girdi_adı>_<temizlenmiş_model_adı>.wav` hedefine atomik taşınır. Başarısız veya iptal edilen dönüşüm önceki çıktıyı korur.
+3. Her ses işi için GUI dışında tek native audio worker ve converter oluşturulur; modeller sırayla işlenir, ContentVec/RMVPE cihaz/dosya kimliğiyle en çok iki öğelik cache içinde tekrar kullanılır. Geçici WAV yalnızca boyutuyla değil çözümlenen ses örnekleriyle doğrulanır; doğrulama sonrasında iptal yeniden kontrol edilir ve iptal edilmediyse `<temizlenmiş_girdi_adı>_<temizlenmiş_model_adı>.wav` hedefine atomik taşınır. Başarısız veya iptal edilen dönüşüm önceki çıktıyı korur.
 4. Eksik `.pth` başarısız sayılır ve yardımcı model indirmesine yol açmaz. Eksik index uyarıyla devre dışı bırakılır. Başarı/başarısızlık sayıları raporlanır. Geçici dosya veya model temizleme hatası sonraki modeli engellemez; `finish_job` UI tamamlanırken ortak kilidi tutar.
 
-GUI çağrısı `protect=0.33`, `volume_envelope=1.0`, `embedder_model="contentvec"`, WAV çıktı kullanır. `split_audio`, autotune, önerilen pitch, gürültü temizliği ve post-process kapalıdır. Motorun daha fazla seçeneği olması bunların GUI'de açık olduğu anlamına gelmez. Cover işlemi ayrı bir Applio uygulaması veya servis başlatmaz; gömülü RVC kodunu aynı Python sürecinde kullanır.
+GUI çağrısı `protect=0.33`, `volume_envelope=1.0`, `embedder_model="contentvec"`, WAV çıktı kullanır. `split_audio`, autotune, önerilen pitch, gürültü temizliği ve post-process kapalıdır. Motorun daha fazla seçeneği olması bunların GUI'de açık olduğu anlamına gelmez. Cover işlemi ayrı bir Applio uygulaması veya servis başlatmaz; gömülü RVC kodunu ayrı native Python worker sürecinde kullanır. Windows Job Object yalnız yaşam döngüsü/çökme yönetimidir; güvenlik sandbox iddiası değildir.
 
 Motorun ana zinciri:
 
@@ -135,9 +168,9 @@ Giriş → 16 kHz ses okuma → 80 Hz high-pass ön işleme
       → modelin hedef örnekleme oranında WAV çıktı
 ```
 
-80 Hz filtre `infer.py` içindedir; ayrıca `pipeline.py` 48 Hz high-pass tanımlar. F0 filtreleme kesintisiz sesli bölümlere ayrı uygulanır, sessiz aralıkların iki yanı harmanlanmaz. FAISS komşuluk ağırlığı `1 / max(score, 1e-5)` karesiyle normalize edilir; arama sayısı mevcut vektör sayısına sınırlanır, geçersiz komşu kimlikleri dışlanır ve boş index özellikleri değiştirmez. Checkpoint'in sürümü, F0 bilgisi, örnekleme oranı ve vocoder bilgisi ağ kurulumunu belirler. BigVGAN v2 ve Seed-VC bu uygulamaya entegre edilmiş değildir.
+80 Hz filtre `infer.py` içindedir; GUI'de 80 Hz, 48 Hz ve nota yumuşatma açık seçeneklerdir, varsayılanlar korunur; ayrıca `pipeline.py` 48 Hz high-pass tanımlar. F0 filtreleme kesintisiz sesli bölümlere ayrı uygulanır, sessiz aralıkların iki yanı harmanlanmaz. Dış index önce sınırlı Python veri parser'ıyla kontrol edilir; native FAISS dosya okuyucusuna verilmez. Yalnız FlatL2 ve desteklenen IVFFlatL2 kabul edilir; farklı metrik/wrapper açık hata verir. Komşular sınırlı bloklarda alınır; tam index ikinci RAM kopyası yapılmaz. FAISS komşuluk ağırlığı `1 / max(score, 1e-5)` karesiyle normalize edilir; arama sayısı mevcut vektör sayısına sınırlanır, geçersiz komşu kimlikleri dışlanır ve boş index özellikleri değiştirmez. Checkpoint'in sürümü, F0 bilgisi, örnekleme oranı ve vocoder bilgisi ağ kurulumunu belirler. BigVGAN v2 ve Seed-VC bu uygulamaya entegre edilmiş değildir.
 
-Cover iptali bayrakla çalışır; mevcut model dönüşümü biter, sonucu hedefe geçirilmez ve sonraki modele geçilmez. İki panel ve güncelleme indirmesi ortak iş kilidiyle koordine edilir. Ana pencerede işlem sürerken normal kapatma isteği veto edilir. `post_ui`, ana thread'deyken doğrudan uygular (kontroller hemen kilitlenir), worker'dayken `CallAfter` kullanır; silinmiş pencereye uygulanmaz.
+Cover iptali mevcut dönüşümün güvenli bitmesini bekler; sonuç hedefe geçirilmez. Yanıt vermeyen motor için kullanıcı ayrıca Zorla Durdur seçeneğini kullanabilir. Worker heartbeat ve çıkış kodu/günlük tanısı bulunur; cleanup beklemeleri sınırlıdır. İki panel ve güncelleme indirmesi ortak iş kilidiyle koordine edilir. Ana pencerede işlem sürerken normal kapatma isteği veto edilir. `post_ui`, ana thread'deyken doğrudan uygular (kontroller hemen kilitlenir), worker'dayken `CallAfter` kullanır; silinmiş pencereye uygulanmaz.
 
 Motor API'sinde farklı `resample_sr` istenirse ses gerçekten yeniden örneklenir; model/pipeline örnekleme hızı değiştirilmez. Bölünmüş ses birleştirmesi orijinal zaman çizelgesini ve sondaki sessizliği korur. Autotune sessiz F0 değerlerini sıfırda tutar ve pitch kaydırmasını uygular. F0/özellik uzunlukları koruma harmanlamasından önce eşitlenir. Okunamayan FAISS index dosyası dönüşümü açık hatayla durdurur; panel günlüğü ve başarısız model sayısı bunu gösterir. Uyumsuz FAISS boyutları veya eksik checkpoint ağırlıkları açık hata üretir; geçersiz FAISS vektörleri özelliğe NaN bulaştırmaz.
 
@@ -145,7 +178,7 @@ Motor API'sinde farklı `resample_sr` istenirse ses gerçekten yeniden örneklen
 
 ### Ayarlar, donanım ve model yönetimi
 
-Kullanıcı donanım için yalnız **İşlemci / Ekran kartı** seçer. `detect_hardware`, CPU ve PyTorch'un CUDA API'sinde görülen her GPU için küçük FP32 konvolüsyon, FFT, attention ve LSTM işlemleri yapar. ROCm'li PyTorch da CUDA API'si üzerinden çalışır; `torch.version.hip` ile adı ayrılır. Birden fazla uygun GPU varsa en çok belleği olan seçilir. Kart adı tek başına destek sayılmaz. NVIDIA için CUDA, AMD için uyumlu ROCm çalışma ortamı gerekir; CUDA ortamında üretilmiş EXE AMD GPU kütüphanelerini içermez. DirectML, RVC ve tüm RoFormer zinciri için sunulmaz. GPU seçeneği kullanılamazsa nedeni gösterilir, CPU seçimi kullanıcıya bırakılır.
+Kullanıcı donanım için yalnız **İşlemci / Ekran kartı** seçer. `detect_hardware`, CPU ve PyTorch'un CUDA/HIP ile Intel XPU API'lerinde görülen her GPU için küçük FP32 konvolüsyon, FFT, attention ve LSTM işlemleri yapar. ROCm'li PyTorch da CUDA API'si üzerinden çalışır; `torch.version.hip` ile adı ayrılır. Birden fazla uygun GPU varsa en çok belleği olan seçilir. Kart adı tek başına destek sayılmaz. NVIDIA için CUDA, AMD için uyumlu ROCm çalışma ortamı gerekir; CUDA ortamında üretilmiş EXE AMD GPU kütüphanelerini içermez. DirectML, RVC ve tüm RoFormer zinciri için sunulmaz. GPU seçeneği kullanılamazsa nedeni gösterilir, CPU seçimi kullanıcıya bırakılır.
 
 `settings.json` yalnız donanım tercihini tutar: kaynakta proje kökü, kurulu sürümde kullanıcı veri dizini. Git ve setup dışında kalır. Tercih atomik kaydedilir; yazma hatası mevcut tercihi değiştirmez. Cihaz ses işi başlangıcında kopyalanır ve iki motora da aktarılır. CPU'da thread sayısı mantıksal çekirdeklerin yarısı ile en fazla 8 olarak sınırlanır; GPU worker'ında seçili cihaz etkinleştirilir. FP32 korunur; quantization/FP16 tüm modellere zorlanmaz.
 
@@ -155,23 +188,23 @@ Model listesi beş ayrıştırma ağırlığı ile ContentVec/RMVPE paketlerini 
 - **Dosyaları kontrol et:** Yapılandırma şemasını, checkpoint arşiv CRC'sini, güvenli PyTorch ağırlık okumasını ve tam dosya SHA-256 özetini denetler. İnternet çağrısı yapmaz; eski yerel cache bulunduğunda kontrol edip yeni klasöre kopyalayabilir.
 - **Seçilenleri onar:** Eksik veya doğrulamada bozulan dosyayı kaynağından indirir. Geçici dosya kontrol geçmeden hedefin üzerine geçirilmez. Önceden kayıtlı ağırlığın SHA-256 değeri varsa yeni indirme de onunla eşleşmelidir.
 
-`models/.integrity.json`, her paketin dosya yollarını, SHA-256, boyut ve mtime bilgilerini tutar. İlk sağlam yerel/download kopyasının özeti başlangıç kaydıdır; upstream imza veya tüm dosyalar için bağımsız yayımlanmış hash doğrulaması değildir. Ayrıştırma için kütüphanenin mimari/config eşlemesi de çalışır. Ses işi başındaki hızlı kontrol boyut/mtime ve son kayıt sonucuna bakar; stat bilgisi değişmeden içerik bozulmuşsa bunu tam dosya kontrolü bulur. Tam kontrolü her ses işi başında yeniden yapma.
+`models/.integrity.json`, her paketin dosya yollarını, SHA-256, boyut ve mtime bilgilerini tutar. ContentVec/RMVPE ve eğitim kaynakları commit ve sabit SHA-256 ile doğrulanır. İki UVR modelinin resmi HTTPS byte hash'leri incelemede ayrıca sabitlenmiştir; bunlar GitHub tarafından yayımlanmış digest değildir. Diğer ayrıştırma assetleri için ilk sağlam kopyanın özeti yerel bütünlük kaydıdır; bütün kaynaklar için upstream imza iddiası değildir. Ayrıştırma için kütüphanenin mimari/config eşlemesi de çalışır. Ses işi başındaki hızlı kontrol boyut/mtime ve son kayıt sonucuna bakar; stat bilgisi değişmeden içerik bozulmuşsa bunu tam dosya kontrolü bulur. Tam kontrolü her ses işi başında yeniden yapma.
 
-Worker ana thread'deki kontrol değerlerini okumaz. İndirme/kontrolde iptal bayrağı, süre sınırı, `.part` dosyası ve atomik değiştirme kullanılır. Aktif ses/kontrol işi varken donanım değiştirilmez. Kilit UI sonuçları işlendikten sonra bırakılır. Gerçek motor çağrısı zorla kesilmez.
+Worker ana thread'deki kontrol değerlerini okumaz. İndirme/kontrolde iptal bayrağı, süre sınırı, `.part` dosyası ve atomik değiştirme kullanılır. Aktif ses/kontrol işi varken donanım değiştirilmez. Kilit UI sonuçları işlendikten sonra bırakılır. Normal iptal motorun güvenli noktaya ulaşmasını bekler; ayrı Zorla Durdur kontrolü owned native worker ağacını sonlandırır ve bu adımın geçici çıktısını hedefe taşımaz.
 
 Numba/Librosa importlarından önce `configure_runtime_cache` çalışır. Varsayılan cache kaynakta `__pycache__/numba`, kurulu EXE'de kullanıcı veri dizininin `cache/numba` klasörüdür. Böylece kütüphane/Program Files dizinine cache yazılması önlenir. Kullanıcının mevcut `NUMBA_CACHE_DIR` değeri korunur.
 
-11 Ekim düzeltmelerinden sonra 82 test başarılıdır (bkz. docs/HATA_DUZELTME_RAPORU.md). Önceki 75 test, gerçek CPU/CUDA RVC ve CUDA UVR-DeNoise denemeleri ile AMD/EXE sınırları [docs/DONANIM_VE_MODEL_YONETIMI.md](docs/DONANIM_VE_MODEL_YONETIMI.md) içindedir.
+11 Ekim düzeltmelerindeki 82 test tarihsel sonuçtur (bkz. docs/HATA_DUZELTME_RAPORU.md). **13 Ekim düzeltme öncesi toplamı 110 testti. Güncel toplam ve kanıtlar ikinci analiz belgesindedir.** Önceki CPU/CUDA RVC ve CUDA UVR-DeNoise denemeleri [docs/DONANIM_VE_MODEL_YONETIMI.md](docs/DONANIM_VE_MODEL_YONETIMI.md), yeni eğitim kanıtları `docs/MODEL_EGITIMI.md` ve `docs/RAPOR_UYGULAMA.md` içindedir. Native Windows ROCm için `ensure_training_backend`, eski doğrulanmamış runtime sürümlerini açık hatayla reddeder; uygun sürümde gerçek backward kontrolü yapar; CPU'ya sessiz geçiş yapılmaz. DirectML eğitim motoru uygulanmış değildir.
 
 `updater.py`, GitHub `ghostkillerr/ghostkiller_sound_toolbox` deposunun `master/version.json` dosyasını arka plan thread'inde okur. Sayısal noktalı sürüm parçaları tuple olarak karşılaştırılır. Sessiz kontrolde yalnızca yeni sürüm varsa diyalog açılır; F5 kontrolünde güncel/bağlantı hatası da bildirilir.
 
-Kullanıcı indirmeyi kabul ederse kurulum TEMP altında işe özel klasöre indirilir. İptal düğmesi indirme bayrağını ayarlar; iptal/başarısız indirme kurulum başlatmaz. Boş/eksik yanıt ve Windows EXE başlığı kontrol edilir. Bu kontrol kriptografik bütünlük doğrulaması değildir. Kurulum `shell=False` ile başlatılır; ses işi sürerken program kapatılıp kurulum başlatılmaz. Yeni kurulum tanımı tek EXE üretir; eski disk parçalı yayımlanmış kurulumlar bu değişiklikle yeniden paketlenmiş sayılmaz.
+Kullanıcı indirmeyi kabul ederse kurulum TEMP altında işe özel klasöre indirilir. İptal düğmesi indirme bayrağını ayarlar; iptal/başarısız indirme kurulum başlatmaz. Backend'e ait sürümlü GitHub asset adresi, SHA-256, boyut, redirect host ve Windows EXE başlığı doğrulanır. Hashsiz eski manifest otomatik kurulmaz. Başlatmadan önce dosya yeniden doğrulanır ve değiştirilmesini engelleyen Windows paylaşım kilidi tutulur. Kurulum native ShellExecuteExW runas ile başlatılır; ses işi sürerken program kapatılıp kurulum başlatılmaz. Yeni kurulum tanımı tek EXE üretir; eski disk parçalı yayımlanmış kurulumlar bu değişiklikle yeniden paketlenmiş sayılmaz.
 
-GUI günlükleri `wx.CallAfter` ile metin kutularına aktarılır. RVC içindeki birçok tanılama ise `print` kullanır; `console=False` EXE'de bunların kullanıcıya görünmesi garanti değildir. Global çökme raporu, panel günlükleri ve motor çıktıları ayrı mekanizmalardır.
+GUI günlükleri ana thread'e aktarılır ve büyüklüğü sınırlanır. Ağır importlardan önce dönen kalıcı günlük/çökme handler'ı kurulur; windowed stdout/stderr eksikse günlük stream'i sağlanır. RVC içindeki birçok tanılama ise `print` kullanır; `console=False` EXE'de bunların kullanıcıya görünmesi garanti değildir. Global çökme raporu, panel günlükleri ve motor çıktıları ayrı mekanizmalardır.
 
 ## 8. Çalıştırma, bağımlılıklar ve paketleme
 
-Depoda sürümleri sabitlenmiş `requirements.txt`, `pyproject.toml` veya CI tanımı bulunmuyor. Otomatik regresyon testleri `test/` altındadır. Aşağıdaki komutlar mevcut dosya yapısına göre giriş noktalarıdır; temiz ortamda doğrulanmış kurulum reçetesi değildir:
+Windows x64/Python 3.12 için `requirements/` altında CPU/CUDA/XPU SHA-256 kilitleri ve CI/preflight araçları vardır. ROCm için doğrulanmış native lock henüz yoktur. Temiz CPU venv kurulumu ve gerçek kernel/provider kontrolleri yapılmıştır. Kullanıcı EXE üretimini durdurdu; derleme/yayın komutları yalnız gelecekteki dağıtım hazırlığıdır. Otomatik regresyon testleri `test/` altındadır. Kaynak çalıştırma/test komutları aşağıdadır; backend ortamı hazırlama detayları `docs/RELEASE_BUILD.md` içindedir:
 
 ```powershell
 # Proje kökünde, uygun Python ortamı etkinleştirildikten sonra:
@@ -180,13 +213,12 @@ python main.py
 # Model indirmeden regresyon kontrolü:
 python -m unittest discover -s test -v
 
-# Gerekli paketler ve yerel kaynaklar hazırsa:
-python -m PyInstaller Ghostkiller_Sound_Cleaner_V2.spec
+# EXE üretimi şu anki geliştirme kapsamının dışındadır.
 ```
 
 Ana bağımlılık grupları: wxPython; audio-separator; PyTorch/torchaudio/torchvision; NumPy/SciPy/librosa/soundfile/soxr; FAISS; transformers; torchcrepe/torchfcpe; pydub/FFmpeg; pedalboard/noisereduce; model indirme yardımcıları. Bu liste kesin ve tamamlanmış bir paket manifestosu değildir; değiştirilen akışın importları ve paketleme hook'ları birlikte kontrol edilmelidir.
 
-Kaynak çalıştırma için proje kökünü tercih et. Ana RVC config yolları modül konumundan, indirilen modeller uygulamanın/EXE'nin yanındaki `models/` dizininden çözülür. `Config(device=...)` seçilen CPU/CUDA cihazını uygular; CUDA yoksa açık hata verir. GPU çalışması PyTorch/CUDA ve donanım uyumuna bağlıdır. Inno Setup yalnızca model klasörüne kullanıcı yazma izni sağlar. Eski yerel modeller otomatik silinmez.
+Kaynak çalıştırma için proje kökünü tercih et. Ana RVC config yolları modül konumundan, indirilen modeller uygulamanın/EXE'nin yanındaki `models/` dizininden çözülür. `Config(device=...)` seçilen CPU/CUDA-HIP/Intel XPU cihazını uygular; CUDA yoksa açık hata verir. GPU çalışması PyTorch/CUDA ve donanım uyumuna bağlıdır. Inno Setup yalnızca model klasörüne kullanıcı yazma izni sağlar. Eski yerel modeller otomatik silinmez.
 
 PyInstaller tanımı motor Python modüllerini import analiziyle, `rvc/configs/*.json`, sürüm, simge ve lisansı veri olarak toplar; büyük kütüphaneler için `collect_all` ve hidden import listesi kullanır. EXE adı `Ghostkiller_Sound_Cleaner_V2`, konsol kapalıdır. Inno Setup `.iss`, `dist` ağacını ve FFmpeg/FFprobe dosyalarını toplar. Proje yolları `SourcePath` temellidir; FFmpeg dizini `FFmpegDir` derleme tanımıyla değiştirilebilir, varsayılan proje içindeki `tools/ffmpeg` klasörüdür. `DiskSpanning=no` tek EXE üretir. Güncel kaynaklardan yeni kurulum henüz üretilmemiştir.
 
@@ -196,10 +228,11 @@ PyInstaller tanımı motor Python modüllerini import analiziyle, `rvc/configs/*
 
 Kaynak ağacı aktif masaüstü uygulaması ve kullandığı RVC dönüşüm bileşenleriyle sınırlandırılmıştır. `rvc/train/`, `rvc/realtime/`, TTS, analiz/TensorBoard/model eğitim yardımcıları, yinelenen kullanılmayan predictor dosyaları, eğitim discriminator'ı ve eski platform/ZLUDA yardımcıları kaldırılmıştır. Motorun kullanılmayan klasör-toplu-dönüşüm yöntemi ve eğitim GPU bilgi yardımcıları da çıkarılmıştır. Model checkpoint uyumluluğu için aktif sentezleyiciler/jeneratörler korunur.
 
-- Kök: `main.py`, `ui_cover.py`, `ui_separator.py`, `app_runtime.py`, `updater.py`, `version.json`, simge, lisans, build tanımları, `README.md` ve bu rehber.
+- Kök: ana uygulama, dört sekme, ortak runtime/ayar/donanım/model yönetimi, güncelleyici, sürüm, simge, lisans, build tanımları, `README.md` ve bu rehber.
 - `rvc/`: dönüşüm motoru, config, sentez ağları, aktif F0 ve ses yardımcıları.
+- `training/`: yeni izole RVC eğitim altyapısı ve lisanslı/sabitlenmiş `vendor` bileşenleri; eski kaldırılmış `rvc/train/` ile karıştırma.
 - `test/`: regresyon testleri. Komut: `python -m unittest discover -s test -v`.
-- `docs/`: hata düzeltme raporu; setup'a girmez.
+- `docs/`: hata/senaryo/donanım/eğitim ve araştırma karar belgeleri; setup'a girmez.
 - `tools/ffmpeg/`: yerel FFmpeg/FFprobe araçları; EXE dosyaları Git'e girmez, setup'a alınır.
 - `models/`, `models.json`, eski `modeller/`, `rvc/models/`: yerel model verileri; korunur, Git ve kişisel model paketlemesi dışında kalır.
 
@@ -209,7 +242,7 @@ Eski `build/`, `dist/` ve `Setup/` çıktıları temizlendi. Bunlar yeniden derl
 
 Depo: `https://github.com/ghostkillerr/ghostkiller_sound_toolbox`, ana dal: `master`.
 
-Kullanıcının açık tercihi: test modelleri ve kişisel model kayıtları yalnızca yerelde kalmalıdır. `.gitignore`, her seviyedeki `models/` ve `modeller/` klasörlerini, kökteki `models.json` dosyasını ve `.pth`, `.ckpt`, `.index`, `.bin`, `.pt` uzantılarını dışlar. Ses dosyaları ve üretim çıktıları da dışlanır. Ajan bunları `git add -f` ile eklememelidir.
+Kullanıcının açık tercihi: test modelleri ve kişisel model kayıtları yalnızca yerelde kalmalıdır. `.gitignore`, `models/`, `modeller/`, kökteki `trained_models/`, `training_runs/`, `deneme/`, `models.json`, `settings.json` ve `.pth`, `.ckpt`, `.index`, `.bin`, `.pt` uzantılarını dışlar. Ses dosyaları ve üretim çıktıları da dışlanır. Ajan bunları `git add -f` ile eklememelidir. Kullanıcının seçtiği RVC ağırlık/index dosyaları temizlik kapsamında silinmez.
 
 `e4b432f` commit'i, `models.json` ile `rvc/models/embedders/contentvec/config.json` dosyalarını takipten çıkardı; yerel dosyalar korundu ve değişiklik GitHub'a gönderildi. İncelenen Git geçmişinde model ağırlığı yoktu. Eski commitlerde kayıt/config metni bulunabilir; geçmiş yeniden yazılmadı.
 
@@ -265,14 +298,135 @@ Test edilmemiş bir düzeltmeyi veya ses kalitesini doğrulanmış gibi raporlam
 
 Cover ve ayrıştırmada çıktı sesi doğrulandıktan sonra iptal yeniden kontrol edilir; bu aşamada iptal edilen iş eski sonucu değiştirmez. Model kataloğu separation_steps.py içindedir; audio-separator eksik olsa da iki ses paneli ve Ayarlar açılır, ayrıştırma çağrısı açıklayıcı hata verir.
 
-Model kontrolünde ContentVec konfigürasyon alanları, konvolüsyon/attention boyutları ve ContentVec/RMVPE ağlarının bütün beklenen ağırlık anahtarları/şekilleri kontrol edilir. Kontrol için ağlar meta cihazında oluşturulur; gerçek ağırlık belleği ayrılmaz. Eski ContentVec weight_norm anahtarları desteklenir. RoFormer YAML bölümleri ve temel boyutları, hedef stem, ayrıştırma checkpoint katman grupları denetlenir. Ayrıştırma katman grubu denetimi her parametrenin eksiksizliğini veya ses kalitesini garanti etmez. schema_version=1 olmayan eski bütünlük kaydı yeniden tam dosya kontrolü ister; model dosyaları otomatik değiştirilmez veya indirilmez.
+Model kontrolünde ContentVec konfigürasyon alanları, konvolüsyon/attention boyutları ve ContentVec/RMVPE ağlarının bütün beklenen ağırlık anahtarları/şekilleri kontrol edilir. Kontrol için ağlar meta cihazında oluşturulur; gerçek ağırlık belleği ayrılmaz. Eski ContentVec weight_norm anahtarları desteklenir. RoFormer YAML bölümleri ve temel boyutları, hedef stem, ayrıştırma checkpoint katman grupları denetlenir. RoFormer/UVR meta ağlarının bütün beklenen anahtar/şekilleri ve tensorlerin bloklu sonluluk kontrolü uygulanır; bu ses kalitesini garanti etmez. Standart stored PyTorch ZIP için üye/metadata/açılmış boyut/RAM sınırları torch.load öncesi denetlenir; kullanıcıdan gelen eski non-ZIP PTH güvenilen ortamda yeniden dışa aktarılmalıdır. schema_version=2 olmayan eski bütünlük kaydı yeniden tam dosya kontrolü ister; model dosyaları otomatik değiştirilmez veya indirilmez.
 
-Okunamayan FAISS index sessizce devre dışı bırakılmaz; ilgili dönüşüm başarısız sayılır ve sonraki model işlenebilir. Eğitim özelliği henüz eklenmedi; araştırma/geliştirme promptu docs/EGITIM_OZELLIGI_PROMPT.md içindedir.
+Okunamayan FAISS index sessizce devre dışı bırakılmaz; ilgili dönüşüm başarısız sayılır ve sonraki model işlenebilir. Yeni eğitim hattı training/ içindedir; kullanım ve doğrulama sınırları docs/MODEL_EGITIMI.md içinde açıklanır.
 
 11 Ekim ek kontrol: mevcut beş ayrıştırma ağırlığı, üç RoFormer YAML dosyası ve ContentVec/RMVPE dosyaları yeni yapı/CRC kontrollerinden salt okunarak geçti. Kişisel model veya kayıtlar değiştirilmedi. UVR modellerinin ikinci aşamadaki ayrı düşük/yüksek bant katmanları için regresyon eklendi. Bu dosya kontrolü uçtan uca ses kalitesi testi değildir.
 
 ## Ayarlar model seçimi ve sekme adı — 11 Ekim 2026
 
-Ayarlar model listesi artık standart wx.ToggleButton kullanır. İlk sekmedeki seçim mantığı gibi basılı/basılı değil durumu ve [AÇIK]/[KAPALI] etiketi vardır. Başlangıçta yedi model de açıktır; Space ile açılıp kapatılır, yukarı/aşağı ok ve Tab ile dolaşılır. Dosya durumları yenilenirken model kimlikleri, seçimler ve mevcut düğmeler korunur.
+Ayarlar model listesi artık standart wx.ToggleButton kullanır. İlk sekmedeki seçim mantığı gibi basılı/basılı değil durumu ve [AÇIK]/[KAPALI] etiketi vardır. Başlangıçta on model paketi de açıktır; Space ile açılıp kapatılır, yukarı/aşağı ok ve Tab ile dolaşılır. Dosya durumları yenilenirken model kimlikleri, seçimler ve mevcut düğmeler korunur.
 
 İlk sekmenin adı “1. Müzik ve Ses Temizleme” oldu. Eski addaki & işaretinin ardından boşluk gelmesi, yerel notebook kontrolünün Alt+Aralık kısayolu üretmesine neden oluyordu. Gereksiz mnemonic kaldırıldı; Windows sistem menüsü ve ilk sekmenin günlük/ilerleme kontrolleri korunur. Gerçek NVDA/JAWS anonsu bu ortamda ölçülmedi.
+
+## 13. Model Eğitimi: güncel akış ve araştırma sonrası sınırlar
+
+### Kayıtlar, analiz ve veri ayrımı
+
+Üçüncü sekme aynı kişiye ait birden çok kayıt seçtirir. **Kayıtları analiz et**,
+ortak iş kilidi altında arka planda çalışır; durdurulabilir. Kaynaklar üzerine
+yazılmaz. Dosyalar sırayla geçici diske çözülür ve küçük bloklarla okunur;
+tüm uzun kayıt RAM'e alınmaz. Eğitim başlamadan önce analiz yeniden yapılır.
+
+Analiz süre, kanal, tepe, RMS, tepe sınırına yakın örnek oranı, düşük seviyeli
+pencereler, mono enerji kaybı ve tam dosya SHA-256 tekrarını gösterir.
+−60 dBFS / 100 ms düşük seviye penceresi sezgiseldir; nefes veya ötümsüz
+ünsüzleri otomatik silmez. Tepe sınırı ölçümü true-peak ya da doğrulanmış
+clipping değildir. Sessiz/boş/sonlu olmayan veya çözümlenemeyen kayıtlar hata
+verir; diğer uyarılar dinleme gerektirir. `quality_report.json` ve
+`quality_report.txt` eğitim oturumunda saklanır.
+
+**Seçili kayda şarkı / oturum grubu ata**, aynı şarkının veya kaynak vokalin
+farklı take/master/temizlenmiş sürümlerine aynı adın verilmesini sağlar.
+Gruplar hazırlama kesiminden önce eğitim/değerlendirmeye ayrılır. Tam kopyalar
+farklı grup adlarıyla bile SHA-256 üzerinden bağlanır; geçişli bağlantılar
+tek grupta kalır. Yakın-duplikat otomatik tespiti yoktur; kullanıcı etiketleri
+gereklidir. Birden çok farklı dosyanın tümü aynı gruptaysa bağımsız
+değerlendirme grubu istenir. Tek benzersiz kayıt zaman sınırından ayrılır;
+parçalar sınırı geçmez fakat bu farklı şarkıda genelleme kanıtı değildir.
+
+### Profil, optimizasyon ve devam
+
+Varsayılanlar: RVC V2, 40 kHz, FP32, ContentVec, RMVPE, HiFi-GAN;
+200 epoch, LR 1e-4, 3.0 saniye hazırlama parçası, 0.3 saniye örtüşme,
+%10 değerlendirme payı, dört CPU thread ve gradyan checkpointing.
+Otomatik batch CUDA'da dört, CPU'da bir ile gerçek iş yükünü dener;
+gerektiğinde azaltır, kalite ayarlarını gizlice değiştirmez.
+200 epoch ve bu diğer sayılar evrensel kalite optimumu olarak sunulmaz.
+
+**Hazırlama parçası** ile GAN'ın bir adımda sentezlediği optimizasyon
+segmenti farklıdır. Profil bilgisi `training/vendor/config_*.json` içindeki
+`segment_size / sample_rate` ile gösterilir; 40 kHz profilinde 0.320 saniyedir.
+32/40/48 kHz desteklenir. Yüksek örnekleme hızı kaynakta bulunmayan ayrıntıyı
+geri getirmez. Sabitlenmiş ve gerçek dönüşümde doğrulanmış 40 kHz profilimiz,
+raporda farklı bir upstream dizininde config bulunmaması nedeniyle kaldırılmaz.
+
+Devam dosyası G/D ağlarını, iki optimizer/scheduler'ı, epoch/adım/batch
+sırasını ve Python/NumPy/Torch/uygun CUDA RNG durumunu atomik saklar.
+Yaklaşık beş dakikada bir tam optimizasyon adımı sonrasında, değerlendirme
+aralığında ve kullanıcı durdurduğunda kayıt alınır. Uzun adım/kayıt yazımı
+bu süreyi uzatabilir; ani güç kaybında son kayıttan sonraki adımlar tekrarlanır.
+**Durdur ve devam noktası kaydet** tamamlanmadan bilgisayar kapatılmaz.
+Hazırlama/F0 aşaması henüz bitmediyse GAN devam noktası olmayabilir;
+eksik hazırlık yeniden yapılır.
+
+Devamda hazırlanmış veri ve yardımcı model kimlikleri kontrol edilir;
+değişen ayarlar sessizce uygulanmaz. Eski seçeneklerde bulunmayan grup alanı
+boş olarak normalize edilir; mevcut checkpoint karşılaştırması korunur.
+Kalan süre o oturumdaki eğitim hızından yaklaşık hesaplanır; final index ve
+cover testlerini kapsamaz. RAM/VRAM/CPU ölçümleri ayrı metin alanındadır.
+Kullanıcının eski deney için kapattığı sıcaklık bekleme kuralı otomatik geri
+açılmaz; ürün eğitim hattında şu anda sıcaklıkta bekleme denetimi yoktur.
+
+### Perde kapsamı, index ve dinleme
+
+F0 çıkarımından sonra `pitch_report.json` eğitim ve değerlendirme için ayrı
+sesli çerçeve oranı, yaklaşık %5/medyan/%95, min/max, 0.1 MIDI-notalık
+histogram ve 50–1100 Hz sınır dışı oranı tutar. Histogram belleği kayıt
+süresinden bağımsızdır. Arayüzde özet, dosyada ayrıntılar bulunur. Bu nicemleme
+sınırı şarkıcının söylemesi gereken aralık değildir; uyarı eşiği mühendislik
+tercihidir. Örtüşen parçalardaki işlenmiş süre benzersiz sesli dakika sayılmaz.
+Sıfır F0 nefes/ünsüz olabilir ve bu ölçüm uğruna kayıt değiştirilmez.
+
+Index yalnız eğitim özelliklerinden, bütün vektörlerle `IndexFlatL2(768)`
+olarak kurulur. Eğitim/değerlendirmede aynı feature dosyası veya yinelenen
+eğitim feature yolu varsa hata verir. IVF/KMeans/quantization bu profilde
+kullanılmaz; tam komşu araması kalite önceliği nedeniyle korunur. Bu tercih,
+Flat'ın her veride işitsel olarak daha iyi olduğu iddiası değildir.
+
+Her aday için kısa holdout sesinde **index kapalı (0)** ve **index açık
+(0.75)** gerçek uygulama dönüşümü yapılır. Yeni oturumda dört test WAV'ı
+oluşur; aday ve test türü seçilerek varsayılan oynatıcıda açılabilir.
+Eski oturumlarda eksik index-kapalı test sesi açıkça bildirilir.
+`latest.pth` ve `best_validation.pth` ayrı kalır. İkincisi yalnız en düşük
+değerlendirme mel hatalı modeldir; dinlemeden "en kaliteli" kabul edilmez.
+
+**Kayıtlı eğitim oturumu aç**, bitmiş sonuçları yeniden eğitim başlatmadan
+yükler. **Seçili modeli AI Cover'a ekle**, testten geçen model/index'i
+SHA-256 ile doğrulayıp `models.json` yanındaki `trained_models/` altında
+benzersiz klasöre kopyalar ve kayıt dosyasını atomik günceller. Aynı ad ezilmez;
+kopyalama/kayıt hatasında önceki liste korunur. Bu sayede eğitim oturumunun
+temizlenmesi yeni kayıtlı modeli silmez. Deneyden önceden saklanan
+`models/voices/Deneme_RVC_200/` modeli de korunur; iki saklama yolu karıştırılmaz.
+
+### Doğrulama ve sonraki işler
+
+13 Ekim 2026 son kontrolü: **110 regresyon testi geçti**. CPU / iki thread /
+batch 1 ile iki altı saniyelik sentetik kayıtta analiz, F0 raporu, gerçek
+RVC eğitimi, altıncı adımda durdur/kaydet/devam, 354 vektörlü index ve
+iki adayın dört cover testi tamamlandı. Devam sonrasında toplam adım altı
+kaldı. Bu denemenin geçici ses/ağırlık/checkpoint dosyaları temizlendi;
+kullanıcının RVC modeli/index'i değişmedi. Sentetik deneme ses kalitesi
+benchmark'ı değildir.
+
+Ayrı final-test bölümü, otomatik yakın-duplikat kümelemesi, true-peak/flat-top,
+göreli gürültü/yankı skorları, hedef şarkıyla perde kapsama karşılaştırması,
+speaker embedding/MOS/ASR, index oranı sweep'i ve otomatik erken durdurma
+henüz uygulanmadı. Otomatik denoise, dereverb, pitch/formant augmentation
+varsayılan olarak eklenmez. Native Windows ROCm eğitimi açıkça engellenir;
+DirectML backend'i yoktur. NVDA/JAWS canlı kullanımı, AMD cihaz ve yeni
+paketli EXE ayrıca doğrulanmalıdır.
+
+Sonraki ajan önce `docs/RAPOR_UYGULAMA.md` ile gerçek kodu karşılaştırmalı;
+rapordaki önerileri veya ölçülmemiş kaliteyi tamamlanmış özellik diye sunmamalı.
+Kullanıcının RVC seçimi, özgün sesleri ve kalıcı ağırlık/index dosyaları korunur.
+
+## 13. Güncel geliştirme düzeltmeleri
+
+Cover ve VR ayrıştırmada sona ait gerçek bağlam korunarak çıktı süresi hedef
+örnek sayısına eşitlenir. Native FLAC çıktısı PCM_24'tür; pydub'int16 ara
+dönüşümü kullanılmaz. Silence çıktısı geçerli dosya olarak yazılır; nonfinite
+ham VR spektrumu ve yazma hataları başarı gibi gösterilmez.
+
+`docs/YAYIN_ONCESI_TEKNIK_DENETIM.md` tarihsel başlangıç incelemesidir. R01–R28 durumları, ikinci incelemede bulunan yeni hatalar, çalıştırılan senaryolar ve kalan fiziksel doğrulamalar `docs/YAYIN_DUZELTMELERI_VE_IKINCI_ANALIZ.md` içinde tutulur. Kişisel ses/model/index dosyaları korunmuştur. `models/.integrity.json` yalnız offline doğrulama ile schema_version=2 derived kayıtlarına yenilenmiştir.

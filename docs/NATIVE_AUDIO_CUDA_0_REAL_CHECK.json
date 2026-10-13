@@ -1,0 +1,68 @@
+{
+  "date": "2026-10-13",
+  "parent_pid": 17324,
+  "backend": "cuda:0",
+  "synthetic_seconds": 4,
+  "personal_files_modified": false,
+  "results": [
+    {
+      "model": "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
+      "status": "passed",
+      "outputs": [
+        {
+          "name": "input_(Instrumental)_model_bs_roformer_ep_317_sdr_12.flac",
+          "duration": 4.0,
+          "sample_rate": 44100
+        },
+        {
+          "name": "input_(Vocals)_model_bs_roformer_ep_317_sdr_12.flac",
+          "duration": 4.0,
+          "sample_rate": 44100
+        }
+      ],
+      "seconds": 21.781,
+      "worker_pid": 9848
+    },
+    {
+      "model": "UVR-DeEcho-DeReverb.pth",
+      "status": "passed",
+      "outputs": [
+        {
+          "name": "input_(No Reverb)_UVR-DeEcho-DeReverb.flac",
+          "duration": 4.0,
+          "sample_rate": 44100
+        },
+        {
+          "name": "input_(Reverb)_UVR-DeEcho-DeReverb.flac",
+          "duration": 4.0,
+          "sample_rate": 44100
+        }
+      ],
+      "seconds": 1.875,
+      "worker_pid": 9848
+    },
+    {
+      "model": "latest.pth",
+      "kind": "cover",
+      "status": "passed",
+      "frames": 160000,
+      "duration": 4.0,
+      "sample_rate": 40000,
+      "helper_cache_entries": 2,
+      "seconds": 26.734,
+      "worker_pid": 9848
+    },
+    {
+      "model": "best_validation.pth",
+      "kind": "cover",
+      "status": "passed",
+      "frames": 160000,
+      "duration": 4.0,
+      "sample_rate": 40000,
+      "helper_cache_entries": 2,
+      "seconds": 1.547,
+      "worker_pid": 9848
+    }
+  ],
+  "note": "Process integration/finite output check; cold timings, no quality or full device certification."
+}

@@ -1,0 +1,122 @@
+{
+  "date": "2026-10-13",
+  "synthetic_audio_seconds": 4,
+  "cpu_threads": 2,
+  "torch": "2.11.0+cu128",
+  "results": [
+    {
+      "model": "melband_roformer_inst_v2.ckpt",
+      "status": "skipped",
+      "reason": "Eksik"
+    },
+    {
+      "model": "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
+      "device": "cpu",
+      "load_seconds": 3.375,
+      "status": "passed",
+      "inference_seconds": 52.156,
+      "outputs": [
+        {
+          "name": "synthetic_mix_(Instrumental)_model_bs_roformer_ep_317_sdr_12.flac",
+          "seconds": 4.0,
+          "sample_rate": 44100,
+          "channels": 2
+        },
+        {
+          "name": "synthetic_mix_(Vocals)_model_bs_roformer_ep_317_sdr_12.flac",
+          "seconds": 4.0,
+          "sample_rate": 44100,
+          "channels": 2
+        }
+      ],
+      "total_seconds": 55.531,
+      "rss_mb": 1893.265625,
+      "available_ram_mb": 4812.3984375
+    },
+    {
+      "model": "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
+      "device": "cuda:0",
+      "load_seconds": 1.156,
+      "status": "passed",
+      "inference_seconds": 16.656,
+      "outputs": [
+        {
+          "name": "synthetic_mix_(Instrumental)_model_bs_roformer_ep_317_sdr_12.flac",
+          "seconds": 4.0,
+          "sample_rate": 44100,
+          "channels": 2
+        },
+        {
+          "name": "synthetic_mix_(Vocals)_model_bs_roformer_ep_317_sdr_12.flac",
+          "seconds": 4.0,
+          "sample_rate": 44100,
+          "channels": 2
+        }
+      ],
+      "total_seconds": 17.812,
+      "rss_mb": 2329.73046875,
+      "available_ram_mb": 4352.3046875,
+      "vram_peak_mib": 1238.88
+    },
+    {
+      "model": "mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt",
+      "status": "skipped",
+      "reason": "Eksik"
+    },
+    {
+      "model": "UVR-DeEcho-DeReverb.pth",
+      "device": "cpu",
+      "load_seconds": 0.11,
+      "status": "passed",
+      "inference_seconds": 9.093,
+      "outputs": [
+        {
+          "name": "synthetic_mix_(No Reverb)_UVR-DeEcho-DeReverb.flac",
+          "seconds": 3.9946,
+          "sample_rate": 44100,
+          "channels": 2
+        },
+        {
+          "name": "synthetic_mix_(Reverb)_UVR-DeEcho-DeReverb.flac",
+          "seconds": 3.9946,
+          "sample_rate": 44100,
+          "channels": 2
+        }
+      ],
+      "total_seconds": 9.203,
+      "rss_mb": 3348.9765625,
+      "available_ram_mb": 3378.0234375
+    },
+    {
+      "model": "UVR-DeEcho-DeReverb.pth",
+      "device": "cuda:0",
+      "load_seconds": 0.063,
+      "status": "passed",
+      "inference_seconds": 1.343,
+      "outputs": [
+        {
+          "name": "synthetic_mix_(No Reverb)_UVR-DeEcho-DeReverb.flac",
+          "seconds": 3.9946,
+          "sample_rate": 44100,
+          "channels": 2
+        },
+        {
+          "name": "synthetic_mix_(Reverb)_UVR-DeEcho-DeReverb.flac",
+          "seconds": 3.9946,
+          "sample_rate": 44100,
+          "channels": 2
+        }
+      ],
+      "total_seconds": 1.406,
+      "rss_mb": 3354.7734375,
+      "available_ram_mb": 3345.90625,
+      "vram_peak_mib": 1328.22
+    },
+    {
+      "model": "UVR-DeNoise.pth",
+      "status": "skipped",
+      "reason": "Eksik"
+    }
+  ],
+  "note": "Compatibility test; no perceptual quality score. No downloads or personal audio."
+}

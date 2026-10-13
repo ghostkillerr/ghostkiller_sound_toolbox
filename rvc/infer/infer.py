@@ -29,11 +29,19 @@ from rvc.lib.utils import load_audio_infer, load_embedding
 from rvc.lib.tools.split_audio import process_audio, merge_audio
 from rvc.lib.algorithm.synthesizers import Synthesizer
 from rvc.configs.config import Config
+from rvc.infer.helper_cache import InferenceHelperCache, file_identity
+from rvc.infer.quality_policy import InferenceQualityPolicy
+from app_runtime import model_directory
+from compute_backend import clear_cache, trim_cache
+from rvc.infer.model_validation import (validate_architecture, validate_meta_network,
+                                      validate_weights, checkpoint_archive_precheck)
+from rvc.infer.safe_index import available_memory
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("faiss").setLevel(logging.WARNING)
 logging.getLogger("faiss.loader").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 
 class VoiceConverter:
@@ -41,12 +49,16 @@ class VoiceConverter:
     A class for performing voice conversion using the Retrieval-Based Voice Conversion (RVC) method.
     """
 
-    def __init__(self, device=None, allow_model_download=True):
+    def __init__(self, device=None, allow_model_download=True, helper_cache=None, quality_policy=None):
         """
         Initializes the VoiceConverter with default configuration, and sets up models and parameters.
         """
         self.config = Config(device=device)
         self.allow_model_download = allow_model_download
+        self.helper_cache = helper_cache if helper_cache is not None else InferenceHelperCache()
+        if quality_policy is not None and not isinstance(quality_policy, InferenceQualityPolicy):
+            raise ValueError("Geçersiz kalite politikası.")
+        self.quality_policy = quality_policy or InferenceQualityPolicy()
         self.hubert_model = (
             None  # Initialize the Hubert model (for embedding extraction)
         )
@@ -59,6 +71,7 @@ class VoiceConverter:
         self.n_spk = None  # Number of speakers in the model
         self.use_f0 = None  # Whether the model uses F0
         self.loaded_model = None
+        self._loaded_model_identity = None
 
     def load_hubert(self, embedder_model: str, embedder_model_custom: str = None):
         """
@@ -68,9 +81,17 @@ class VoiceConverter:
             embedder_model (str): Path to the pre-trained HuBERT model.
             embedder_model_custom (str): Path to the custom HuBERT model.
         """
-        self.hubert_model = load_embedding(embedder_model, embedder_model_custom, allow_download=self.allow_model_download)
-        self.hubert_model = self.hubert_model.to(self.config.device).float()
-        self.hubert_model.eval()
+        folder = embedder_model_custom if embedder_model == "custom" else os.path.join(
+            model_directory(), "embedders", embedder_model.replace("-", "_") if "hubert" in embedder_model else embedder_model)
+        key = ("embedder", str(self.config.device), "float32", embedder_model,
+               file_identity(os.path.join(folder or "", "config.json")),
+               file_identity(os.path.join(folder or "", "pytorch_model.bin")),
+               file_identity(os.path.join(folder or "", "model.safetensors")))
+        def loader():
+            model = load_embedding(embedder_model, embedder_model_custom,
+                                   allow_download=self.allow_model_download, rvc_version=self.version)
+            return model.to(self.config.device).float().eval()
+        self.hubert_model = self.helper_cache.get_or_create(key, loader)
 
     @staticmethod
     def remove_audio_noise(data, sr, reduction_strength=0.7):
@@ -88,7 +109,7 @@ class VoiceConverter:
             )
             return reduced_noise
         except Exception as error:
-            print(f"An error occurred removing audio noise: {error}")
+            logger.warning("Audio noise removal failed: %s", error)
             return None
 
     @staticmethod
@@ -182,7 +203,7 @@ class VoiceConverter:
         index_rate: float = 0.75,
         volume_envelope: float = 1.0,
         protect: float = 0.5,
-        hop_length: int = 128,
+        hop_length: int = 160,
         split_audio: bool = False,
         f0_autotune: bool = False,
         f0_autotune_strength: float = 1,
@@ -196,6 +217,7 @@ class VoiceConverter:
         sid: int = 0,
         proposed_pitch: bool = False,
         proposed_pitch_threshold: float = 155.0,
+        quality_policy: InferenceQualityPolicy = None,
         **kwargs,
     ):
         """
@@ -206,7 +228,7 @@ class VoiceConverter:
             index_rate (float): Rate for index matching.
             volume_envelope (int): RMS mix rate.
             protect (float): Protection rate for certain audio segments.
-            hop_length (int): Hop length for audio processing.
+            hop_length (int): Fixed RVC pitch hop, 160 samples at 16 kHz (100 fps).
             f0_method (str): Method for F0 extraction.
             audio_input_path (str): Path to the input audio file.
             audio_output_path (str): Path to the output audio file.
@@ -228,7 +250,7 @@ class VoiceConverter:
         index_rate = float(index_rate) if index_rate is not None else 0.75
         volume_envelope = float(volume_envelope) if volume_envelope is not None else 1.0
         protect = float(protect) if protect is not None else 0.5
-        hop_length = int(hop_length) if hop_length is not None else 128
+        hop_length = 160 if hop_length is None else hop_length
         clean_strength = float(clean_strength) if clean_strength is not None else 0.5
         for name, value in (("index_rate", index_rate), ("volume_envelope", volume_envelope),
                             ("protect", protect), ("clean_strength", clean_strength)):
@@ -236,32 +258,39 @@ class VoiceConverter:
                 raise ValueError(f"{name}, 0 ile 1 arasında olmalıdır.")
         if not 0 <= protect <= .5:
             raise ValueError("protect, 0 ile 0.5 arasında olmalıdır.")
-        if hop_length <= 0:
-            raise ValueError("hop_length pozitif olmalıdır.")
+        if isinstance(hop_length, bool) or hop_length != 160:
+            raise ValueError("RVC hop_length sabittir: 16 kHz'de 160 örnek (100 fps).")
+        if quality_policy is not None:
+            if not isinstance(quality_policy, InferenceQualityPolicy):
+                raise ValueError("Geçersiz kalite politikası.")
+            self.quality_policy = quality_policy
 
         if not model_path or not os.path.isfile(model_path):
             raise FileNotFoundError(f"Model bulunamadı: {model_path}")
 
         self.get_vc(model_path, sid)
+        self.validate_embedder(embedder_model, embedder_model_custom)
+        self.vc.quality_policy = self.quality_policy
         if not isinstance(sid, int) or not 0 <= sid < self.n_spk:
             raise ValueError("Geçersiz konuşmacı numarası.")
 
         start_time = time.time()
-        print(f"Converting audio '{audio_input_path}'...")
+        logger.info("Converting audio %r", audio_input_path)
+        source_info = sf.info(str(audio_input_path).strip(' "\n'))
 
         audio = load_audio_infer(
             audio_input_path,
             16000,
+            memory_output_rate=max(self.tgt_sr, int(resample_sr)),
             **kwargs,
         )
 
-        # SOTA: RVC Öncesi 80 Hz Low-Cut (High-Pass) ve Gürültü/Rumble Temizliği
-        try:
+        if self.quality_policy.input_highpass_80hz:
             from scipy.signal import butter, filtfilt
             b_hp, a_hp = butter(4, 80 / 8000, btype='highpass')
+            if audio.size <= 3 * max(len(b_hp), len(a_hp)):
+                raise ValueError("Ses 80 Hz filtresi için çok kısa; daha uzun bir ses seçin.")
             audio = filtfilt(b_hp, a_hp, audio)
-        except Exception as e:
-            print(f"[PRE-PROCESS UYARI] 80Hz Low-Cut filtresi uygulanamadı: {e}")
 
         if audio.size == 0 or not np.isfinite(audio).all():
             raise ValueError("Ses dosyası boş veya geçersiz örnekler içeriyor.")
@@ -271,7 +300,7 @@ class VoiceConverter:
             audio /= audio_max
 
         embedder_key = (embedder_model, embedder_model_custom)
-        if self.hubert_model is None or embedder_key != self.last_embedder_model:
+        if self.hubert_model is None or embedder_key != self.last_embedder_model or len(self.helper_cache):
             self.load_hubert(embedder_model, embedder_model_custom)
             self.last_embedder_model = embedder_key
 
@@ -291,7 +320,7 @@ class VoiceConverter:
 
         if split_audio:
             chunks, intervals = process_audio(audio, 16000)
-            print(f"Audio split into {len(chunks)} chunks for processing.")
+            logger.info("Audio split into %d chunks", len(chunks))
         else:
             chunks = []
             chunks.append(audio)
@@ -318,7 +347,7 @@ class VoiceConverter:
             )
             converted_chunks.append(audio_opt)
             if split_audio:
-                print(f"Converted audio chunk {len(converted_chunks)}")
+                logger.info("Converted audio chunk %d", len(converted_chunks))
 
         if split_audio:
             audio_opt = merge_audio(
@@ -346,6 +375,10 @@ class VoiceConverter:
 
         if not len(audio_opt) or not np.isfinite(audio_opt).all():
             raise ValueError("Dönüşüm boş veya geçersiz bir ses üretti.")
+        expected_frames = round(source_info.frames * output_sr / source_info.samplerate)
+        if len(audio_opt) < expected_frames:
+            raise ValueError("Dönüşüm kaynak sesin zaman çizelgesinden kısa çıktı üretti; çıktı kaydedilmedi.")
+        audio_opt = audio_opt[:expected_frames]
         sf.write(audio_output_path, audio_opt, output_sr, format="WAV")
         output_path_format = os.path.splitext(audio_output_path)[0] + f".{export_format.lower()}"
         audio_output_path = self.convert_audio_format(
@@ -353,9 +386,7 @@ class VoiceConverter:
         )
 
         elapsed_time = time.time() - start_time
-        print(
-            f"Conversion completed at '{audio_output_path}' in {elapsed_time:.2f} seconds."
-        )
+        logger.info("Conversion completed at %r in %.2f seconds", audio_output_path, elapsed_time)
         return audio_output_path
 
     def get_vc(self, weight_root, sid):
@@ -369,8 +400,9 @@ class VoiceConverter:
         if sid == "" or sid == []:
             self.cleanup_model()
 
-        if not self.loaded_model or self.loaded_model != weight_root:
-            self.cleanup_model()
+        identity = file_identity(weight_root)
+        if not self.loaded_model or self.loaded_model != weight_root or self._loaded_model_identity != identity:
+            self.cleanup_model(release_helpers=False)
             try:
                 self.load_model(weight_root)
                 if self.cpt is None:
@@ -378,20 +410,40 @@ class VoiceConverter:
                 self.setup_network()
                 self.setup_vc_instance()
                 self.loaded_model = weight_root
+                self._loaded_model_identity = identity
             except Exception:
-                self.cleanup_model()
+                self.cleanup_model(release_helpers=False)
                 raise
 
-    def cleanup_model(self):
+    def cleanup_model(self, release_helpers=True):
         """
         Cleans up the model and releases resources.
         """
-        self.hubert_model = self.net_g = self.n_spk = self.vc = self.tgt_sr = None
+        self.net_g = self.n_spk = self.vc = self.tgt_sr = None
         self.cpt = self.loaded_model = None
-        self.last_embedder_model = self.version = self.use_f0 = None
-        if self.config.device.startswith("cuda") and torch.cuda.is_available():
-            with torch.cuda.device(self.config.device):
-                torch.cuda.empty_cache()
+        self._loaded_model_identity = None
+        self.version = self.use_f0 = None
+        if release_helpers:
+            self.hubert_model = self.last_embedder_model = None
+            self.helper_cache.clear()
+            clear_cache(self.config.device)
+        else:
+            trim_cache(self.config.device)
+
+    def validate_embedder(self, embedder_model, custom_embedder=None):
+        """Honor checkpoint metadata before computing mismatched features.
+
+        Metadata-free legacy models retain the historical ContentVec contract.
+        Explicit metadata never silently falls back to another helper network.
+        """
+        expected = (self.cpt or {}).get("embedder_model")
+        if expected is not None:
+            if not isinstance(expected, str) or not expected.strip():
+                raise ValueError("Model embedder_model bilgisi geçersiz.")
+            if expected.strip().lower() != str(embedder_model).strip().lower():
+                raise ValueError(f"Model '{expected}' embedder ile eğitilmiş; seçilen '{embedder_model}' uyumlu değil.")
+        if embedder_model == "custom" and (not custom_embedder or not os.path.isdir(custom_embedder)):
+            raise ValueError("Model için eşleşen özel embedder klasörü seçilmelidir.")
 
     def load_model(self, weight_root):
         """
@@ -400,11 +452,11 @@ class VoiceConverter:
         Args:
             weight_root (str): Path to the model weights.
         """
-        self.cpt = (
-            torch.load(weight_root, map_location="cpu", weights_only=True)
-            if os.path.isfile(weight_root)
-            else None
-        )
+        if os.path.isfile(weight_root):
+            checkpoint_archive_precheck(weight_root)
+            self.cpt = torch.load(weight_root, map_location="cpu", weights_only=True, mmap=True)
+        else:
+            self.cpt = None
 
     def setup_network(self):
         """
@@ -413,12 +465,11 @@ class VoiceConverter:
         if self.cpt is not None:
             if not isinstance(self.cpt, dict) or not isinstance(self.cpt.get("config"), (list, tuple)) or len(self.cpt["config"]) != 18:
                 raise ValueError("Geçersiz RVC model yapılandırması.")
-            self.cpt["config"] = list(self.cpt["config"])
-            if not isinstance(self.cpt.get("weight"), dict) or "emb_g.weight" not in self.cpt["weight"]:
-                raise ValueError("RVC model ağırlıkları eksik.")
+            self.cpt["config"] = validate_architecture(self.cpt["config"], self.cpt.get("weight"))
             self.tgt_sr = self.cpt["config"][-1]
-            self.cpt["config"][-3] = self.cpt["weight"]["emb_g.weight"].shape[0]
             self.use_f0 = self.cpt.get("f0", 1)
+            if type(self.use_f0) not in (bool, int) or self.use_f0 not in (0, 1):
+                raise ValueError("RVC model f0 bilgisi 0 veya 1 olmalıdır.")
 
             self.version = self.cpt.get("version", "v1")
             self.text_enc_hidden_dim = 768 if self.version == "v2" else 256
@@ -429,6 +480,18 @@ class VoiceConverter:
                 raise ValueError("Bu vocoder F0 bilgisi gerektiriyor.")
             if not isinstance(self.tgt_sr, int) or self.tgt_sr < 16000:
                 raise ValueError("Geçersiz model örnekleme hızı.")
+            # Meta construction checks combined channel/layer/kernel allocation
+            # costs before any real generator parameter allocation is attempted.
+            with torch.device("meta"):
+                schema = Synthesizer(
+                    *self.cpt["config"], use_f0=self.use_f0,
+                    text_enc_hidden_dim=self.text_enc_hidden_dim, vocoder=self.vocoder)
+                del schema.enc_q
+                required = validate_meta_network(schema)
+                validate_weights(schema, self.cpt["weight"])
+            del schema
+            if required * 2 > available_memory() * .6:
+                raise ValueError("RVC ağını oluşturmak için kullanılabilir RAM yetersiz. Daha küçük bir model seçin veya diğer uygulamaları kapatın.")
             self.net_g = Synthesizer(
                 *self.cpt["config"],
                 use_f0=self.use_f0,
@@ -441,11 +504,14 @@ class VoiceConverter:
                 raise ValueError(f"RVC model ağırlıkları eksik: {', '.join(incompatible.missing_keys[:5])}")
             self.net_g = self.net_g.to(self.config.device).float()
             self.net_g.eval()
+            # Parameters already reside in the generator. Retain metadata, not
+            # a second CPU copy of every checkpoint weight for the whole job.
+            self.cpt.pop("weight", None)
 
     def setup_vc_instance(self):
         """
         Sets up the voice conversion pipeline instance based on the target sampling rate and configuration.
         """
         if self.cpt is not None:
-            self.vc = VC(self.tgt_sr, self.config)
+            self.vc = VC(self.tgt_sr, self.config, self.helper_cache, self.quality_policy)
             self.n_spk = self.cpt["config"][-3]
