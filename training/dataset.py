@@ -157,10 +157,13 @@ def prepare(job, options, emit):
             raise ValueError("Kayıt süresi okunamadı.")
         if probe.returncode or not np.isfinite(seconds) or seconds < 2:
             raise ValueError("Kayıt en az iki saniye ve geçerli sürede olmalı.")
+        from training.experiments import selected_range
+        start, end = selected_range(options, row['path'], seconds)
         frames = math.ceil(seconds*options.sample_rate)
-        estimates.append((frames,estimate_storage(frames,options,len(rows)==1,0)))
+        estimates.append((frames,estimate_storage(math.ceil((end-start)*options.sample_rate),options,len(rows)==1,0)))
     needed = (max(frames*4+4096 for frames,_ in estimates)
-              +sum(estimate["bytes"] for _,estimate in estimates)+checkpoint_reserve(job,options))
+              +sum(estimate["bytes"] for _,estimate in estimates)+checkpoint_reserve(job,options)
+              +(options.snapshot_budget_mb*1024**2 if options.snapshot_limit else 0))
     if shutil.disk_usage(job).free < needed:
         raise RuntimeError(f"Eğitim verisi, index ve atomik kontrol noktaları için en az {needed/1024**3:.2f} GB boş disk alanı gerekli.")
     emit("prepare",message=f"Hazırlama tahmini: {sum(value['pieces'] for _,value in estimates)} parça; en az {needed/1024**3:.2f} GB boş disk alanı.")
@@ -173,8 +176,17 @@ def prepare(job, options, emit):
             raise ValueError("Kaynak kayıt veri hazırlama sırasında değişti; eğitim başlatılmadı.")
         peak, clipped, energy, frames = 0., 0, 0., 0
         with sf.SoundFile(target) as stream:
-            for block in stream.blocks(blocksize=65536, dtype="float32"):
+            from training.experiments import selected_range
+            selected_start, selected_end = selected_range(options, row['path'], stream.frames/options.sample_rate)
+            first, last = round(selected_start*options.sample_rate), round(selected_end*options.sample_rate)
+            stream.seek(first)
+            remaining=last-first
+            while remaining:
                 check_cancel(job)
+                block=stream.read(min(65536,remaining),dtype='float32')
+                if not len(block):
+                    raise ValueError('Seçilen ses bölümü eksik okundu.')
+                remaining-=len(block)
                 if not np.isfinite(block).all():
                     raise ValueError("Kayıtta NaN veya sonsuz ses örnekleri var.")
                 peak = max(peak, float(np.max(np.abs(block))))
@@ -185,10 +197,10 @@ def prepare(job, options, emit):
                 raise ValueError("Kayıt boş veya tamamen sessiz.")
             gain = min(1.0, .95 / peak)  # Never amplify noise or perform destructive denoise.
             if len(rows) == 1:
-                boundary = int(frames * (1-options.holdout_fraction))
-                ranges = [("train", 0, boundary), ("holdout", boundary, frames)]
+                boundary = first+int((last-first) * (1-options.holdout_fraction))
+                ranges = [("train", first, boundary), ("holdout", boundary, last)]
             else:
-                ranges = [(row["split"], 0, frames)]
+                ranges = [(row["split"], first, last)]
             for split, start, end in ranges:
                 for pos in range(start, end, step):
                     check_cancel(job)

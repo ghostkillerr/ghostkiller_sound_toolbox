@@ -12,9 +12,10 @@ from app_runtime import data_directory, app_directory, safe_filename
 from app_settings import write_json_atomic
 from training.config import TrainingOptions, BACKEND_COMMIT, FORMAT_VERSION, TRAINER_REVISION
 from training.storage import read_manifest, update_manifest,rng_layout
+from registry_store import registry_lock
 
 
-def create_job(options, settings):
+def create_job(options, settings, parent_job=None):
     options.validate()
     device = settings.prepare_job(["contentvec", "rmvpe"] if options.f0_method=="rmvpe" else ["contentvec"])
     from hardware import ensure_training_backend
@@ -32,6 +33,20 @@ def create_job(options, settings):
         "status":"created","asset_records":{key:settings.manager.records.get(key,{}) for key in
             ("contentvec","rmvpe",f"training_v2_{options.sample_rate//1000}k")},
     })
+    if parent_job:
+        try:
+            with registry_lock(Path(parent_job)/'worker.guard', timeout=.1):
+                parent = read_manifest(parent_job)
+                previous = TrainingOptions.from_dict(parent['options'])
+                if previous.sample_rate != options.sample_rate or parent.get('trainer_revision',TRAINER_REVISION)!=TRAINER_REVISION:
+                    raise ValueError('Başlangıç eğitiminin mimarisi ve örnekleme hızı yeni eğitimle aynı olmalı.')
+                checkpoint = Path(parent_job).resolve()/'resume.pth'
+                from model_manager import file_digest
+                update_manifest(job, initial_from={'checkpoint':str(checkpoint), 'sha256':file_digest(checkpoint),
+                                                   'session':str(Path(parent_job).resolve())})
+        except BaseException:
+            update_manifest(job, status='failed', error='Başlangıç eğitim kaydı doğrulanamadı.')
+            raise
     return str(job)
 
 
@@ -252,7 +267,7 @@ class TrainingProcess:
         return json.loads((Path(job)/"result.json").read_text(encoding="utf-8"))
 
 
-def register_model(job, candidate, registry_path):
+def register_model(job, candidate, registry_path, name=None):
     from model_manager import file_digest
     result = json.loads((Path(job)/"result.json").read_text(encoding="utf-8"))
     if read_manifest(job).get("status") != "completed":
@@ -265,7 +280,9 @@ def register_model(job, candidate, registry_path):
             raise ValueError("Test edilen model veya index sonradan değişmiş; kayıt yapılmadı.")
     path = Path(registry_path)
     from ui_cover import validate_models
-    name = read_manifest(job)["options"]["name"]
+    name = read_manifest(job)["options"]["name"] if name is None else name
+    if not isinstance(name,str) or not name.strip() or len(name)>100:
+        raise ValueError('Model adı 1–100 karakter olmalı.')
     # Registry models must survive removal of temporary training sessions.
     root = path.resolve().parent/"trained_models"
     root.mkdir(exist_ok=True)

@@ -11,6 +11,14 @@ Kurulum kabul testleri tamamlandığında gerçek yayın tarihi ve indirmeler ek
 
 ### Ses araçları ve model eğitimi
 
+- **Eğitim verisini önceden inceleme:** kayıtları dinleyin, kullanılacak bölümü
+  belirleyin ve gerçek eğitim/kontrol dağılımını eğitim başlamadan görün.
+- **Sonuçları karşılaştırma:** sınırlı ara model arşivi, ortak test kayıtları,
+  index açık/kapalı dinleme, tercih/not ve erişilebilir değerlendirme geçmişi.
+- **Eğitim denemelerini yönetme:** oturum listesi ve ayar karşılaştırması,
+  kişisel ayar şablonları, sıralı deneyler ve doğrulanmış hazırlığı yeniden kullanma.
+  Mevcut eğitime ek epoch veya önceki eğitimden ayrı yeni oturum başlatılabilir.
+
 - **Vokal ve müzik ayrıştırma:** ana vokal, enstrümantal, arka vokal, yankı ve
   gürültü temizleme adımları aynı iş akışında kullanılabilir.
 - **Yerel RVC ile ses değiştirme:** kişisel ses modeli ve isteğe bağlı index

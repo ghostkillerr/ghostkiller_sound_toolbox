@@ -37,6 +37,13 @@ class ImmediateThread:
 
 
 class AutomaticUpdateTests(unittest.TestCase):
+    def setUp(self):
+        # The fixture offers 2.1.0 to an installed 2.0.0 regardless of the
+        # source checkout's current release candidate version.
+        current=patch.object(updater,'CURRENT_VERSION','2.0.0')
+        current.start()
+        self.addCleanup(current.stop)
+
     def tearDown(self):
         if JOB_LOCK.locked():
             JOB_LOCK.release()

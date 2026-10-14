@@ -172,6 +172,21 @@ def run_training(job, options, device, model_root, emit, resume=False):
     load_pretrained(net_g,pretrain/f"f0G{options.sample_rate//1000}k.pth",True)
     load_pretrained(net_d,pretrain/f"f0D{options.sample_rate//1000}k.pth")
     net_g, net_d = net_g.to(device).float().train(), net_d.to(device).float().train()
+    def initial_weights():
+        path = job/'initial_weights.pth'
+        if path.is_file():
+            from model_manager import file_digest
+            manifest = json.loads((job/'manifest.json').read_text(encoding='utf-8'))
+            if file_digest(path) != manifest['initial_weights_sha256']:
+                raise ValueError('Yeni eğitimin başlangıç ağırlıkları değişmiş.')
+            value = torch.load(path, map_location='cpu', weights_only=True, mmap=True)
+            net_g.load_state_dict(value['generator'], strict=True)
+            net_d.load_state_dict(value['discriminator'], strict=True)
+        else:
+            load_pretrained(net_g,pretrain/f"f0G{options.sample_rate//1000}k.pth",True)
+            load_pretrained(net_d,pretrain/f"f0D{options.sample_rate//1000}k.pth")
+    if not resume:
+        initial_weights()
     def optimizers():
         args = {"lr": options.learning_rate, "betas": tuple(config["train"]["betas"]), "eps": config["train"]["eps"]}
         return torch.optim.AdamW(net_g.parameters(),**args),torch.optim.AdamW(net_d.parameters(),**args)
@@ -187,7 +202,8 @@ def run_training(job, options, device, model_root, emit, resume=False):
         # networks and can exhaust VRAM before the first resumed step.
         state = torch.load(checkpoint,map_location="cpu",weights_only=True,mmap=True)
         validate_checkpoint_backend(state,device)
-        if state["config"] != config or TrainingOptions.from_dict(state["options"]).to_dict() != options.to_dict():
+        from training.experiments import resume_options_match
+        if state["config"] != config or not resume_options_match(job, state['options'], options):
             raise ValueError("Devam ayarları checkpoint ile eşleşmiyor.")
         net_g.load_state_dict(state.pop("generator"))
         net_d.load_state_dict(state.pop("discriminator"))
@@ -238,8 +254,7 @@ def run_training(job, options, device, model_root, emit, resume=False):
                 net_d.zero_grad(set_to_none=True)
                 opt_g.state.clear()
                 opt_d.state.clear()
-                load_pretrained(net_g,pretrain/f"f0G{options.sample_rate//1000}k.pth",True)
-                load_pretrained(net_d,pretrain/f"f0D{options.sample_rate//1000}k.pth")
+                initial_weights()
                 torch.set_rng_state(rng)
                 set_rng_states(device,device_rng)
                 gc.collect()
@@ -265,6 +280,7 @@ def run_training(job, options, device, model_root, emit, resume=False):
     try:
         session_started = last_save = time.monotonic()
         session_start_step = step
+        metrics = {}
         while epoch <= options.epochs:
             generator = torch.Generator().manual_seed(options.seed+epoch)
             ids = torch.randperm(len(train_data),generator=generator).tolist()
@@ -297,12 +313,14 @@ def run_training(job, options, device, model_root, emit, resume=False):
             if epoch%options.save_every == 0 or epoch == options.epochs:
                 validation = evaluate(net_g,valid_data,config,device,job)
                 with (job/"metrics.jsonl").open("a",encoding="utf-8") as stream:
-                    stream.write(json.dumps({"epoch":epoch,"step":step,"holdout_mel_l1":validation})+"\n")
+                    stream.write(json.dumps({"epoch":epoch,"step":step,"holdout_mel_l1":validation, **metrics})+"\n")
                 emit("evaluate",message=f"Epoch {epoch}: değerlendirme mel hatası {validation:.4f}; dinleme testi yine gerekli.")
                 export_model(net_g,config,options,job,"latest.pth",epoch,step)
                 if validation < best:
                     best = validation
                     export_model(net_g,config,options,job,"best_validation.pth",epoch,step)
+                from training.experiments import archive_snapshot
+                archive_snapshot(job, options, epoch, step, validation)
             sched_g.step()
             sched_d.step()
             completed = epoch

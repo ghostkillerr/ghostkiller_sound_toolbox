@@ -1,0 +1,32 @@
+name: Hata bildir
+description: Programda karşılaştığınız sorunu anlatın.
+title: "[Hata] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Program sürümü ve paket
+      description: Örneğin 2.0.0, CPU veya NVIDIA CUDA.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Ne yaparken sorun oluştu?
+      description: Bastığınız düğmeleri ve ekranda görünen hata mesajını yazın.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ne olmasını bekliyordunuz?
+  - type: input
+    id: machine
+    attributes:
+      label: Bilgisayarınız
+      description: Bildiğiniz kadarıyla Windows sürümü, işlemci, RAM ve ekran kartı.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Ek bilgi
+      description: İsterseniz ilgili günlük bölümünü ekleyin. Özel seslerinizi, modellerinizi ve kişisel klasör yollarınızı paylaşmanız gerekmiyor.

@@ -3,11 +3,14 @@
 from pathlib import Path
 import json
 import threading
+from dataclasses import replace
 import wx
 from ui_common import apply_native_style, add_intro, section_title, name_control, explanation_control
 from app_runtime import JOB_LOCK, post_ui, data_directory, finish_job
 from training.config import TrainingOptions
 from training.service import create_job, validate_resume, TrainingProcess, register_model
+from training.experiments import (ExperimentQueue, list_sessions, read_notes, save_notes,
+                                  request_extension, save_preset, split_review)
 
 
 class TrainingPanel(wx.ScrolledWindow):
@@ -15,6 +18,11 @@ class TrainingPanel(wx.ScrolledWindow):
         super().__init__(parent, style=wx.VSCROLL | wx.TAB_TRAVERSAL)
         self.settings = settings
         self.sources, self.source_groups = [], {}
+        self.source_ranges = {}
+        self.comparison_sources = ()
+        self.queue = ExperimentQueue(Path(data_directory())/'training_runs'/'queue.json')
+        self.queue_running = False
+        self.queue_item = None
         self.job = self.result = self.runner = None
         self.busy = False
         self._last_stage = None
@@ -38,6 +46,16 @@ class TrainingPanel(wx.ScrolledWindow):
         self.btn_remove.Bind(wx.EVT_BUTTON,self.OnRemove)
         self.btn_remove.Disable()
         layout.Add(self.btn_remove,0,wx.ALL,8)
+        self.extra_controls = []
+        def action(parent,sizer,label,handler):
+            control = wx.Button(parent,label=label)
+            control.Bind(wx.EVT_BUTTON,handler)
+            sizer.Add(control,0,wx.ALL,8)
+            self.extra_controls.append(control)
+            return control
+        self.btn_review = action(self,layout,'Kayıtları eğitim başlatmadan incele',self.OnAnalyze)
+        self.btn_source_listen = action(self,layout,'Seçili özgün kaydı dinle',self.OnSourceListen)
+        self.btn_range = action(self,layout,'Seçili kaydın kullanılacak bölümünü belirle',self.OnRange)
         section_title(self,layout,"Eğitim ayarları")
 
         def field(parent,sizer,label,create,explanation='',focus_explanation=True):
@@ -76,6 +94,25 @@ class TrainingPanel(wx.ScrolledWindow):
         self.checkpointing = wx.CheckBox(self.advanced,label="Bellek tasarrufu kullan; eğitim daha yavaş olabilir")
         self.checkpointing.SetValue(True)
         advanced_layout.Add(self.checkpointing,0,wx.ALL,8)
+        self.seed = field_advanced('Tekrarlanabilirlik tohumu',lambda:wx.TextCtrl(self.advanced,value='1234'),
+                                   'Aynı veri ve ayarlarla karşılaştırma için bu sayıyı sabit tutun. Farklı donanımda birebir aynı sonuç garanti edilmez.')
+        self.snapshot_limit = field_advanced('Saklanacak ara model sayısı',lambda:wx.SpinCtrl(self.advanced,min=0,max=20,initial=3),
+                                            'Her değerlendirmede bir ara model saklanır. 0 arşivi kapatır; son model ve devam kaydı korunur.')
+        self.snapshot_budget = field_advanced('Ara modeller için disk sınırı (MB)',lambda:wx.SpinCtrl(self.advanced,min=256,max=16384,initial=2048),
+                                             'Arşiv bu sınırın içinde tutulur. Eski ara modeller kaldırılabilir; kaydettiğiniz ses modelleri etkilenmez.')
+        self.reuse_preparation = wx.CheckBox(self.advanced,label='Aynı kayıtların doğrulanmış hazırlığını yeniden kullan')
+        self.reuse_preparation.SetValue(True)
+        advanced_layout.Add(self.reuse_preparation,0,wx.ALL,8)
+        self.comparison_label=wx.StaticText(self.advanced,label='Ayrı karşılaştırma kaydı seçilmedi; kontrol kayıtları kullanılacak.')
+        advanced_layout.Add(self.comparison_label,0,wx.EXPAND | wx.ALL,8)
+        action(self.advanced,advanced_layout,'Ayrı karşılaştırma kayıtları seç (isteğe bağlı)',self.OnComparisonSources)
+        action(self.advanced,advanced_layout,'Ayrı karşılaştırma kayıtlarını kaldır',self.OnClearComparisonSources)
+        action(self.advanced,advanced_layout,'Bu ayarları şablon olarak kaydet',self.OnSavePreset)
+        action(self.advanced,advanced_layout,'Kayıtlı ayar şablonunu uygula',self.OnLoadPreset)
+        action(self.advanced,advanced_layout,'Bu eğitimi sıraya ekle',self.OnQueueAdd)
+        action(self.advanced,advanced_layout,'Eğitim sırasını göster',self.OnQueueShow)
+        action(self.advanced,advanced_layout,'Sıradaki eğitimleri çalıştır',self.OnQueueRun)
+        action(self.advanced,advanced_layout,'Bekleyen eğitimleri sıradan çıkar',self.OnQueueClear)
         self.group_intro = wx.StaticText(self.advanced,label="Yalnız aynı şarkının birden fazla kaydını eklediyseniz bunlara aynı eşleştirme adını verin. Böylece modelin kontrolü, öğrendiği şarkının başka kopyasıyla yapılmaz. Farklı şarkılarda eşleştirme gerekmez.")
         self.group_intro.Wrap(self.FromDIP(620))
         advanced_layout.Add(self.group_intro,0,wx.EXPAND | wx.ALL,8)
@@ -100,6 +137,11 @@ class TrainingPanel(wx.ScrolledWindow):
         self.btn_load = wx.Button(self,label="Kayıtlı eğitimin sonuçlarını aç")
         self.btn_load.Bind(wx.EVT_BUTTON,self.OnLoad)
         layout.Add(self.btn_load,0,wx.ALL,8)
+        action(self,layout,'Eğitim oturumlarım',self.OnSessions)
+        action(self,layout,'İki eğitimin ayarlarını karşılaştır',self.OnCompareSessions)
+        action(self,layout,'Açık eğitimin toplam tekrar sayısını artır ve devam et',self.OnExtend)
+        action(self,layout,'Önceki eğitimden yeni bir model eğit',self.OnFineTune)
+        action(self,layout,'Açık eğitimin değerlendirme geçmişi',self.OnHistory)
 
         self.progress_panel = wx.Panel(self,style=wx.TAB_TRAVERSAL)
         progress_layout = wx.BoxSizer(wx.VERTICAL)
@@ -142,12 +184,16 @@ class TrainingPanel(wx.ScrolledWindow):
         self.candidate.SetSelection(0)
         self.test_mode = field(self.result_panel,result_layout,"Dinlenecek test kaydı",lambda:wx.Choice(self.result_panel,choices=["Modelin kendi sesi (index kapalı)","Eğitim kayıtlarından destekli ses (index açık)"]))
         self.test_mode.SetSelection(0)
+        self.test_clip = field(self.result_panel,result_layout,'Karşılaştırmada dinlenecek kayıt',lambda:wx.Choice(self.result_panel,choices=['Kontrol kaydı 1']))
+        self.test_clip.SetSelection(0)
+        self.candidate.Bind(wx.EVT_CHOICE,self.OnCandidate)
         self.btn_listen = wx.Button(self.result_panel,label="Seçili modelin test sesini dinle")
         self.btn_listen.Bind(wx.EVT_BUTTON,self.OnListen)
         result_layout.Add(self.btn_listen,0,wx.ALL,8)
         self.btn_register = wx.Button(self.result_panel,label="Seçili modeli ses değiştirme listesine ekle")
         self.btn_register.Bind(wx.EVT_BUTTON,self.OnRegister)
         result_layout.Add(self.btn_register,0,wx.ALL,8)
+        self.btn_note = action(self.result_panel,result_layout,'Seçili modeli tercih et ve oturum notu yaz',self.OnNote)
         for control in (self.candidate,self.test_mode,self.btn_listen,self.btn_register):control.Disable()
         self.result_panel.SetSizer(result_layout)
         layout.Add(self.result_panel,0,wx.EXPAND | wx.ALL,8)
@@ -190,6 +236,7 @@ class TrainingPanel(wx.ScrolledWindow):
         selected = self.source_list.GetSelection()
         if selected != wx.NOT_FOUND:
             self.source_groups.pop(self.sources[selected],None)
+            self.source_ranges.pop(self.sources[selected],None)
             del self.sources[selected]
             self.source_list.Delete(selected)
             self.ClearAnalysis()
@@ -206,7 +253,8 @@ class TrainingPanel(wx.ScrolledWindow):
         self.btn_group.Show(len(self.sources)>1 or bool(self.source_groups))
         self.Layout()
         self.FitInside()
-        self.source_list.Set([f"{i+1}. {Path(source).name}"+(f" | Aynı şarkı: {self.source_groups[source]}" if self.source_groups.get(source) else " | Ayrı kayıt") for i,source in enumerate(self.sources)])
+        self.source_list.Set([f"{i+1}. {Path(source).name}"+(f" | Aynı şarkı: {self.source_groups[source]}" if self.source_groups.get(source) else " | Ayrı kayıt")+
+                             (f" | Bölüm {self.source_ranges[source][0]}–{self.source_ranges[source][1] or 'son'} saniye" if source in self.source_ranges else '') for i,source in enumerate(self.sources)])
         if 0 <= selection < len(self.sources): self.source_list.SetSelection(selection)
         elif self.sources: self.source_list.SetSelection(0)
 
@@ -231,7 +279,7 @@ class TrainingPanel(wx.ScrolledWindow):
     def OnProfile(self,event):
         pass  # Sample rate is read directly by Options; no technical filler field.
 
-    def Options(self):
+    def Options(self, require_name=True, check_sources=True):
         def decimal(control, label):
             try:
                 return float(control.GetValue().strip().replace(',', '.'))
@@ -241,7 +289,11 @@ class TrainingPanel(wx.ScrolledWindow):
             learning_rate = float(self.learning_rate.GetValue().strip().replace(",", "."))
         except ValueError:
             raise ValueError("Öğrenme hızı sayısal olmalı; örneğin 0.0001.")
-        return TrainingOptions(name=self.model_name.GetValue().strip(), sources=tuple(self.sources),
+        try:
+            seed=int(self.seed.GetValue().strip())
+        except ValueError:
+            raise ValueError('Tekrarlanabilirlik tohumu bir tam sayı olmalı; örneğin 1234.')
+        return TrainingOptions(name=self.model_name.GetValue().strip() or ('' if require_name else 'İnceleme'), sources=tuple(self.sources),
                                sample_rate=(32000, 40000, 48000)[self.sample_rate.GetSelection()],
                                epochs=self.epochs.GetValue(), batch_size=self.batch.GetValue(),
                                save_every=self.interval.GetValue(), learning_rate=learning_rate,
@@ -249,7 +301,11 @@ class TrainingPanel(wx.ScrolledWindow):
                                holdout_fraction=self.holdout.GetValue()/100, cpu_threads=self.threads.GetValue(),
                                f0_method=("rmvpe", "crepe", "crepe-tiny")[self.f0.GetSelection()],
                                checkpointing=self.checkpointing.GetValue(),
-                               source_groups=tuple(self.source_groups.get(source,"") for source in self.sources) if self.source_groups else ()).validate()
+                               source_groups=tuple(self.source_groups.get(source,"") for source in self.sources) if self.source_groups else (),
+                               source_ranges=tuple(self.source_ranges.get(source,(0.,0.)) for source in self.sources) if self.source_ranges else (),
+                               snapshot_limit=self.snapshot_limit.GetValue(),snapshot_budget_mb=self.snapshot_budget.GetValue(),
+                               reuse_preparation=self.reuse_preparation.GetValue(),
+                               comparison_sources=self.comparison_sources,seed=seed).validate(check_sources)
 
     def EnableUI(self, enable):
         self.busy = not enable
@@ -257,22 +313,26 @@ class TrainingPanel(wx.ScrolledWindow):
                         self.epochs, self.batch, self.interval, self.advanced_toggle, self.advanced,
                         self.btn_start, self.btn_resume, self.btn_load, self.btn_group):
             control.Enable(enable)
+        for control in self.extra_controls:
+            control.Enable(enable)
         self.btn_cancel.Enable(not enable)
         self.btn_force_stop.Disable()
         self.candidate.Enable(enable and self.result is not None)
         self.btn_register.Enable(enable and self.result is not None)
         self.test_mode.Enable(enable and self.result is not None)
         self.btn_listen.Enable(enable and self.result is not None)
+        self.btn_note.Enable(enable and self.result is not None)
+        self.test_clip.Enable(enable and self.result is not None)
         self.btn_remove.Enable(enable and bool(self.sources))
         self.btn_group.Enable(enable and bool(self.sources))
         self.RefreshSections()
 
     def OnListen(self,event):
         if self.busy or not self.result: return
-        candidate=("latest.pth","best_validation.pth")[self.candidate.GetSelection()]
-        record=next((model for model in self.result['models'] if model['file']==candidate),{})
+        record=self.result['models'][self.candidate.GetSelection()]
         key='test_audio_no_index' if self.test_mode.GetSelection()==0 else 'test_audio'
-        path=record.get(key)
+        tests=record.get('tests',[])
+        path=tests[self.test_clip.GetSelection()].get(key) if tests else record.get(key)
         if path and Path(path).is_file(): wx.LaunchDefaultApplication(path)
         else: self.txt_status.SetValue("Bu oturumda seçilen test sesi bulunmuyor. Yeni oturumlar index kapalı/açık test sesleri üretir.")
 
@@ -304,6 +364,12 @@ class TrainingPanel(wx.ScrolledWindow):
             return
         sources = tuple(self.sources)
         rate = (32000, 40000, 48000)[self.sample_rate.GetSelection()]
+        try:
+            options = self.Options(require_name=False, check_sources=False)
+        except ValueError as error:
+            JOB_LOCK.release()
+            self.txt_status.SetValue(str(error))
+            return
         self.analysis_cancel = threading.Event()
         cancelled = self.analysis_cancel
         self.EnableUI(False)
@@ -317,6 +383,7 @@ class TrainingPanel(wx.ScrolledWindow):
                 setup_ffmpeg_paths(app_directory())
                 report = analyze_sources(sources, rate, cancelled.is_set,
                     lambda stage, **values: post_ui(self, self.OnProgress, dict(stage=stage, **values)))
+                report['split_review'] = split_review(report, options)
                 post_ui(self, self.OnAnalyzed, report)
             except Exception as error:
                 post_ui(self, self.OnOperationError, str(error), "Kayıt analizi durdu")
@@ -341,7 +408,19 @@ class TrainingPanel(wx.ScrolledWindow):
         self.RefreshSections()
         self.txt_status.SetValue("Analiz tamamlandı. Uyarıları okuyun; kayıtları dinleyerek kontrol edin.")
         if announce:
-            self.NotifyResult(self.txt_status.GetValue(),"Kayıt analizi tamamlandı",self.txt_analysis)
+            from ui_training_tools import TableDialog
+            split = {r['path']:r for r in report.get('split_review',{}).get('sources',[])}
+            rows = []
+            for record in report['sources']:
+                entry = split.get(record['path'],{})
+                rows.append((Path(record['path']).name, f"{entry.get('train_seconds',0):.1f}",
+                             f"{entry.get('holdout_seconds',0):.1f}", '; '.join(record['warnings']) or 'Ölçümlerde uyarı yok'))
+            with TableDialog(self,'Eğitim öncesi kayıt incelemesi',('Kayıt','Eğitim saniye','Kontrol saniye','Uyarılar'),rows,report_text(report)) as dialog:
+                dialog.ShowModal()
+                selected = dialog.selection
+                if selected>=0:
+                    self.source_list.SetSelection(selected)
+            self.source_list.SetFocus()
 
     def NotifyResult(self,message,title,focus=None,error=False):
         """A native focused dialog exposes terminal results to screen readers."""
@@ -370,6 +449,7 @@ class TrainingPanel(wx.ScrolledWindow):
     def ShowOptions(self, options):
         self.sources = list(options.sources)
         self.source_groups = {source:group for source,group in zip(options.sources,options.source_groups) if group}
+        self.source_ranges = {source:interval for source,interval in zip(options.sources,options.source_ranges) if interval!=(0.,0.)}
         self.RefreshSources()
         self.model_name.SetValue(options.name)
         self.sample_rate.SetSelection((32000,40000,48000).index(options.sample_rate))
@@ -382,14 +462,22 @@ class TrainingPanel(wx.ScrolledWindow):
         self.learning_rate.SetValue(str(options.learning_rate))
         self.f0.SetSelection(("rmvpe","crepe","crepe-tiny").index(options.f0_method))
         self.checkpointing.SetValue(options.checkpointing)
+        self.snapshot_limit.SetValue(options.snapshot_limit)
+        self.snapshot_budget.SetValue(options.snapshot_budget_mb)
+        self.reuse_preparation.SetValue(options.reuse_preparation)
+        self.seed.SetValue(str(options.seed))
+        self.comparison_sources=options.comparison_sources
+        self.UpdateComparisonLabel()
 
-    def OnLoad(self, event):
+    def OnLoad(self, event, job_path=None):
         if self.busy:
             return
-        with wx.DirDialog(self, "Kayıtlı eğitimin sonuç klasörünü seçin", defaultPath=str(Path(data_directory())/"training_runs")) as dialog:
-            if dialog.ShowModal() != wx.ID_OK:
-                return
-            job = Path(dialog.GetPath())
+        if job_path is None:
+            with wx.DirDialog(self, "Kayıtlı eğitimin sonuç klasörünü seçin", defaultPath=str(Path(data_directory())/"training_runs")) as dialog:
+                if dialog.ShowModal() != wx.ID_OK:
+                    return
+                job_path = dialog.GetPath()
+        job = Path(job_path)
         self.ShowProgress()
         try:
             from training.storage import read_manifest
@@ -400,6 +488,7 @@ class TrainingPanel(wx.ScrolledWindow):
             report = json.loads((job/"quality_report.json").read_text(encoding="utf-8")) if (job/"quality_report.json").exists() else None
             self.ShowOptions(options)
             self.job, self.result = str(job), result
+            self.RefreshCandidates()
             self.runner = None
             self.txt_job.SetValue(str(job))
             self.btn_folder.Enable()
@@ -418,17 +507,23 @@ class TrainingPanel(wx.ScrolledWindow):
         except Exception as error:
             self.txt_status.SetValue(str(error))
 
-    def Start(self, resume, job=None):
+    def Start(self, resume, job=None, parent_job=None, options_override=None):
         if self.busy or not JOB_LOCK.acquire(blocking=False):
             self.txt_status.SetValue("Başka bir işlem sürüyor. Bitmesini bekleyin.")
+            if self.queue_item:
+                self.queue.update(self.queue_item['id'],status='waiting')
+                self.queue_item=None
+                self.queue_running=False
             return
         self.ShowProgress()
         try:
             if resume:
                 self.ShowOptions(validate_resume(job, self.settings))
             else:
-                job = create_job(self.Options(), self.settings)
+                job = create_job(options_override or self.Options(), self.settings, parent_job=parent_job)
             self.job, self.result = job, None
+            if self.queue_item:
+                self.queue.update(self.queue_item['id'], job=job)
             self.runner = TrainingProcess()
             self.runner.job = job
             cancel = Path(job)/"cancel.request"
@@ -449,6 +544,10 @@ class TrainingPanel(wx.ScrolledWindow):
             JOB_LOCK.release()
             self.EnableUI(True)
             self.txt_status.SetValue(str(error))
+            if self.queue_item:
+                self.queue.update(self.queue_item['id'],status='failed',error=str(error))
+                self.queue_running = False
+                self.queue_item = None
             wx.MessageBox(str(error), "Eğitim başlatılamadı", wx.OK | wx.ICON_ERROR)
 
     def Run(self, resume):
@@ -459,6 +558,8 @@ class TrainingPanel(wx.ScrolledWindow):
             post_ui(self, self.OnFinished, None, str(error))
         finally:
             finish_job(self)
+            if self.queue_running:
+                post_ui(self,self.QueueNext)
 
     def OnProgress(self, value):
         self.ShowProgress()
@@ -502,14 +603,23 @@ class TrainingPanel(wx.ScrolledWindow):
 
     def OnFinished(self, result, message):
         self.result = result
+        self.RefreshCandidates()
         self.RefreshSections()
         self.txt_status.SetValue(message)
         if result:
             self.gauge.SetValue(100)
         self.btn_force_stop.Disable()
-        self.NotifyResult(message,"Eğitim tamamlandı" if result else "Eğitim durdu",error=not result)
+        queued = self.queue_item is not None
+        if queued:
+            self.queue.update(self.queue_item['id'],status='completed' if result else 'stopped',error='' if result else message)
+            self.queue_item = None
+            if not result:
+                self.queue_running = False
+        if not queued or not result:
+            self.NotifyResult(message,"Eğitim tamamlandı" if result else "Eğitim durdu",error=not result)
 
     def OnCancel(self, event):
+        self.queue_running = False
         if self.analysis_cancel is not None:
             self.analysis_cancel.set()
             self.btn_cancel.Disable()
@@ -538,13 +648,18 @@ class TrainingPanel(wx.ScrolledWindow):
     def OnRegister(self, event):
         if not self.result or self.busy or not JOB_LOCK.acquire(blocking=False):
             return
+        candidate = self.result['models'][self.candidate.GetSelection()]['file']
+        with wx.TextEntryDialog(self,'Ses değiştirme listesinde görünecek model adı','Modeli kaydet',self.model_name.GetValue()) as dialog:
+            if dialog.ShowModal()!=wx.ID_OK:
+                JOB_LOCK.release()
+                return
+            model_name = dialog.GetValue().strip()
         self.EnableUI(False)
         self.btn_cancel.Disable()
-        candidate = ("latest.pth", "best_validation.pth")[self.candidate.GetSelection()]
         def worker():
             try:
                 from ui_cover import get_models_file_path, get_app_dir
-                name = register_model(self.job, candidate, get_models_file_path(get_app_dir()))
+                name = register_model(self.job, candidate, get_models_file_path(get_app_dir()),name=model_name)
                 post_ui(self, self.OnRegistered, name)
             except Exception as error:
                 post_ui(self, self.OnOperationError, str(error), "Model kaydedilemedi")
@@ -563,3 +678,255 @@ class TrainingPanel(wx.ScrolledWindow):
         if refresh:
             refresh()
         self.NotifyResult(self.txt_status.GetValue(),"Model kaydı tamamlandı")
+
+    def RefreshCandidates(self):
+        if not self.result or not self.result.get('models'):
+            return
+        labels = []
+        for record in self.result['models']:
+            label = {'latest.pth':'Son eğitim modeli','best_validation.pth':'Kontrol hatası en düşük model'}.get(record['file'])
+            labels.append(label or f"Ara model: epoch {record.get('epoch','?')}, adım {record.get('step','?')}")
+        self.candidate.Set(labels)
+        try:
+            preferred = read_notes(self.job).get('preferred_model') if self.job else None
+        except (OSError,ValueError,AttributeError):
+            preferred = None
+        selected = next((i for i,r in enumerate(self.result['models']) if r['file']==preferred),0)
+        self.candidate.SetSelection(selected)
+        self.OnCandidate(None)
+
+    def OnCandidate(self,event):
+        if not self.result:
+            return
+        record = self.result['models'][max(0,self.candidate.GetSelection())]
+        tests = record.get('tests',[])
+        selection = max(0,self.test_clip.GetSelection())
+        self.test_clip.Set([r['label'] for r in tests] or ['Kontrol kaydı 1'])
+        self.test_clip.SetSelection(min(selection,max(0,len(tests)-1)))
+
+    def OnSourceListen(self,event):
+        index = self.source_list.GetSelection()
+        if index>=0 and not self.busy:
+            wx.LaunchDefaultApplication(self.sources[index])
+
+    def OnRange(self,event):
+        index = self.source_list.GetSelection()
+        if index<0 or self.busy:
+            return
+        source = self.sources[index]
+        start,end = self.source_ranges.get(source,(0.,0.))
+        with wx.Dialog(self,title='Eğitimde kullanılacak ses bölümü') as dialog:
+            layout = wx.BoxSizer(wx.VERTICAL)
+            layout.Add(wx.StaticText(dialog,label='Özgün kayıt değişmez. Bitiş 0 ise dosyanın sonuna kadar kullanılır.'),0,wx.ALL,8)
+            controls=[]
+            for label,value in (('Başlangıç (saniye)',start),('Bitiş (saniye)',end)):
+                layout.Add(wx.StaticText(dialog,label=label),0,wx.ALL,8)
+                control=name_control(wx.TextCtrl(dialog,value=str(value)),label)
+                controls.append(control)
+                layout.Add(control,0,wx.EXPAND | wx.ALL,8)
+            layout.Add(dialog.CreateButtonSizer(wx.OK | wx.CANCEL),0,wx.ALL,8)
+            dialog.SetSizerAndFit(layout)
+            apply_native_style(dialog)
+            if dialog.ShowModal()!=wx.ID_OK:
+                return
+            try:
+                interval=tuple(float(c.GetValue().replace(',','.')) for c in controls)
+                TrainingOptions('Bölüm',(source,),source_ranges=(interval,)).validate(False)
+            except ValueError as error:
+                self.OnOperationError(str(error),'Bölüm seçilemedi')
+                return
+        if interval==(0.,0.):
+            self.source_ranges.pop(source,None)
+        else:
+            self.source_ranges[source]=interval
+        self.ClearAnalysis()
+        self.RefreshSources()
+
+    def OnSessions(self,event):
+        from ui_training_tools import TableDialog
+        sessions = list_sessions(Path(data_directory())/'training_runs')
+        states={'completed':'Tamamlandı','cancelled':'Durduruldu','failed':'Hata','running':'Çalışıyor / kesilmiş olabilir',
+                'interrupted':'Kesildi','created':'Hazır'}
+        rows=[(s['name'],states.get(s['status'],s['status']),f"{s['epoch']}/{s['epochs']}",s['note'][:100]) for s in sessions]
+        with TableDialog(self,'Eğitim oturumlarım',('Ad','Durum','Son epoch/hedef','Not'),rows,
+                         'Bir oturum seçip Tamam ile açın. Açmak eğitimi başlatmaz. Geçmiş düğmesiyle ölçümleri inceleyebilirsiniz.') as dialog:
+            if dialog.ShowModal()==wx.ID_OK and dialog.selection>=0:
+                self.OnLoad(None,sessions[dialog.selection]['path'])
+
+    def OnHistory(self,event):
+        if self.job:
+            from ui_training_tools import show_history
+            show_history(self,self.job)
+        else:
+            self.NotifyResult('Önce Eğitim oturumlarım düğmesinden bir eğitim açın.','Eğitim seçin')
+
+    def OnNote(self,event):
+        if not self.job or not self.result:
+            return
+        candidate=self.result['models'][self.candidate.GetSelection()]['file']
+        with wx.TextEntryDialog(self,'Bu modeli tercih etme nedeniniz veya oturum notunuz','Tercih ve not',read_notes(self.job).get('note',''),style=wx.OK | wx.CANCEL | wx.TE_MULTILINE) as dialog:
+            if dialog.ShowModal()!=wx.ID_OK:
+                return
+            try:
+                save_notes(self.job,dialog.GetValue(),candidate)
+                self.NotifyResult('Tercih ettiğiniz model ve notunuz kaydedildi.','Tercih kaydedildi')
+            except Exception as error:
+                self.OnOperationError(str(error),'Not kaydedilemedi')
+
+    def OnSavePreset(self,event):
+        try:
+            options=self.Options(require_name=False,check_sources=False)
+            with wx.TextEntryDialog(self,'Ayar şablonuna bir ad verin','Eğitim ayarlarını kaydet') as dialog:
+                if dialog.ShowModal()!=wx.ID_OK:
+                    return
+                save_preset(Path(data_directory())/'training_presets.json',dialog.GetValue(),options)
+            self.NotifyResult('Şablon kaydedildi; kişisel ses dosyaları şablona eklenmedi.','Ayarlar kaydedildi')
+        except Exception as error:
+            self.OnOperationError(str(error),'Şablon kaydedilemedi')
+
+    def OnLoadPreset(self,event):
+        try:
+            path=Path(data_directory())/'training_presets.json'
+            if not path.is_file():
+                self.NotifyResult('Henüz bir ayar şablonu kaydedilmedi.','Ayar şablonları')
+                return
+            presets=json.loads(path.read_text(encoding='utf-8'))
+            names=sorted(presets)
+            with wx.SingleChoiceDialog(self,'Uygulanacak eğitim ayarları','Ayar şablonu seç',names) as dialog:
+                if dialog.ShowModal()!=wx.ID_OK:
+                    return
+                values=presets[names[dialog.GetSelection()]]
+            options=TrainingOptions.from_dict({**values,'name':self.model_name.GetValue() or 'Yeni model',
+                                               'sources':self.sources or ['Henüz kayıt seçilmedi'],
+                                               'source_groups':[self.source_groups.get(p,'') for p in self.sources] if self.sources else [],
+                                               'source_ranges':[self.source_ranges.get(p,(0.,0.)) for p in self.sources] if self.sources else []})
+            had_sources=bool(self.sources)
+            self.ShowOptions(options)
+            if not had_sources:
+                self.sources=[]
+                self.RefreshSources()
+            self.ClearAnalysis()
+        except Exception as error:
+            self.OnOperationError(str(error),'Şablon açılamadı')
+
+    def OnExtend(self,event):
+        if not self.job:
+            self.NotifyResult('Önce Eğitim oturumlarım düğmesinden bir eğitim açın.','Eğitim seçin')
+            return
+        from training.storage import read_manifest
+        current=TrainingOptions.from_dict(read_manifest(self.job)['options']).epochs
+        if current>=10000:
+            self.NotifyResult('Bu oturum en yüksek toplam tekrar sayısına ulaştı.','Ek eğitim')
+            return
+        with wx.NumberEntryDialog(self,'Diğer ayarlar sabit kalır. Yeni hedefe kadar eğitim devam eder.','Yeni toplam tekrar sayısı','Ek eğitim',min(10000,current+50),current+1,10000) as dialog:
+            if dialog.ShowModal()!=wx.ID_OK:
+                return
+            target=dialog.GetValue()
+        if not JOB_LOCK.acquire(blocking=False):
+            return
+        self.EnableUI(False)
+        self.btn_cancel.Disable()
+        job=self.job
+        def worker():
+            success=False
+            try:
+                options=request_extension(job,target)
+                post_ui(self,self.ShowOptions,options)
+                success=True
+            except Exception as error:
+                post_ui(self,self.OnOperationError,str(error),'Ek eğitim hazırlanamadı')
+            finally:
+                finish_job(self)
+                if success:
+                    post_ui(self,self.Start,True,job)
+        try:
+            threading.Thread(target=worker,daemon=True).start()
+        except Exception as error:
+            JOB_LOCK.release()
+            self.EnableUI(True)
+            self.OnOperationError(str(error),'Ek eğitim başlatılamadı')
+
+    def OnFineTune(self,event):
+        with wx.DirDialog(self,'Başlangıç modeli alınacak eğitim oturumunu seçin',defaultPath=str(Path(data_directory())/'training_runs')) as dialog:
+            if dialog.ShowModal()==wx.ID_OK:
+                self.Start(False,parent_job=dialog.GetPath())
+
+    def UpdateComparisonLabel(self):
+        self.comparison_label.SetLabel('Ayrı karşılaştırma kayıtları: '+', '.join(Path(p).name for p in self.comparison_sources) if self.comparison_sources else
+                                       'Ayrı karşılaştırma kaydı seçilmedi; kontrol kayıtları kullanılacak.')
+        self.comparison_label.Wrap(self.FromDIP(620))
+
+    def OnComparisonSources(self,event):
+        with wx.FileDialog(self,'Eğitimde kullanılmayacak en fazla beş ayrı test kaydı seçin',wildcard='Ses kayıtları|*.wav;*.flac;*.mp3;*.ogg;*.m4a',style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST | wx.FD_MULTIPLE) as dialog:
+            if dialog.ShowModal()!=wx.ID_OK:
+                return
+            paths=dialog.GetPaths()
+        if len(paths)>5:
+            self.NotifyResult('En fazla beş ayrı test kaydı seçin.','Karşılaştırma kayıtları')
+            return
+        self.comparison_sources=tuple(paths)
+        self.UpdateComparisonLabel()
+        self.Layout();self.FitInside()
+
+    def OnClearComparisonSources(self,event):
+        self.comparison_sources=()
+        self.UpdateComparisonLabel()
+
+    def OnCompareSessions(self,event):
+        from ui_training_tools import TableDialog
+        sessions=list_sessions(Path(data_directory())/'training_runs')
+        with wx.MultiChoiceDialog(self,'Karşılaştırmak için iki eğitim seçin','Eğitim ayarlarını karşılaştır',
+                                  [f"{s['name']} — {Path(s['path']).name}" for s in sessions]) as dialog:
+            if dialog.ShowModal()!=wx.ID_OK:
+                return
+            selected=dialog.GetSelections()
+        if len(selected)!=2:
+            self.NotifyResult('Karşılaştırmak için tam iki eğitim seçin.','İki eğitim seçin')
+            return
+        left,right=(sessions[i] for i in selected)
+        rows=[]
+        labels={'sample_rate':'Örnekleme hızı','epochs':'Toplam epoch','batch_size':'Parça sayısı',
+                'learning_rate':'Öğrenme hızı','f0_method':'Nota yöntemi','segment_seconds':'Parça süresi',
+                'overlap_seconds':'Örtüşme','holdout_fraction':'Kontrol payı','seed':'Rastgelelik tohumu'}
+        for key,label in labels.items():
+            rows.append((label,left['options'][key],right['options'][key],
+                         'Farklı' if left['options'][key]!=right['options'][key] else 'Aynı'))
+        rows.append(('Kayıt sayısı',len(left['options']['sources']),len(right['options']['sources']),''))
+        with TableDialog(self,'Eğitim ayarları karşılaştırması',('Ayar',left['name'],right['name'],'Fark'),rows,
+                         f"İlk eğitim: {left['note']}\nİkinci eğitim: {right['note']}\nAyar benzerliği ses kalitesinin aynı olacağını göstermez.") as dialog:
+            dialog.ShowModal()
+
+    def OnQueueAdd(self,event):
+        try:
+            self.queue.add(self.Options())
+            self.NotifyResult('Eğitim sıraya eklendi. Çalıştır düğmesine basılana kadar başlamaz.','Eğitim sırası')
+        except Exception as error:
+            self.OnOperationError(str(error),'Sıraya eklenemedi')
+
+    def OnQueueShow(self,event):
+        from ui_training_tools import TableDialog
+        states={'waiting':'Bekliyor','running':'Başlatıldı; kesilmiş olabilir','completed':'Tamamlandı','failed':'Başlatılamadı','stopped':'Durduruldu','cancelled':'Sıradan çıkarıldı'}
+        rows=[(r['options']['name'],states.get(r['status'],r['status']),r['options']['epochs'],r['options']['learning_rate']) for r in self.queue.read()]
+        with TableDialog(self,'Eğitim sırası',('Ad','Durum','Epoch','Öğrenme hızı'),rows,
+                         'Eğitimler sırayla çalışır. Bir hata veya durdurmada sıra bekler. Önceki açılışta yarım kalan işler otomatik tekrarlanmaz; oturum listesinden açıp devam edebilirsiniz.') as dialog:
+            dialog.ShowModal()
+
+    def OnQueueRun(self,event):
+        self.queue_running=True
+        self.QueueNext()
+
+    def QueueNext(self):
+        if self.busy or not self.queue_running:
+            return
+        self.queue_item=self.queue.claim()
+        if not self.queue_item:
+            self.queue_running=False
+            self.NotifyResult('Bekleyen eğitim kalmadı. Sonuçları Eğitim oturumlarım düğmesinden açabilirsiniz.','Eğitim sırası tamamlandı')
+            return
+        options=TrainingOptions.from_dict(self.queue_item['options'])
+        self.ShowOptions(options)
+        self.Start(False,options_override=options)
+
+    def OnQueueClear(self,event):
+        self.queue.cancel_waiting()
+        self.NotifyResult('Bekleyen işler sıradan çıkarıldı. Eğitim oturumları ve modeller silinmedi.','Eğitim sırası')

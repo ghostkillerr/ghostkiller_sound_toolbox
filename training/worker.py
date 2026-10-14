@@ -113,20 +113,31 @@ def _run_worker(job, resume=False):
         resources = ResourceMonitor(device,emit)
         from training.dataset import prepare,extract
         update_manifest(job,status="running",error="",torch_version=str(torch.__version__),python_version=sys.version)
+        from training.storage import freeze_initial_weights
+        if freeze_initial_weights(job):
+            emit('prepare', message='Önceki modelin G/D ağırlıkları kopyalandı; optimizer ve eğitim sayacı yeni oturumda sıfırdan başlar.')
+        preparation_key = None
         if not resume or not (job/"train.txt").exists() or not (job/"holdout.txt").exists():
             options.validate()
+            from training.preparation_cache import cache_key, restore
+            current = read_manifest(job)
+            preparation_key = cache_key(job, options, current) if options.reuse_preparation else None
+            reused = restore(job, preparation_key, emit) if preparation_key else False
             from training.analysis import analyze_sources, report_text
             from app_settings import write_json_atomic
             report = analyze_sources(options.sources, options.sample_rate,
                                      lambda: (job/"cancel.request").exists(), emit)
+            from training.experiments import split_review
+            report['split_review'] = split_review(report, options)
             write_json_atomic(str(job/"quality_report.json"), report)
             (job/"quality_report.txt").write_text(report_text(report), encoding="utf-8")
             for record in report["sources"]:
                 for warning in record["warnings"]:
                     emit("quality", message=f"{Path(record['path']).name}: {warning}")
-            prepare(job,options,emit)
-            resources.sample(True)
-            extract(job,options,device,emit)
+            if not reused:
+                prepare(job,options,emit)
+                resources.sample(True)
+                extract(job,options,device,emit)
             resources.sample(True)
             gc.collect()
             clear_cache(device)
@@ -136,6 +147,10 @@ def _run_worker(job, resume=False):
         dataset = json.loads((job/"dataset.json").read_text(encoding="utf-8"))
         # Detect changed training artifacts before resume instead of training on mixed data.
         from model_manager import file_digest
+        training_hashes={piece['source_sha256'] for piece in dataset['pieces']}
+        for source in options.comparison_sources:
+            if file_digest(source) in training_hashes:
+                raise ValueError(f'{Path(source).name}: ayrı test kaydı eğitim kaydının kopyası. Başka bir kayıt seçin.')
         artifacts = {str(p):file_digest(p,lambda:(job/"cancel.request").exists()) for piece in dataset["pieces"]
                      for p in (piece["audio"],piece["features"],piece["pitch"],piece["pitchf"])}
         for filename in ("dataset.json", "train.txt", "holdout.txt"):
@@ -154,33 +169,20 @@ def _run_worker(job, resume=False):
         index,count = build_index(job,dataset,options.cpu_threads,emit)
         # Test actual application inference before any registry write.
         check_cancel(job)
-        from rvc.infer.infer import VoiceConverter
-        from app_runtime import validate_audio_file
-        converter = VoiceConverter(device=device,allow_model_download=False)
-        holdout = next(p["audio"] for p in dataset["pieces"] if p["split"]=="holdout")
-        models = []
-        try:
-            for candidate in ("latest.pth","best_validation.pth"):
-                check_cancel(job)
-                output = str(job/f"test_{Path(candidate).stem}.wav")
-                no_index = str(job/f"test_{Path(candidate).stem}_no_index.wav")
-                for target,ratio in ((no_index,0.),(output,.75)):
-                    emit("smoke",message=f"AI Cover uyumluluk testi: {candidate}; index oranı {ratio:.2f}")
-                    converter.convert_audio(holdout,target,str(job/candidate),index if ratio else "",
-                                            f0_method=options.f0_method,index_rate=ratio,clean_audio=False)
-                    validate_audio_file(target)
-                    check_cancel(job)
-                models.append({"file":candidate,"pth":str(job/candidate),"sha256":file_digest(job/candidate),
-                               "smoke_passed":True,"test_audio":output,"test_audio_no_index":no_index,
-                               "test_index_rate":.75})
-        finally:
-            converter.cleanup_model()
+        from training.comparison import test_candidates
+        models, bank = test_candidates(job, dataset, options, device, index, emit)
         from app_settings import write_json_atomic
-        result = {**summary,"models":models,"index":index,"index_sha256":file_digest(index),"index_vectors":count}
+        result = {**summary,"models":models,"comparison_inputs":bank,"index":index,"index_sha256":file_digest(index),"index_vectors":count}
         write_json_atomic(str(job/"result.json"),result)
         update_manifest(job,status="completed")
+        if preparation_key:
+            from training.preparation_cache import publish
+            try:
+                publish(job, preparation_key)
+            except (OSError, ValueError) as error:
+                emit('quality', message=f'Eğitim tamamlandı; ortak hazırlık kaydı yazılamadı: {error}')
         resources.sample(True)
-        emit("completed",message="Eğitim tamamlandı; iki aday model AI Cover uyumluluk testinden geçti.")
+        emit("completed",message=f"Eğitim tamamlandı; {len(models)} aday aynı kontrol kayıtlarıyla sınandı.")
         return 0
     except InterruptedError as error:
         update_manifest(job,status="cancelled",error=str(error))

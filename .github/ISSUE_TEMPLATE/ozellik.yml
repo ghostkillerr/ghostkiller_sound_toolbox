@@ -1,0 +1,15 @@
+name: Özellik öner
+description: Programda kolaylaştırılmasını istediğiniz bir işi anlatın.
+title: "[Öneri] "
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Hangi işi yapmak istiyorsunuz?
+      description: Teknik çözüm bilmeniz gerekmiyor; yaşadığınız zorluğu anlatmanız yeterli.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Nasıl bir sonuç işinizi kolaylaştırır?

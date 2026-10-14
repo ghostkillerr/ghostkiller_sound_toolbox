@@ -127,6 +127,15 @@ def analyze_sources(sources, sample_rate, cancelled=lambda: False, emit=lambda *
 
 def report_text(report):
     lines = [f"Toplam benzersiz kayıt: {report['unique_recordings']}; süre: {report['total_seconds']/60:.1f} dakika; tekrar: {report['duplicate_recordings']}."]
+    if 'split_review' in report:
+        split = report['split_review']
+        total = split['train_seconds']+split['holdout_seconds']
+        percent = 100*split['holdout_seconds']/total if total else 0
+        lines.append(f"Seçilen bölümler: eğitim {split['train_seconds']/60:.2f} dakika; kontrol {split['holdout_seconds']/60:.2f} dakika (%{percent:.1f}); {split['independent_groups']} bağımsız grup.")
+        if split['timeline_split']:
+            lines.append('Tek kayıt zaman içinde ayrıldı; farklı şarkıya genelleme ölçülmüyor.')
+        elif not split['holdout_seconds']:
+            lines.append('Bağımsız kontrol grubu kalmadı. Başka bir şarkı/oturum ekleyin.')
     for record in report["sources"]:
         lines.append("\n" + Path(record["path"]).name)
         if "duplicate_of" not in record:

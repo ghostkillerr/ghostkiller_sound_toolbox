@@ -26,13 +26,18 @@ def cleanup_incomplete_artifacts(job):
     """Caller holds worker.guard; delete only our named atomic-save fragments."""
     root = Path(job).resolve()
     removed = []
-    for target in ("resume.pth","latest.pth","best_validation.pth"):
+    for target in ("resume.pth","latest.pth","best_validation.pth","initial_weights.pth"):
         for path in root.glob(target+".*.part"):
             # Do not follow a redirected file out of the owned session folder.
             if path.is_symlink() or path.resolve().parent != root or not path.is_file():
                 raise ValueError("Yarım eğitim dosyasının yolu oturum klasörü dışında; otomatik temizleme durduruldu.")
             path.unlink()
             removed.append(path.name)
+    for path in (root/'snapshots').glob('snapshot_*.part'):
+        if path.is_symlink() or path.resolve().parent != root/'snapshots' or not path.is_file():
+            raise ValueError('Yarım ara model dosyası oturum klasörü dışında.')
+        path.unlink()
+        removed.append(str(path.relative_to(root)))
     return removed
 
 
@@ -45,6 +50,33 @@ def update_manifest(job, **values):
     data.update(values)
     write_json_atomic(str(Path(job) / "manifest.json"), data)
     return data
+
+
+def freeze_initial_weights(job):
+    """Recover interrupted fine-tune setup before any GAN step or fallback."""
+    from model_manager import file_digest
+    from registry_store import registry_lock
+    root=Path(job)
+    manifest=read_manifest(root)
+    initial=manifest.get('initial_from')
+    if not initial or (root/'resume.pth').is_file():
+        return False
+    target=root/'initial_weights.pth'
+    digest=manifest.get('initial_weights_sha256')
+    if target.is_file() and digest:
+        if file_digest(target)!=digest:
+            raise ValueError('Yeni eğitimin başlangıç ağırlıkları değişmiş.')
+        return False
+    source=Path(initial['checkpoint'])
+    with registry_lock(source.parent/'worker.guard',timeout=.1):
+        if source.name!='resume.pth' or file_digest(source)!=initial['sha256']:
+            raise ValueError('Başlangıç eğitim kaydı değişmiş; yeni eğitimi tekrar oluşturun.')
+        import torch
+        state=torch.load(source,map_location='cpu',weights_only=True,mmap=True)
+        atomic_torch_save({'generator':state['generator'],'discriminator':state['discriminator']},target)
+        del state
+    update_manifest(root,initial_weights_sha256=file_digest(target))
+    return True
 
 
 def map_legacy_weights(state):

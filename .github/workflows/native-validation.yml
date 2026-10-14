@@ -49,6 +49,18 @@ jobs:
             build/ci-venv/Scripts/python.exe -m tools.release.preflight --backend $env:GHOSTKILLER_BACKEND
           }
           exit $LASTEXITCODE
+      - name: Prepare pinned development codecs for source tests
+        shell: pwsh
+        run: |
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_ci_tools.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          build/ci-venv/Scripts/python.exe -m tools.ci_prepare_ffmpeg
+          exit $LASTEXITCODE
+      - name: Training data, checkpoint and experiment regressions
+        shell: pwsh
+        run: |
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p "test_training*.py" -v
+          exit $LASTEXITCODE
       - name: Offline update, native launch contract and packaging regressions
         shell: pwsh
         run: |

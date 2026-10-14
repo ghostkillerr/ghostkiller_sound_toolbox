@@ -17,6 +17,8 @@ models/
 /settings.json.lock
 /cache/
 /training_runs/
+/training_presets.json
+/training_presets.json.lock
 /trained_models/
 /deneme/
 *.pth

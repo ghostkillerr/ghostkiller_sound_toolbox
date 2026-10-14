@@ -54,7 +54,7 @@
       <div class="features">
         <article><span class="number">01</span><h3>Müziği ve vokali ayır</h3><p>Vokal ve enstrümantal ayrıştırma; seçilebilir arka vokal, yankı ve gürültü temizleme adımları. İhtiyacın olan adımlarla kendi işlem sırasını oluştur.</p><span class="feature-detail">Ayrıştırılmış ses çıktıları</span></article>
         <article><span class="number">02</span><h3>Ses modeliyle dönüştür</h3><p>Kendi yerel RVC modelini ekle. Nota, pitch ve index seçeneklerini ayarla; ayrılan vokali veya seçtiğin ses dosyasını modelle dönüştür.</p><span class="feature-detail">Yerel RVC / AI Cover</span></article>
-        <article><span class="number">03</span><h3>Kendi modelini eğit</h3><p>Kayıtlarını hazırla, RVC V2 eğitimi başlat ve sonuçları incele. Yarım kalan eğitime devam et; oluşturduğun modeli ses değiştirmede kullan.</p><span class="feature-detail">Kayıt → eğitim → ses modeli</span></article>
+        <article><span class="number">03</span><h3>Kendi modelini eğit</h3><p>Kayıtlarını eğitimden önce incele, RVC V2 modelini eğit ve ara modelleri aynı seslerle karşılaştır. Eğitimlerini sıraya koy; yarım kalan eğitime devam et veya önceki eğitimden yeni bir model oluştur.</p><span class="feature-detail">Kayıt → eğitim → karşılaştırma → ses modeli</span></article>
       </div>
     </section>
     <section class="local-section" aria-labelledby="local-title"><div class="wrap local-grid">
@@ -76,6 +76,7 @@
       <details><summary>Hangi paketi indirmeliyim?</summary><p>İşlemciyle çalışmak için CPU paketini seç. Uyumlu NVIDIA ekran kartıyla çalışmak istiyorsan CUDA paketini seç. AMD veya Intel ekran kartı için CUDA paketi seçilmez; bu donanımların işlemcileri CPU paketiyle kullanılabilir.</p></details>
       <details><summary>Güncellemeler nasıl gelir?</summary><p>Yeni sürüm yayımlandığında kurulu program açılışta denetler ve güncellemeyi uygular. Program tamamlandığında yeniden açılır. Ayarlar’dan otomatik güncellemeyi kapatabilir, “Güncellemeleri denetle” düğmesini veya F5’i kullanabilirsin. Windows yönetici izni isteyebilir.</p></details>
       <details><summary>Model dosyaları kurulumun içinde mi?</summary><p>Programın ihtiyaç duyduğu ses işleme modelleri Ayarlar’dan ayrıca hazırlanır. Kişisel RVC modellerini Ses Değiştirme sekmesinden ekleyebilirsin. İndirmeden sonra ses işlemleri yerel çalışır.</p></details>
+      <details><summary>İlk ses modelimi nasıl eğitirim?</summary><p>Aynı kişiye ait temiz kayıtları ekle, eğitim başlamadan incele ve kısa bir deneme yap. Sonuç bölümünde aynı test kaydını farklı ara modellerle dinleyip tercih ettiğini kaydet. <a href="https://github.com/ghostkillerr/ghostkiller_sound_toolbox/blob/master/docs/MODEL_EGITIMI.md">Adım adım eğitim rehberini aç</a>. Daha düşük eğitim hatası tek başına daha iyi ses demek değildir.</p></details>
       <details><summary>Klavye ve ekran okuyucuyla kullanılabilir mi?</summary><p>Türkçe arayüz Windows’un yerel kontrollerini kullanır ve klavye / ekran okuyucu kullanımını hedefler. Tab, Shift+Tab, ok tuşları ve Boşluk ile kontroller arasında dolaşabilirsin. Canlı NVDA ve JAWS davranışı Windows ortamına göre ayrıca denetlenmelidir.</p></details>
     </section>
   </main>

@@ -1,6 +1,6 @@
 # Ghostkiller Sound Toolbox — Geliştirme, kurulum ve yayın rehberi
 
-Son güncelleme: **14 Ekim 2026**. Bir yapay zekâ ajanı işe başlamadan önce bu
+Son güncelleme: **15 Ekim 2026**. Bir yapay zekâ ajanı işe başlamadan önce bu
 dosyayı okumalı, sonra ilgili kaynakları ve güncel çalışma ağacını incelemelidir.
 Kullanıcının sonraki talimatı bu rehberden önceliklidir. Eski raporlar tarihsel
 kanıttır; bu rehberdeki güncel durumla karıştırılmamalıdır.
@@ -26,7 +26,7 @@ Ses dosyalarını yerel işler; internet model indirme ve güncellemeler için k
 | Dağıtılacak iki profil | **CPU** ve **NVIDIA CUDA**; XPU/ROCm bu iki setup'ın yerine geçmez |
 | Derleme ortamları | Bağımsız `build/release_cpu`, `build/release_cuda`; Python **3.12.15**, backend hash kilitleri |
 | Inno Setup | Kullanıcı **7.1.0** kurdu; helper 7/6 standart yollarını bulur |
-| Kaynak testleri | CPU **277 / OK**, CUDA **277 / OK**; son uygulama/güncelleme kaynaklarıyla |
+| Kaynak testleri | CPU **293 / OK**, CUDA **293 / OK**; eğitim deneyleri ve mevcut regresyonlar dahil |
 | Otomatik güncelleme | Kaynakta uygulandı, varsayılan açık, Ayarlar'dan kapatılır; elle düğme/F5 korunur |
 | Eski setup adayları | `Setup/Ghostkiller_V2_Setup_cpu_2.0.0.exe` ve `..._cuda_2.0.0.exe`, otomatik güncelleme değişikliğinden **önce** derlendi; güncel kaynakla rebuild gerekir |
 | Sandbox | Kullanıcı kurduğunu bildirdi; temiz Windows/üretim UAC kabul testlerini **daha sonra kendisi yapacak** |
@@ -115,6 +115,18 @@ birleşmiş iki eski dal da yedekte korunarak kaldırılır. Sonraki normal işl
 geçmişi yeniden yazma veya force push yapma.
 
 ## 3. Veri ve mimari: nereden devam edilir?
+
+15 Ekim eğitim geliştirmeleri: eğitim öncesi inceleme/bölüm seçimi, sınırlı
+ara model arşivi, ortak ve isteğe bağlı ayrı test sesleri, model tercihi/not,
+oturum/ayar karşılaştırması, epoch uzatma, önceki G/D'den yeni oturum, sıralı
+deneyler ve hash doğrulamalı hazırlık tekrar kullanımı eklendi. Güncel kullanım
+[eğitim rehberinde](docs/MODEL_EGITIMI.md), kanıtlar
+[doğrulama raporunda](docs/EGITIM_GELISTIRME_DOGRULAMA_2026-10-15.md).
+Eski teknik eğitim anlatımı `docs/MODEL_EGITIMI_TARIHCE_2026-10-13.md` içindedir.
+`training/experiments.py`, `comparison.py`, `preparation_cache.py` ve
+`ui_training_tools.py` bu yeni akışları yönetir. Eğitim matematiği/precision
+değişmedi; epoch uzatmada yalnız kaydedilmiş checkpoint hash'ine bağlı hedef
+artışı kabul edilir. Fine-tune ayrı oturumdur, tam resume diye sunulmaz.
 
 | Dosya / grup | Görev |
 | --- | --- |

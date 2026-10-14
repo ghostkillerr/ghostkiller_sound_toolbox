@@ -13,6 +13,8 @@ GitHub kaynak kodu, hazır installer yayını anlamına gelmez.
 - Müzik/vokal ayırma, arka vokal, yankı ve gürültü temizleme.
 - Yerel RVC modelleriyle ses değiştirme; iki motor için ortak işlemci/ekran kartı tercihi.
 - RVC V2 model eğitimi, kayıt analizi, durdur/devam, index ve AI Cover'a model kaydı.
+- Eğitim öncesi kayıt/bölüm inceleme, ara modelleri aynı seslerle karşılaştırma,
+  oturum ve deney sırası, kayıtlı ayarlar, ek epoch ve önceki eğitimden yeni model.
 - Ayarlar sekmesinde donanım testi, model indirme, çevrimdışı bütünlük kontrolü ve bozuk dosya onarımı.
 
 Sesler yerel bilgisayarda işlenir. Eksik modelleri indirmek ve güncelleme kontrolü için internet kullanılabilir. Canlı mikrofon dönüşümü ve TTS içermez.
@@ -29,6 +31,8 @@ program açık kalır. Kişisel model/ayarlar güncelleme paketine dahil edilmez
 Intel/AMD işlemciler CPU yolunu, uygun NVIDIA kartları ayrı CUDA paketini kullanır. Intel GPU için ayrı XPU profili ve cihaz katmanı vardır; fiziksel kart/model doğrulaması yayın kabul koşuludur. AMD GPU native ROCm runtime ve doğrulanmış sürüm/kart profili gerektirir; CUDA paketi AMD runtime içermez. DirectML bu uygulamanın RVC/RoFormer zinciri için açılmaz. Paket profilleri ve doğrulama sınırları [yayın derleme rehberinde](docs/RELEASE_BUILD.md) açıklanır.
 
 ## Geliştirme
+
+Eğitime başlamak ve sonuçları karşılaştırmak için [adım adım eğitim rehberini](docs/MODEL_EGITIMI.md) okuyun.
 
 Mimari, dosya görevleri, erişilebilirlik ve işlem akışları için [oku.md](oku.md) dosyasını okuyun. Son senaryolar [senaryo raporunda](docs/SENARYO_TARAMASI.md), önceki düzeltmeler [düzeltme raporunda](docs/HATA_DUZELTME_RAPORU.md) açıklanır.
 
