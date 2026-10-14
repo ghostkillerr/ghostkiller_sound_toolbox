@@ -1,5 +1,6 @@
 """Fail a release build early on mixed runtimes, unpinned wheels or private data."""
 import argparse
+from contextlib import redirect_stdout
 import hashlib
 from importlib import metadata
 import json
@@ -17,6 +18,18 @@ BACKENDS = {'cpu', 'cuda', 'xpu', 'rocm'}
 LIBRARY_MODEL_ALLOWLIST = {'torchcrepe/assets/full.pth', 'torchcrepe/assets/tiny.pth',
                            'torchfcpe/assets/fcpe_c_v001.pt',
                            'audio_separator/separator/uvr_lib_v5/mixer.ckpt'}
+
+
+def validate_python_version(version):
+    if tuple(version[:2]) != (3,12) or tuple(version[:3]) < (3,12,1):
+        raise ValueError('Frozen builds require CPython 3.12.1 or later in the 3.12 series; '
+                         '3.12.0 corrupts code.replace() comprehension locals. Use a current security patch.')
+
+
+def validate_build_runtime():
+    validate_python_version(sys.version_info)
+    if os.name != 'nt' or platform.machine().lower() not in {'amd64','x86_64'}:
+        raise ValueError('Release builds require native Windows x64.')
 
 
 def sha256(path):
@@ -98,7 +111,10 @@ def validate_environment(backend, *, expected=None, installed=None, torch_module
         import onnxruntime as ort_module
     # CUDA DLL preload must happen after torch import; older ORT versions lack it.
     if backend == 'cuda' and hasattr(ort_module, 'preload_dlls'):
-        ort_module.preload_dlls()
+        # ORT prints a preload diagnostic to stdout. Keep this CLI's report a
+        # valid JSON document while retaining the diagnostic on stderr.
+        with redirect_stdout(sys.stderr):
+            ort_module.preload_dlls()
     providers = ort_module.get_available_providers()
     if backend == 'cuda' and 'CUDAExecutionProvider' not in providers:
         raise ValueError('CUDA package has no ONNX CUDAExecutionProvider.')
@@ -146,6 +162,20 @@ def checked_local_asset(root, item):
     return path
 
 
+def validate_ffmpeg_sources(manifest):
+    """A completeness label alone must not hide enabled library sources."""
+    components = manifest.get('source_components')
+    files = {item.get('path') for item in manifest.get('sources', []) if isinstance(item, dict)}
+    required = {'ffmpeg'} | set(re.findall(r'--enable-(lib[\w-]+)(?=\s|$)', manifest.get('configure', '')))
+    required |= set(re.findall(r'--enable-(zlib|bzlib|lzma|openssl|gnutls)(?=\s|$)', manifest.get('configure', '')))
+    if not isinstance(components, dict):
+        raise ValueError('FFmpeg source component inventory missing.')
+    for name in sorted(required):
+        paths = components.get(name)
+        if not isinstance(paths, list) or not paths or any(path not in files for path in paths):
+            raise ValueError('FFmpeg corresponding source absent for component: '+name)
+
+
 def validate_ffmpeg_bundle(directory, *, allow_incomplete_source=False):
     """Validate provenance and required distribution material, never invent it."""
     root = Path(directory).resolve()
@@ -174,6 +204,8 @@ def validate_ffmpeg_bundle(directory, *, allow_incomplete_source=False):
         raise ValueError('Nonfree or undocumented FFmpeg build cannot be distributed.')
     if '--enable-libsoxr' not in flags:
         raise ValueError('FFmpeg build must include libsoxr for training resampling.')
+    if manifest.get('source_completeness') == 'complete':
+        validate_ffmpeg_sources(manifest)
     if manifest.get('license') not in {'GPL-3.0-or-later', 'LGPL-3.0-or-later', 'LGPL-2.1-or-later'}:
         raise ValueError('FFmpeg license identifier missing or unsupported.')
     inferred_license = ('GPL-3.0-or-later' if '--enable-gpl' in flags and '--enable-version3' in flags
@@ -181,10 +213,11 @@ def validate_ffmpeg_bundle(directory, *, allow_incomplete_source=False):
                         else 'LGPL-2.1-or-later' if '--enable-gpl' not in flags else None)
     if manifest.get('license') != inferred_license:
         raise ValueError('FFmpeg license differs from configured GPL/version flags.')
-    actual = subprocess.run([str(root / 'ffmpeg.exe'), '-version'], capture_output=True,
-                            text=True, errors='replace', check=True, timeout=15).stdout
-    if not re.match(r'ffmpeg version ' + re.escape(version) + r'(?=[+\-\s]|$)', actual.splitlines()[0]) or flags not in actual:
-        raise ValueError('FFmpeg version/configure differs from provenance manifest.')
+    for tool in ('ffmpeg','ffprobe'):
+        actual = subprocess.run([str(root / (tool+'.exe')), '-version'], capture_output=True,
+                                text=True, errors='replace', check=True, timeout=15).stdout
+        if not actual.splitlines() or not re.match(tool+r' version ' + re.escape(version) + r'(?=[+\-\s]|$)', actual.splitlines()[0]) or flags not in actual:
+            raise ValueError(tool+' version/configure differs from provenance manifest.')
     return manifest
 
 
@@ -227,8 +260,7 @@ def main():
     if args.package_dir:
         report = validate_package_tree(args.package_dir)
     else:
-        if os.name != 'nt' or platform.machine().lower() not in {'amd64', 'x86_64'} or sys.version_info[:2] != (3, 12):
-            raise ValueError('Release builds require native Windows x64 / CPython 3.12.')
+        validate_build_runtime()
         report = validate_environment(args.backend, hardware_check=args.hardware_check)
         if args.hardware_check:
             validate_onnx_session(args.backend)

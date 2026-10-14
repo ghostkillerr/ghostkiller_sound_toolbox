@@ -70,9 +70,9 @@ def _run_probe(target):
 
 
 def _run_worker(job, resume=False):
-    from app_runtime import configure_runtime_cache, app_directory
+    from app_runtime import configure_runtime_cache, configure_ffmpeg_environment
     configure_runtime_cache()
-    os.environ["PATH"] = str(Path(app_directory())/"tools"/"ffmpeg")+os.pathsep+os.environ.get("PATH","")
+    configure_ffmpeg_environment()
     from training.storage import read_manifest,update_manifest,cleanup_incomplete_artifacts
     from training.config import TrainingOptions, BACKEND_COMMIT, FORMAT_VERSION, TRAINER_REVISION
     from training.dataset import check_cancel

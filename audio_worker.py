@@ -103,11 +103,10 @@ class AudioEngine:
 
 def main(argv=None):
     from app_runtime import (app_directory, resource_directory, configure_runtime_cache,
-                             configure_thread_environment)
+                             configure_thread_environment, configure_ffmpeg_environment)
     configure_runtime_cache()
     configure_thread_environment()
-    os.environ['PATH'] = os.pathsep.join([app_directory(), resource_directory(),
-        os.path.join(app_directory(),'tools','ffmpeg'), os.environ.get('PATH','')])
+    configure_ffmpeg_environment()
     arguments = list(sys.argv[1:] if argv is None else argv)
     if len(arguments) != 1:
         raise ValueError('Worker oturum klasörü gerekli.')

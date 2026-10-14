@@ -26,6 +26,8 @@ class AppSettings:
         self.manager = manager or ModelManager()
         self.report = None
         self.preference = "cpu"
+        self.theme = "light"
+        self.auto_update = True
         self.error = ""
         self.open_settings = lambda: None
         try:
@@ -33,6 +35,10 @@ class AppSettings:
                 value = json.load(stream)
             if value.get("device") in ("cpu", "gpu"):
                 self.preference = value["device"]
+            if value.get('theme') in ('light','dark'):
+                self.theme = value['theme']
+            if isinstance(value.get('auto_update'), bool):
+                self.auto_update = value['auto_update']
         except FileNotFoundError:
             pass
         except (OSError, ValueError, AttributeError) as error:
@@ -40,8 +46,33 @@ class AppSettings:
 
     def select(self, preference):
         self.device_for(preference)
-        write_json_atomic(self.path, {"device": preference})
+        self.save_option('device',preference)
         self.preference = preference
+
+    def save_option(self, key, value):
+        from registry_store import registry_lock
+        with registry_lock(self.path):
+            try:
+                with open(self.path,encoding='utf-8') as stream:
+                    current = json.load(stream)
+            except FileNotFoundError:
+                current = {}
+            if not isinstance(current,dict):
+                raise ValueError('Ayar dosyası okunamıyor; önce mevcut ayar dosyasını kontrol edin.')
+            current[key] = value
+            write_json_atomic(self.path,current)
+
+    def select_theme(self, theme):
+        if theme not in ('light','dark'):
+            raise ValueError('Görünüm açık veya koyu olmalı.')
+        self.save_option('theme',theme)
+        self.theme = theme
+
+    def select_auto_update(self, enabled):
+        if not isinstance(enabled, bool):
+            raise ValueError('Otomatik güncelleme tercihi açık veya kapalı olmalı.')
+        self.save_option('auto_update', enabled)
+        self.auto_update = enabled
 
     def device_for(self, preference=None):
         if self.report is None:

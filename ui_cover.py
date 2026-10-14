@@ -17,6 +17,7 @@ ve model yönetim sistemini modüler bir wx.Panel (CoverPanel) olarak sağlar.
 """
 
 import wx
+from ui_common import apply_native_style, add_intro
 import os
 import sys
 import json
@@ -178,7 +179,7 @@ class ModelToggleList(wx.ScrolledWindow):
         if not model_names:
             lbl_empty = wx.StaticText(
                 self,
-                label="Kayıtlı model bulunmamaktadır. 'Yeni Model Ekle' butonu ile ekleyebilirsiniz."
+                label="Henüz ses modeli eklenmedi. Ses modeli ekle düğmesini kullanın."
             )
             lbl_empty.SetFont(font_normal)
             lbl_empty.SetForegroundColour(wx.Colour(180, 180, 180))
@@ -199,6 +200,7 @@ class ModelToggleList(wx.ScrolledWindow):
                 self.buttons.append(btn)
                 self.sizer.Add(btn, 0, wx.EXPAND | wx.ALL, 4)
 
+        apply_native_style(self)
         self.Layout()
         self.FitInside()
         self.Refresh()
@@ -215,6 +217,7 @@ class ModelToggleList(wx.ScrolledWindow):
         else:
             btn.SetLabel(f"{btn.display_name} - [KAPALI]")
             btn.SetBackgroundColour(self.bg_btn)
+        apply_native_style(btn)
         btn.Refresh()
 
     def OnKeyDown(self, event, idx):
@@ -253,7 +256,7 @@ class CoverPanel(wx.ScrolledWindow):
     """
     def __init__(self, parent, settings=None):
         """AI Cover paneli değişkenlerini, modellerini ve renk paletini başlatır."""
-        super(CoverPanel, self).__init__(parent)
+        super(CoverPanel, self).__init__(parent, style=wx.VSCROLL | wx.TAB_TRAVERSAL)
         self.SetScrollRate(0,20)
         from app_settings import AppSettings
         self.settings = settings or AppSettings()
@@ -281,7 +284,6 @@ class CoverPanel(wx.ScrolledWindow):
 
     def InitUI(self):
         """Tüm paneli, model seçim listesini, ayar kontrollerini ve butonları inşa eder."""
-        wx.SystemOptions.SetOption("msw.window.dark-mode", 1)
 
         font_large = wx.Font(12, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
         font_normal = wx.Font(11, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
@@ -298,13 +300,13 @@ class CoverPanel(wx.ScrolledWindow):
         sizer_models = wx.StaticBoxSizer(box_models, wx.VERTICAL)
 
         btn_model_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_add_model = wx.Button(self, label="Yeni Model Ekle (.pth ve .index)", size=(-1, 40))
+        self.btn_add_model = wx.Button(self, label="Ses modeli ekle", size=(-1, 40))
         self.btn_add_model.SetFont(font_normal)
         self.btn_add_model.SetBackgroundColour(self.bg_btn)
         self.btn_add_model.SetForegroundColour(self.fg_light)
         self.btn_add_model.Bind(wx.EVT_BUTTON, self.OnAddModel)
 
-        self.btn_del_model = wx.Button(self, label="Seçili Modeli Sil", size=(-1, 40))
+        self.btn_del_model = wx.Button(self, label="Seçili modeli listeden kaldır", size=(-1, 40))
         self.btn_del_model.SetFont(font_normal)
         self.btn_del_model.SetBackgroundColour(wx.Colour(150, 60, 60))
         self.btn_del_model.SetForegroundColour(self.fg_light)
@@ -316,7 +318,7 @@ class CoverPanel(wx.ScrolledWindow):
 
         lbl_select_info = wx.StaticText(
             self,
-            label="Kullanmak istediğiniz ses modellerini seçin ([AÇIK]/[KAPALI] ve basılı/basılı değil olarak seslendirir):"
+            label="Kullanacağınız ses modellerini Boşluk ile seçin. Ok tuşlarıyla listede dolaşın."
         )
         lbl_select_info.SetFont(font_normal)
         sizer_models.Add(lbl_select_info, 0, wx.ALL, 5)
@@ -324,6 +326,7 @@ class CoverPanel(wx.ScrolledWindow):
         # A11y (Erişilebilirlik): Sound Cleaner (ui_separator.py) sekmesiyle birebir aynı
         # [AÇIK] / [KAPALI] ve basılı/basılı değil okuma mantığına sahip ModelToggleList.
         self.model_list = ModelToggleList(self)
+        self.model_list.SetMinSize((-1, 100))
         self.UpdateModelCheckList()
         sizer_models.Add(self.model_list, 1, wx.EXPAND | wx.ALL, 5)
 
@@ -337,7 +340,7 @@ class CoverPanel(wx.ScrolledWindow):
 
         # Girdi Dosyası (.wav)
         input_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_input = wx.Button(self, label="Ses Dosyası Seç (.wav / .flac / .mp3)", size=(-1, 40))
+        self.btn_select_input = wx.Button(self, label="Ses dosyası seç", size=(-1, 40))
         self.btn_select_input.SetFont(font_normal)
         self.btn_select_input.SetBackgroundColour(self.bg_btn)
         self.btn_select_input.SetForegroundColour(self.fg_light)
@@ -354,7 +357,7 @@ class CoverPanel(wx.ScrolledWindow):
 
         # Çıktı Klasörü
         output_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_output = wx.Button(self, label="Çıktı Klasörünü Seç", size=(-1, 40))
+        self.btn_select_output = wx.Button(self, label="Çıktı klasörü seç", size=(-1, 40))
         self.btn_select_output.SetFont(font_normal)
         self.btn_select_output.SetBackgroundColour(self.bg_btn)
         self.btn_select_output.SetForegroundColour(self.fg_light)
@@ -377,70 +380,72 @@ class CoverPanel(wx.ScrolledWindow):
         box_settings.SetFont(font_large)
         sizer_settings = wx.StaticBoxSizer(box_settings, wx.VERTICAL)
 
-        grid = wx.FlexGridSizer(rows=2, cols=4, vgap=10, hgap=10)
+        grid = wx.FlexGridSizer(cols=2, vgap=8, hgap=10)
         grid.AddGrowableCol(1, 1)
-        grid.AddGrowableCol(3, 1)
 
         # Pitch
-        lbl_pitch = wx.StaticText(self, label="Ses Tonu / Nota (Pitch):")
+        lbl_pitch = wx.StaticText(self, label="Sesin inceliği / kalınlığı:")
         lbl_pitch.SetFont(font_normal)
         grid.Add(lbl_pitch, 0, wx.ALIGN_CENTER_VERTICAL)
         self.pitch_ctrl = wx.SpinCtrl(self, value="0", min=-24, max=24)
         self.pitch_ctrl.SetFont(font_normal)
         grid.Add(self.pitch_ctrl, 1, wx.EXPAND)
 
-        # Donanım
-        lbl_device = wx.StaticText(self, label="Donanım ve Modeller:")
-        lbl_device.SetFont(font_normal)
-        grid.Add(lbl_device, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.btn_settings = wx.Button(self, label="Ayarlar sekmesini aç")
-        self.btn_settings.Bind(wx.EVT_BUTTON, lambda event: self.settings.open_settings())
-        self.btn_settings.SetFont(font_normal)
-        grid.Add(self.btn_settings, 1, wx.EXPAND)
-
         # F0 Algoritması
-        lbl_f0 = wx.StaticText(self, label="Ses Algılama Yöntemi:")
+        self.advanced_toggle = wx.ToggleButton(self, label="Gelişmiş ses ayarları [KAPALI]")
+        self.advanced_toggle.Bind(wx.EVT_TOGGLEBUTTON, self.OnAdvanced)
+        self.advanced_options = wx.Panel(self)
+        advanced_layout = wx.BoxSizer(wx.VERTICAL)
+        advanced_grid = wx.FlexGridSizer(cols=2, vgap=8, hgap=10)
+        advanced_grid.AddGrowableCol(1, 1)
+        lbl_f0 = wx.StaticText(self.advanced_options, label="Nota algılama yöntemi:")
         lbl_f0.SetFont(font_normal)
-        grid.Add(lbl_f0, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.f0_choice = wx.Choice(self, choices=["rmvpe", "crepe"])
+        advanced_grid.Add(lbl_f0, 0, wx.ALIGN_CENTER_VERTICAL)
+        self.f0_choice = wx.Choice(self.advanced_options, choices=["rmvpe", "crepe"])
         self.f0_choice.SetSelection(0)
         self.f0_choice.SetFont(font_normal)
-        grid.Add(self.f0_choice, 1, wx.EXPAND)
+        advanced_grid.Add(self.f0_choice, 1, wx.EXPAND)
 
         # Index Rate
-        lbl_index = wx.StaticText(self, label="Ses Benzerlik Oranı:")
+        lbl_index = wx.StaticText(self.advanced_options, label="Model sesine benzerlik (0–1):")
         lbl_index.SetFont(font_normal)
-        grid.Add(lbl_index, 0, wx.ALIGN_CENTER_VERTICAL)
-        self.index_rate_ctrl = wx.TextCtrl(self, value="0.75")
+        advanced_grid.Add(lbl_index, 0, wx.ALIGN_CENTER_VERTICAL)
+        self.index_rate_ctrl = wx.TextCtrl(self.advanced_options, value="0.75")
         self.index_rate_ctrl.SetFont(font_normal)
-        grid.Add(self.index_rate_ctrl, 1, wx.EXPAND)
+        advanced_grid.Add(self.index_rate_ctrl, 1, wx.EXPAND)
 
         sizer_settings.Add(grid, 0, wx.EXPAND | wx.ALL, 5)
+        sizer_settings.Add(self.advanced_toggle, 0, wx.ALL, 5)
+        advanced_layout.Add(wx.StaticText(self.advanced_options, label="Emin değilseniz varsayılan değerleri kullanın."), 0, wx.ALL, 5)
+        advanced_layout.Add(advanced_grid, 0, wx.EXPAND | wx.ALL, 5)
         self.quality_controls = {}
         for key, label in (('input_highpass_80hz', '80 Hz altındaki giriş sesini filtrele'),
                            ('pipeline_highpass_48hz', '48 Hz altındaki sesi filtrele'),
                            ('smooth_pitch', 'Nota geçişlerini yumuşat')):
-            control = wx.CheckBox(self, label=label)
+            control = wx.CheckBox(self.advanced_options, label=label)
             control.SetValue(True)
             self.quality_controls[key] = control
-            sizer_settings.Add(control, 0, wx.ALL, 3)
+            advanced_layout.Add(control, 0, wx.ALL, 3)
+        self.advanced_options.SetSizer(advanced_layout)
+        sizer_settings.Add(self.advanced_options, 0, wx.EXPAND | wx.ALL, 5)
+        self.advanced_options.Hide()
         vbox.Add(sizer_settings, 0, wx.EXPAND | wx.ALL, 5)
 
         # 4. İŞLEM BUTONLARI (Başlat / İptal)
-        btn_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_start = wx.Button(self, label="Ses Değiştirmeyi Başlat", size=(-1, 60))
+        btn_box = wx.WrapSizer(wx.HORIZONTAL)
+        self.btn_start = wx.Button(self, label="Ses değiştirmeyi başlat", size=(-1, 60))
         self.btn_start.SetFont(font_large)
         self.btn_start.SetBackgroundColour(wx.Colour(0, 150, 100))
         self.btn_start.SetForegroundColour(self.fg_light)
         self.btn_start.Bind(wx.EVT_BUTTON, self.OnStart)
 
-        self.btn_cancel = wx.Button(self, label="İptal Et", size=(150, 60))
+        self.btn_cancel = wx.Button(self, label="İptal et", size=(150, 60))
         self.btn_cancel.SetFont(font_large)
         self.btn_cancel.SetBackgroundColour(wx.Colour(200, 50, 50))
         self.btn_cancel.SetForegroundColour(self.fg_light)
         self.btn_cancel.Enable(False)
         self.btn_cancel.Bind(wx.EVT_BUTTON, self.OnCancel)
-        self.btn_force_stop = wx.Button(self, label="Zorla Durdur")
+        self.btn_force_stop = wx.Button(self, label="Zorla durdur")
         self.btn_force_stop.Enable(False)
         self.btn_force_stop.Bind(wx.EVT_BUTTON, self.OnForceStop)
 
@@ -460,16 +465,24 @@ class CoverPanel(wx.ScrolledWindow):
         self.txt_status.SetFont(font_large)
         self.txt_status.SetBackgroundColour(self.bg_main)
         self.txt_status.SetForegroundColour(self.fg_status)
-        self.txt_status.SetValue("Durum: Bekliyor...")
+        self.txt_status.SetValue("Hazır. Ses dosyasını ve kullanacağınız modeli seçin.")
         vbox.Add(self.txt_status, 0, wx.EXPAND | wx.ALL, 5)
 
         self.gauge = wx.Gauge(self, range=100, style=wx.GA_HORIZONTAL)
         vbox.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 5)
+        for control in (self.txt_log, self.txt_status, self.gauge):
+            vbox.Detach(control)
+        vbox.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 8)
+        vbox.Add(self.txt_status, 0, wx.EXPAND | wx.ALL, 8)
+        vbox.Add(self.txt_log, 1, wx.EXPAND | wx.ALL, 8)
+        self.txt_status.MoveAfterInTabOrder(self.gauge)
+        self.txt_log.MoveAfterInTabOrder(self.txt_status)
 
         self.SetSizer(vbox)
+        add_intro(self, vbox, "Ses değiştirme", "Bir ses modeli ve kayıt seçin. Program, kaydı seçtiğiniz modelin sesiyle dönüştürür.")
+        apply_native_style(self)
         self.FitInside()
         self.pitch_ctrl.SetName("Ses tonu, yarım ses")
-        self.btn_settings.SetName("Donanım tercihi ve model indirme ayarlarını aç")
         self.f0_choice.SetName("Ses algılama yöntemi")
         self.index_rate_ctrl.SetName("Ses benzerlik oranı, 0 ile 1 arası")
         self.txt_selected_input.SetName("Seçilen ses dosyası")
@@ -477,7 +490,14 @@ class CoverPanel(wx.ScrolledWindow):
         self.txt_log.SetName("İşlem günlüğü")
         self.txt_status.SetName("İşlem durumu ve yüzde")
         self.gauge.SetName("İşlem ilerlemesi")
-        self.LogMessage("Sistem Hazır. İşlem yapmak için dosya seçin.")
+        self.LogMessage("Hazır. Başlamak için bir ses dosyası seçin.")
+
+    def OnAdvanced(self, event):
+        enabled = self.advanced_toggle.GetValue()
+        self.advanced_toggle.SetLabel(f"Gelişmiş ses ayarları [{'AÇIK' if enabled else 'KAPALI'}]")
+        self.advanced_options.Show(enabled)
+        self.Layout()
+        self.FitInside()
 
     def UpdateModelCheckList(self):
         """Kayıtlı modelleri listeye yansıtır."""
@@ -617,7 +637,7 @@ class CoverPanel(wx.ScrolledWindow):
             post_ui(self, control.Enable, enable)
         post_ui(self, self.model_list.Enable, enable)
         post_ui(self, self.pitch_ctrl.Enable, enable)
-        post_ui(self, self.btn_settings.Enable, enable)
+        post_ui(self, self.advanced_toggle.Enable, enable)
         post_ui(self, self.f0_choice.Enable, enable)
         post_ui(self, self.index_rate_ctrl.Enable, enable)
 

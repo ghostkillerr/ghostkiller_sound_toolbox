@@ -13,3 +13,9 @@ lisansları ve sabit FFmpeg commit kaynağı `tools.release.fetch_ffmpeg_materia
 ile `build/ffmpeg_material` altında doğrulanabilir. Bu full build'in bağlı
 kütüphane kaynakları henüz tamam değildir; yayımlanabilir kabul edilmez.
 Tam akış için [yayın derleme rehberini](../../docs/RELEASE_BUILD.md) okuyun.
+
+14 Ekim yeni yayın bundle'ı `build/ffmpeg_material/8.1.1-release` altında
+`tools.release.build_ffmpeg` ile tam FFmpeg/libsoxr kaynaklarından derlendi.
+LGPL-2.1-or-later lisansları, kaynak arşivleri, native ikililer ve gerçek build
+reçetesi SHA-256 manifestine bağlıdır. Yayın spec'i bu bundle ile çalıştırılır;
+bu dizindeki eski geliştirme ikilileri değiştirilmedi.

@@ -19,6 +19,20 @@ from training.config import TrainingOptions
 from training.service import create_job,TrainingProcess
 from app_settings import AppSettings
 from hardware import DeviceSupport,HardwareReport,probe_operations
+from compute_backend import is_gpu_device
+
+
+def configure_fixture_device(settings, device):
+    """Keep the explicitly requested backend; never record a CPU fallback as GPU."""
+    kind = str(device).split(':', 1)[0]
+    if kind not in ('cpu', 'cuda', 'xpu'):
+        raise ValueError(f'Desteklenmeyen işlem cihazı: {device}')
+    cpu = DeviceSupport('cpu', 'CPU', True)
+    gpus = [DeviceSupport(device, 'test GPU', True)] if is_gpu_device(device) else []
+    settings.report = HardwareReport(cpu, gpus)
+    settings.preference = 'gpu' if gpus else 'cpu'  # In-memory only.
+    if settings.device_for() != device:
+        raise ValueError('Deneme cihazı istenen cihazla eşleşmiyor.')
 
 
 def main():
@@ -44,10 +58,7 @@ def main():
         sf.write(path,audio,40000,subtype='FLOAT')
         sources.append(str(path))
     settings=AppSettings()
-    cpu=DeviceSupport('cpu','CPU',True)
-    gpus=[DeviceSupport(args.device,'test GPU',True)] if args.device.startswith('cuda') else []
-    settings.report=HardwareReport(cpu,gpus)
-    settings.preference='gpu' if gpus else 'cpu'  # In-memory test preference; never persisted.
+    configure_fixture_device(settings, args.device)
     options=TrainingOptions('Synthetic compatibility test',tuple(sources),epochs=args.epochs,save_every=1,
                             batch_size=args.batch,segment_seconds=1.2,overlap_seconds=.3,cpu_threads=2)
     job=create_job(options,settings)

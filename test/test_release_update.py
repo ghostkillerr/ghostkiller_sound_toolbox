@@ -28,6 +28,21 @@ def manifest(payload=PAYLOAD):
             'sha256': hashlib.sha256(payload).hexdigest(), 'size': len(payload)}}}
 
 
+def installer_build_fixture(root, installer):
+    """Synthetic compile receipt for release metadata tests; never a real installer."""
+    info = root/'build-info.json'
+    source = hashlib.sha256(b'synthetic application sources').hexdigest()
+    info.write_text(json.dumps({'backend':'cpu','purpose':'release','release_eligible':True,
+                               'application_version':'2.1.0','application_source_sha256':source}))
+    installer.with_suffix('.build.json').write_text(json.dumps({
+        'schema_version':1,'backend':'cpu','purpose':'release','release_eligible':True,
+        'application_version':'2.1.0','application_source_sha256':source,
+        'build_info_sha256':preflight.sha256(info),
+        'installer':{'filename':installer.name,'size':installer.stat().st_size,
+                     'sha256':preflight.sha256(installer)}}))
+    return info
+
+
 class ImmediateThread:
     def __init__(self, target, **kwargs):
         self.target = target
@@ -190,7 +205,7 @@ class UpdateDownloadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'setup.exe'
             path.write_bytes(PAYLOAD[:-1] + b'x')
-            with patch.object(updater, 'launch_elevated_installer') as launch, patch.object(updater.wx, 'GetApp') as app, patch.object(updater.wx, 'MessageBox'):
+            with patch.object(updater, 'run_in_place_update') as launch, patch.object(updater.wx, 'GetApp') as app, patch.object(updater.wx, 'MessageBox'):
                 self.assertFalse(updater._launch_setup_and_exit(path, validate_package(manifest(), 'cpu')))
             launch.assert_not_called()
             app.assert_not_called()
@@ -200,9 +215,10 @@ class UpdateDownloadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'setup.exe'
             path.write_bytes(PAYLOAD)
-            with patch.object(updater, 'launch_elevated_installer', side_effect=InstallerLaunchCancelled('cancelled')), patch.object(updater.wx, 'GetApp') as app, patch.object(updater.wx, 'MessageBox'):
-                self.assertFalse(updater._launch_setup_and_exit(path, validate_package(manifest(), 'cpu')))
+            with patch.object(updater, 'run_in_place_update', side_effect=InstallerLaunchCancelled('cancelled')), patch.object(updater.wx, 'GetApp') as app, patch.object(updater.wx, 'MessageBox'):
+                self.assertFalse(updater._launch_setup_and_exit(path, validate_package(manifest(), 'cpu'), on_failure=path.unlink))
             app.assert_not_called()
+            self.assertFalse(path.exists())
             self.assertFalse(JOB_LOCK.locked())
 
 
@@ -247,6 +263,20 @@ class NativeInstallerTests(unittest.TestCase):
 
 
 class ReleaseBuildTests(unittest.TestCase):
+    def test_python_3120_and_wrong_minor_cannot_produce_frozen_builds(self):
+        for version in ((3,12,0),(3,11,9),(3,13,0)):
+            with self.subTest(version=version),self.assertRaises(ValueError):
+                preflight.validate_python_version(version)
+        preflight.validate_python_version((3,12,1))
+        preflight.validate_python_version((3,12,15))
+
+    def test_vendored_licenses_retain_exact_manifest_hashes_on_windows(self):
+        vendor = json.loads((preflight.ROOT/'third_party/python/manifest.json').read_text(encoding='utf-8'))
+        for package in vendor.values():
+            for item in package['files']:
+                with self.subTest(path=item['path']):
+                    preflight.checked_local_asset(preflight.ROOT,item)
+
     def test_real_tiny_cpu_onnx_session(self):
         preflight.validate_onnx_session('cpu')
 
@@ -265,12 +295,50 @@ class ReleaseBuildTests(unittest.TestCase):
             root = Path(folder)
             installer = root / 'Setup_cpu.exe'
             installer.write_bytes(PAYLOAD)
-            info = root / 'build-info.json'
-            info.write_text('{"backend":"cpu","purpose":"release","release_eligible":true}')
+            info = installer_build_fixture(root,installer)
             data = create_manifest('2.1.0', [('cpu', installer, info)], release_date='2026-10-13')
             self.assertEqual(data['packages']['cpu']['sha256'], hashlib.sha256(PAYLOAD).hexdigest())
             self.assertEqual(data['release_date'], '2026-10-13')
             self.assertTrue(data['packages']['cpu']['download_url'].endswith('/v2.1.0/Setup_cpu.exe'))
+
+    def test_manifest_cannot_relabel_an_old_build_with_a_new_version(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            installer = root/'Setup_cpu.exe'
+            installer.write_bytes(PAYLOAD)
+            info = installer_build_fixture(root,installer)
+            with self.assertRaisesRegex(ValueError,'version'):
+                create_manifest('2.2.0',[('cpu',installer,info)])
+
+    def test_manifest_requires_matching_receipt_bytes_and_build_info(self):
+        for change in ('missing_receipt','installer_bytes','build_info','wrong_backend'):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                installer = root/'Setup_cpu.exe'
+                installer.write_bytes(PAYLOAD)
+                info = installer_build_fixture(root,installer)
+                receipt = installer.with_suffix('.build.json')
+                if change == 'missing_receipt':
+                    receipt.unlink()
+                elif change == 'installer_bytes':
+                    installer.write_bytes(PAYLOAD+b'different compilation')
+                elif change == 'build_info':
+                    info.write_text(info.read_text()+'\n')
+                else:
+                    data = json.loads(receipt.read_text())
+                    data['backend'] = 'cuda'
+                    receipt.write_text(json.dumps(data))
+                with self.assertRaises(ValueError):
+                    create_manifest('2.1.0',[('cpu',installer,info)])
+
+    def test_manifest_rejects_duplicate_backend(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            installer = root/'Setup_cpu.exe'
+            installer.write_bytes(PAYLOAD)
+            info = installer_build_fixture(root,installer)
+            with self.assertRaisesRegex(ValueError,'Duplicate backend'):
+                create_manifest('2.1.0',[('cpu',installer,info),('cpu',installer,info)])
 
     def test_all_native_profiles_are_hash_locked_and_have_one_ort(self):
         for backend in ('cpu', 'cuda', 'xpu'):

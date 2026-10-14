@@ -220,7 +220,8 @@ def validate_weight_schema(weights, relative, config=None):
             if not torch.is_tensor(out) or out.ndim!=4 or not torch.is_tensor(dense) or dense.ndim!=2:
                 raise ValueError('UVR ağ boyutlarını belirleyen ağırlıklar eksik veya uyumsuz.')
             channels, bins, recurrent = out.shape[1], dense.shape[0], dense.shape[1]
-            if channels not in (32,64) or not 1 <= bins <= 2048 or recurrent not in (64,128):
+            # VR 5.1 metadata also uses 16-channel denoise and 48-channel models.
+            if channels not in (16,32,48,64) or not 1 <= bins <= 2048 or recurrent not in (64,128):
                 raise ValueError('UVR ağ boyutları desteklenmiyor.')
             with torch.device('meta'):
                 expected = CascadedNet(bins*4,218409 if channels==64 else 56817,nout=channels,nout_lstm=recurrent).state_dict()

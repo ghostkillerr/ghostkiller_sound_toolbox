@@ -40,6 +40,23 @@ class HardwareReport:
             raise RuntimeError(result.reason)
         return result
 
+    def summary(self, preference='cpu'):
+        lines = [f"İşlemci: {self.cpu.name}",
+                 "İşlemci kontrolü başarılı." if self.cpu.available else
+                 "İşlemci kontrolü tamamlanamadı. Teknik ayrıntılarda hata bilgisi bulunur."]
+        usable = [gpu for gpu in self.gpus if gpu.available]
+        if usable:
+            gpu = max(usable, key=lambda item: item.memory_gb)
+            lines.extend([f"Ekran kartı: {gpu.name}", "Ekran kartı kontrolü başarılı."])
+        else:
+            lines.append("Bu programda kullanılabilecek bir ekran kartı bulunamadı. İşlemciyi seçin.")
+        selected = 'İşlemci' if preference == 'cpu' else 'Ekran kartı'
+        lines.append(f"Seçiminiz: {selected}.")
+        if preference == 'gpu' and not usable:
+            lines.append("Kayıtlı ekran kartı seçiminiz kullanılamıyor; devam etmek için İşlemciyi seçin.")
+        lines.append("Bu seçim ses işlemleri ve eğitim için kullanılır. Eğitim başlarken ayrıca kontrol yapılır.")
+        return '\n'.join(lines)
+
     def describe(self):
         lines = [f"İşlemci: {self.cpu.name} — " + ("hesaplama testi başarılı" if self.cpu.available else self.cpu.reason)]
         for gpu in self.gpus:

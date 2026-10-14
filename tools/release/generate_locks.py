@@ -22,6 +22,7 @@ XPU_VERSIONS = {
     'mkl': '2025.3.1', 'intel-openmp': '2025.3.2', 'tbb': '2022.3.1',
     'tcmlib': '1.4.1', 'umf': '1.0.3', 'intel-pti': '0.16.0',
     'triton-xpu': '3.7.0',
+    'pyelftools': '0.33',
 }
 
 

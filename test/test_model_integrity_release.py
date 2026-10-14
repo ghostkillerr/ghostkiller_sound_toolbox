@@ -13,6 +13,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ModelIntegrityReleaseTests(unittest.TestCase):
+    def test_vr_51_small_denoise_and_48_channel_schemas_are_checked_completely(self):
+        from audio_separator.separator.uvr_lib_v5.vr_network.nets_new import CascadedNet
+        for channels in (16,48):
+            with self.subTest(channels=channels):
+                with torch.device('meta'):
+                    weights = CascadedNet(2048,56817,nout=channels,nout_lstm=128).state_dict()
+                validate_weight_schema(weights,'UVR-DeNoise.pth')
+                damaged = dict(weights)
+                damaged.pop('stg2_high_band_net.enc1.conv.0.weight')
+                with self.assertRaises(ValueError):
+                    validate_weight_schema(damaged,'UVR-DeNoise.pth')
+
     def test_roformer_module_products_are_bounded_before_meta_construction(self):
         from model_manager import validate_separator_model_config
         for config in ({'num_stems':1_000_000},{'linear_transformer_depth':1_000_000},

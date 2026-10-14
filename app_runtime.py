@@ -18,6 +18,35 @@ def resource_directory():
     return getattr(sys, "_MEIPASS", app_directory())
 
 
+def ffmpeg_executable(tool='ffmpeg', app_dir=None):
+    """Use the packaged codec, never a legacy EXE or a machine-wide install."""
+    if tool not in ('ffmpeg', 'ffprobe'):
+        raise ValueError('Bilinmeyen ses aracı.')
+    root = (resource_directory() if getattr(sys, 'frozen', False) else
+            os.path.join(app_dir or app_directory(), 'tools', 'ffmpeg'))
+    path = os.path.abspath(os.path.join(root, tool + '.exe'))
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f'Programın {tool}.exe dosyası eksik: {path}. Kurulumu onarın.')
+    return path
+
+
+def configure_ffmpeg_environment(app_dir=None):
+    root = (resource_directory() if getattr(sys, 'frozen', False) else
+            os.path.join(app_dir or app_directory(), 'tools', 'ffmpeg'))
+    root = os.path.abspath(root)
+    entries = [entry for entry in os.environ.get('PATH', '').split(os.pathsep)
+               if entry and os.path.normcase(os.path.abspath(entry)) != os.path.normcase(root)]
+    os.environ['PATH'] = os.pathsep.join([root, *entries])
+
+
+def configure_pydub(app_dir=None):
+    import pydub
+    ffmpeg = ffmpeg_executable('ffmpeg', app_dir)
+    ffprobe = ffmpeg_executable('ffprobe', app_dir)
+    pydub.AudioSegment.converter = ffmpeg
+    pydub.utils.get_prober_name = lambda: ffprobe
+
+
 def model_directory(app_dir=None):
     """Models live alongside the installed executable (or source checkout)."""
     directory = os.path.join(app_dir or app_directory(), 'models')

@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import threading
 import wx
+from ui_common import apply_native_style, add_intro, section_title, name_control, explanation_control
 from app_runtime import JOB_LOCK, post_ui, data_directory, finish_job
 from training.config import TrainingOptions
 from training.service import create_job, validate_resume, TrainingProcess, register_model
@@ -13,154 +14,163 @@ class TrainingPanel(wx.ScrolledWindow):
     def __init__(self, parent, settings):
         super().__init__(parent, style=wx.VSCROLL | wx.TAB_TRAVERSAL)
         self.settings = settings
-        self.sources = []
-        self.source_groups = {}
+        self.sources, self.source_groups = [], {}
         self.job = self.result = self.runner = None
         self.busy = False
         self._last_stage = None
-        self.analysis_cancel = None
-        self.analysis_report = None
-        self.SetScrollRate(0, 20)
-        self.SetBackgroundColour(wx.Colour(30, 30, 30))
-        self.SetForegroundColour(wx.Colour(240, 240, 240))
+        self.analysis_cancel = self.analysis_report = None
+        self.field_explanations = {}
+        self.SetScrollRate(0,20)
         layout = wx.BoxSizer(wx.VERTICAL)
-        layout.Add(wx.StaticText(self, label="Aynı kişiye ait temiz kayıtları seçin. Eğitim: RVC V2, ContentVec, HiFi-GAN, FP32.\nDonanım ve yardımcı modeller 4. Ayarlar sekmesinden hazırlanır."), 0, wx.ALL, 8)
-        self.btn_settings = wx.Button(self, label="Donanım ve model ayarlarını aç")
-        self.btn_settings.Bind(wx.EVT_BUTTON, lambda event: settings.open_settings())
-        layout.Add(self.btn_settings, 0, wx.ALL, 8)
-        self.source_list = wx.ListBox(self, size=(-1, 95))
-        self.source_list.SetName("Aynı kişiye ait eğitim kayıtları")
-        layout.Add(self.source_list, 0, wx.EXPAND | wx.ALL, 8)
-        row = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_add = wx.Button(self, label="Ses kayıtları ekle")
-        self.btn_remove = wx.Button(self, label="Seçili kaydı kaldır")
-        self.btn_group = wx.Button(self, label="Seçili kayda şarkı / oturum grubu ata")
-        self.btn_add.Bind(wx.EVT_BUTTON, self.OnAdd)
-        self.btn_remove.Bind(wx.EVT_BUTTON, self.OnRemove)
-        self.btn_group.Bind(wx.EVT_BUTTON, self.OnGroup)
-        for button in (self.btn_add, self.btn_remove):
-            row.Add(button, 0, wx.ALL, 4)
-        layout.Add(row, 0, wx.ALL, 4)
-        layout.Add(self.btn_group, 0, wx.ALL, 8)
-        layout.Add(wx.StaticText(self,label="Aynı şarkı veya kaynak vokalin farklı sürümlerine aynı grup adını verin; değerlendirmeye birlikte ayrılırlar."),0,wx.ALL,8)
-        self.btn_analyze = wx.Button(self, label="Kayıtları analiz et")
-        self.btn_analyze.Bind(wx.EVT_BUTTON, self.OnAnalyze)
-        layout.Add(self.btn_analyze, 0, wx.ALL, 8)
-        self.txt_analysis = wx.TextCtrl(self, value="Kayıtları analiz ederek süre, seviye, tekrar ve kanal sorunlarını kontrol edin. Eğitimde analiz tekrar yapılır.", style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 120))
-        self.txt_analysis.SetName("Eğitim kayıtlarının analiz raporu")
-        layout.Add(self.txt_analysis, 0, wx.EXPAND | wx.ALL, 8)
-        grid = wx.FlexGridSizer(cols=2, vgap=8, hgap=10)
-        grid.AddGrowableCol(1, 1)
-        def field(label, control):
-            grid.Add(wx.StaticText(self, label=label), 0, wx.ALIGN_CENTER_VERTICAL)
-            control.SetName(label)
-            grid.Add(control, 1, wx.EXPAND)
+        add_intro(self,layout,"Ses modeli eğitimi","Aynı kişinin ses kayıtlarını ekleyin, modelinize ad verin ve eğitimi başlatın. Kayıtlar eğitimden önce otomatik kontrol edilir.")
+        section_title(self,layout,"Ses kayıtları")
+        self.btn_add = wx.Button(self,label="Ses kayıtları ekle")
+        self.btn_add.Bind(wx.EVT_BUTTON,self.OnAdd)
+        layout.Add(self.btn_add,0,wx.ALL,8)
+        wx_label = wx.StaticText(self,label="Eklenen ses kayıtları")
+        layout.Add(wx_label,0,wx.LEFT | wx.RIGHT,8)
+        self.empty_sources = wx.StaticText(self,label="Henüz ses kaydı eklenmedi.")
+        layout.Add(self.empty_sources,0,wx.ALL,8)
+        self.source_list = name_control(wx.ListBox(self,size=(-1,95)),"Eklenen ses kayıtları; ok tuşlarıyla kayıt seçin")
+        layout.Add(self.source_list,0,wx.EXPAND | wx.ALL,8)
+        self.source_list.Hide()
+        self.btn_remove = wx.Button(self,label="Seçili ses kaydını listeden kaldır")
+        self.btn_remove.Bind(wx.EVT_BUTTON,self.OnRemove)
+        self.btn_remove.Disable()
+        layout.Add(self.btn_remove,0,wx.ALL,8)
+        section_title(self,layout,"Eğitim ayarları")
+
+        def field(parent,sizer,label,create,explanation='',focus_explanation=True):
+            # Native Windows label association needs the label HWND first.
+            title = wx.StaticText(parent,label=label)
+            sizer.Add(title,0,wx.LEFT | wx.RIGHT | wx.TOP,8)
+            control = name_control(create(),label,'' if focus_explanation else explanation)
+            sizer.Add(control,0,wx.EXPAND | wx.ALL,8)
+            if explanation:
+                text = explanation_control(parent,label+' açıklaması',explanation) if focus_explanation else wx.StaticText(parent,label=explanation)
+                if focus_explanation:
+                    text.MoveAfterInTabOrder(control)
+                    self.field_explanations[control] = text
+                sizer.Add(text,0,wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM,8)
             return control
-        self.model_name = field("Model adı", wx.TextCtrl(self))
-        self.sample_rate = field("Örnekleme hızı", wx.Choice(self, choices=["32 kHz", "40 kHz", "48 kHz"]))
+
+        self.model_name = field(self,layout,"Model adı",lambda:wx.TextCtrl(self),"Yeni ses modeline vereceğiniz adı yazın.",False)
+        self.sample_rate = field(self,layout,"Ses örnekleme hızı (kHz)",lambda:wx.Choice(self,choices=["32 kHz","40 kHz","48 kHz"]),"Emin değilseniz 40 kHz seçili kalsın.",False)
         self.sample_rate.SetSelection(1)
-        self.epochs = field("Toplam epoch", wx.SpinCtrl(self, min=1, max=10000, initial=200))
-        self.batch = field("Batch; 0 otomatik bellek ölçümü", wx.SpinCtrl(self, min=0, max=64, initial=0))
-        self.interval = field("Checkpoint ve değerlendirme aralığı; epoch", wx.SpinCtrl(self, min=1, max=1000, initial=10))
-        layout.Add(grid, 0, wx.EXPAND | wx.ALL, 8)
-        self.advanced_toggle = wx.ToggleButton(self, label="Gelişmiş ayarlar [KAPALI]")
-        self.advanced_toggle.Bind(wx.EVT_TOGGLEBUTTON, self.OnAdvanced)
-        layout.Add(self.advanced_toggle, 0, wx.ALL, 8)
-        self.advanced = wx.Panel(self)
-        advanced_layout = wx.FlexGridSizer(cols=2, vgap=8, hgap=10)
-        advanced_layout.AddGrowableCol(1, 1)
-        def advanced_field(label, control):
-            advanced_layout.Add(wx.StaticText(self.advanced, label=label), 0, wx.ALIGN_CENTER_VERTICAL)
-            control.SetName(label)
-            advanced_layout.Add(control, 1, wx.EXPAND)
-            return control
-        self.learning_rate = advanced_field("Öğrenme hızı", wx.TextCtrl(self.advanced, value="0.0001"))
-        self.segment = advanced_field("Hazırlama parçası süresi; saniye", wx.SpinCtrlDouble(self.advanced, min=1, max=6, initial=3, inc=.1))
-        self.overlap = advanced_field("Parça örtüşmesi; saniye", wx.SpinCtrlDouble(self.advanced, min=0, max=1, initial=.3, inc=.1))
-        self.holdout = advanced_field("Değerlendirme payı; yüzde", wx.SpinCtrl(self.advanced, min=5, max=30, initial=10))
-        self.threads = advanced_field("İşlemci thread sınırı", wx.SpinCtrl(self.advanced, min=1, max=64, initial=4))
-        self.f0 = advanced_field("Nota çıkarımı", wx.Choice(self.advanced, choices=["RMVPE", "CREPE", "CREPE Tiny"]))
+        self.epochs = field(self,layout,"Eğitim tekrar sayısı (epoch)",lambda:wx.SpinCtrl(self,min=1,max=10000,initial=200),"200 epoch, kayıtların eğitim sırasında 200 kez işlenmesi demektir. Daha fazla tekrar daha uzun sürer. Gereğinden fazla tekrar sonucu kötüleştirebilir.")
+        self.advanced_toggle = wx.ToggleButton(self,label="Gelişmiş eğitim ayarları [KAPALI]")
+        self.advanced_toggle.Bind(wx.EVT_TOGGLEBUTTON,self.OnAdvanced)
+        layout.Add(self.advanced_toggle,0,wx.ALL,8)
+        self.advanced = wx.Panel(self,style=wx.TAB_TRAVERSAL)
+        advanced_layout = wx.BoxSizer(wx.VERTICAL)
+        field_advanced = lambda label,create,help_text,focus=True:field(self.advanced,advanced_layout,label,create,help_text,focus)
+        self.batch = field_advanced("Aynı anda işlenen parça sayısı; 0 otomatik",lambda:wx.SpinCtrl(self.advanced,min=0,max=64,initial=0),"0 seçilirse program belleğe uygun sayıyı ölçer. Sayıyı artırmak daha çok bellek kullanır.")
+        self.interval = field_advanced("Kaydetme ve değerlendirme aralığı (epoch)",lambda:wx.SpinCtrl(self.advanced,min=1,max=1000,initial=10),"10 seçilirse her 10 eğitim tekrarında model kaydedilir ve değerlendirilir. Devam kaydı ayrıca yaklaşık beş dakikada bir alınır.")
+        self.learning_rate = field_advanced("Öğrenme hızı",lambda:wx.TextCtrl(self.advanced,value="0.0001"),"Modelin bir adımda ne kadar değişeceğini belirler. 0.0001 küçük bir değişimdir; emin değilseniz değiştirmeyin.")
+        self.segment = field_advanced("Hazırlanan ses parçalarının süresi (saniye)",lambda:wx.TextCtrl(self.advanced,value='3.0'),"3.0 değeri, kayıtların hazırlıkta üç saniyelik parçalara bölünmesi demektir. 1 ile 6 saniye arasında bir değer yazın.")
+        self.overlap = field_advanced("Ardışık parçaların ortak süresi (saniye)",lambda:wx.TextCtrl(self.advanced,value='0.3'),"0.3 değeri, iki komşu parçada aynı sesin 0.3 saniyesinin bulunması demektir. 0 ile 1 saniye arasında bir değer yazın.")
+        self.holdout = field_advanced("Kontrol için ayrılan kayıt payı (yüzde)",lambda:wx.SpinCtrl(self.advanced,min=5,max=30,initial=10),"10 seçilirse verinin yaklaşık yüzde 10'u modele öğretilmez; sonucu kontrol etmek için ayrılır.")
+        self.threads = field_advanced("Kullanılacak işlemci iş parçacığı sayısı",lambda:wx.SpinCtrl(self.advanced,min=1,max=64,initial=4),"4 seçilirse en fazla dört işlemci iş parçacığı kullanılır. Artırmak bazı işleri hızlandırabilir; her bilgisayarda daha hızlı olmaz ve bilgisayarı daha fazla meşgul edebilir.")
+        self.f0 = field_advanced("Nota algılama yöntemi",lambda:wx.Choice(self.advanced,choices=["RMVPE","CREPE","CREPE Tiny"]),"Sesin notasını bulur. Emin değilseniz RMVPE seçili kalsın.",False)
         self.f0.SetSelection(0)
-        self.checkpointing = wx.CheckBox(self.advanced, label="Gradyan checkpointing; daha az bellek, daha fazla hesaplama")
+        self.checkpointing = wx.CheckBox(self.advanced,label="Bellek tasarrufu kullan; eğitim daha yavaş olabilir")
         self.checkpointing.SetValue(True)
-        advanced_layout.Add(self.checkpointing, 0, wx.EXPAND)
-        advanced_layout.AddSpacer(1)
+        advanced_layout.Add(self.checkpointing,0,wx.ALL,8)
+        self.group_intro = wx.StaticText(self.advanced,label="Yalnız aynı şarkının birden fazla kaydını eklediyseniz bunlara aynı eşleştirme adını verin. Böylece modelin kontrolü, öğrendiği şarkının başka kopyasıyla yapılmaz. Farklı şarkılarda eşleştirme gerekmez.")
+        self.group_intro.Wrap(self.FromDIP(620))
+        advanced_layout.Add(self.group_intro,0,wx.EXPAND | wx.ALL,8)
+        self.btn_group = wx.Button(self.advanced,label="Seçili kaydı aynı şarkının diğer kayıtlarıyla eşleştir")
+        name_control(self.btn_group,'Seçili kaydı aynı şarkının diğer kayıtlarıyla eşleştir',self.group_intro.GetLabel())
+        self.btn_group.Bind(wx.EVT_BUTTON,self.OnGroup)
+        self.btn_group.Disable()
+        self.group_intro.Hide()
+        self.btn_group.Hide()
+        advanced_layout.Add(self.btn_group,0,wx.ALL,8)
         self.advanced.SetSizer(advanced_layout)
-        layout.Add(self.advanced, 0, wx.EXPAND | wx.ALL, 8)
+        layout.Add(self.advanced,0,wx.EXPAND | wx.ALL,8)
         self.advanced.Hide()
-        self.txt_profile = wx.TextCtrl(self,style=wx.TE_MULTILINE | wx.TE_READONLY,size=(-1,60))
-        self.txt_profile.SetName("Eğitim profili; hazırlama parçası ile optimizasyon parçasının farkı")
-        layout.Add(self.txt_profile,0,wx.EXPAND | wx.ALL,8)
-        self.txt_pitch = wx.TextCtrl(self,value="Perde kapsamı nota çıkarımı tamamlandığında gösterilir.",style=wx.TE_MULTILINE | wx.TE_READONLY,size=(-1,90))
-        self.txt_pitch.SetName("Eğitim ve değerlendirme perde kapsamı; yaklaşık yüzdelikler")
-        layout.Add(self.txt_pitch,0,wx.EXPAND | wx.ALL,8)
-        self.sample_rate.Bind(wx.EVT_CHOICE,self.OnProfile)
-        self.OnProfile(None)
-        buttons = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_start = wx.Button(self, label="Yeni model eğit")
-        self.btn_resume = wx.Button(self, label="Eğitim oturumu seç ve devam et")
-        self.btn_load = wx.Button(self, label="Kayıtlı eğitim oturumu aç")
-        self.btn_cancel = wx.Button(self, label="Durdur ve devam noktası kaydet")
-        self.btn_force_stop = wx.Button(self,label="Yanıt vermeyen eğitimi zorla durdur")
-        self.btn_force_stop.SetName("Eğitimi zorla durdur; kaydedilmeyen adımlar kaybolabilir")
-        self.btn_start.Bind(wx.EVT_BUTTON, self.OnStart)
-        self.btn_resume.Bind(wx.EVT_BUTTON, self.OnResume)
-        self.btn_load.Bind(wx.EVT_BUTTON, self.OnLoad)
-        self.btn_cancel.Bind(wx.EVT_BUTTON, self.OnCancel)
-        self.btn_force_stop.Bind(wx.EVT_BUTTON,self.OnForceStop)
+
+        self.btn_start = wx.Button(self,label="Yeni ses modeli eğit")
+        self.btn_start.Bind(wx.EVT_BUTTON,self.OnStart)
+        layout.Add(self.btn_start,0,wx.ALL,8)
+        self.btn_resume = wx.Button(self,label="Yarım kalan eğitime devam et")
+        self.btn_resume.Bind(wx.EVT_BUTTON,self.OnResume)
+        name_control(self.btn_resume,'Yarım kalan eğitime devam et. Daha önce durdurduğunuz eğitimi, son kaydedilen noktadan sürdürür.')
+        layout.Add(self.btn_resume,0,wx.ALL,8)
+        self.btn_load = wx.Button(self,label="Kayıtlı eğitimin sonuçlarını aç")
+        self.btn_load.Bind(wx.EVT_BUTTON,self.OnLoad)
+        layout.Add(self.btn_load,0,wx.ALL,8)
+
+        self.progress_panel = wx.Panel(self,style=wx.TAB_TRAVERSAL)
+        progress_layout = wx.BoxSizer(wx.VERTICAL)
+        section_title(self.progress_panel,progress_layout,"Eğitim durumu")
+        self.gauge = wx.Gauge(self.progress_panel,range=100)
+        self.gauge.SetName("Eğitim ilerlemesi")
+        progress_layout.Add(self.gauge,0,wx.EXPAND | wx.ALL,8)
+        def report_field(name,multiline=True):
+            control = name_control(wx.TextCtrl(self.progress_panel,style=wx.TE_READONLY | (wx.TE_MULTILINE if multiline else 0),size=(-1,70 if multiline else -1)),name)
+            progress_layout.Add(control,0,wx.EXPAND | wx.ALL,8)
+            return control
+        self.txt_status = report_field("Eğitim durumu ve yapılan işlem")
+        self.txt_resources = report_field("İşlemci ve bellek kullanımı",False)
+        self.txt_timing = report_field("Kalan süre ve son kayıt",False)
+        self.txt_job = report_field("Eğitim kayıt klasörü",False)
+        self.txt_analysis = report_field("Otomatik kayıt kontrolünün sonucu")
+        self.txt_pitch = report_field("Ölçülen sesin nota aralığı")
+        self.txt_log = report_field("Eğitim işlem günlüğü")
+        for control in (self.txt_resources,self.txt_timing,self.txt_job,self.txt_analysis,self.txt_pitch,self.txt_log): control.Hide()
+        self.btn_cancel = wx.Button(self.progress_panel,label="Eğitimi durdur ve devam etmek için kaydet")
+        self.btn_cancel.Bind(wx.EVT_BUTTON,self.OnCancel)
         self.btn_cancel.Disable()
+        progress_layout.Add(self.btn_cancel,0,wx.ALL,8)
+        self.btn_force_stop = wx.Button(self.progress_panel,label="Yanıt vermeyen eğitimi zorla durdur")
+        self.btn_force_stop.Bind(wx.EVT_BUTTON,self.OnForceStop)
         self.btn_force_stop.Disable()
-        for control in (self.btn_start, self.btn_resume, self.btn_cancel):
-            buttons.Add(control, 0, wx.ALL, 4)
-        layout.Add(buttons, 0, wx.ALL, 4)
-        layout.Add(self.btn_force_stop,0,wx.ALL,8)
-        layout.Add(self.btn_load, 0, wx.ALL, 8)
-        self.gauge = wx.Gauge(self, range=100)
-        self.gauge.SetName("Geçerli eğitim aşamasının ilerlemesi")
-        layout.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 8)
-        self.txt_status = wx.TextCtrl(self, value="Hazır. Ayarlar'dan ContentVec, RMVPE ve seçilen hızın eğitim G/D ağırlıklarını hazırlayın.", style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 65))
-        self.txt_status.SetName("Eğitim aşaması, epoch ve adım")
-        layout.Add(self.txt_status, 0, wx.EXPAND | wx.ALL, 8)
-        self.txt_resources = wx.TextCtrl(self, value="Kaynak ölçümü eğitim başladığında gösterilir.", style=wx.TE_READONLY)
-        self.txt_resources.SetName("İşlemci, RAM ve ekran kartı bellek kullanımı")
-        layout.Add(self.txt_resources, 0, wx.EXPAND | wx.ALL, 8)
-        self.txt_timing = wx.TextCtrl(self, value="Kalan süre eğitim hızı ölçüldüğünde hesaplanır.", style=wx.TE_READONLY)
-        self.txt_timing.SetName("Tahmini kalan eğitim süresi ve son kayıt")
-        layout.Add(self.txt_timing, 0, wx.EXPAND | wx.ALL, 8)
-        self.btn_folder = wx.Button(self, label="Oturum klasörünü aç")
-        self.btn_folder.Bind(wx.EVT_BUTTON, self.OnOpenFolder)
+        progress_layout.Add(self.btn_force_stop,0,wx.ALL,8)
+        self.btn_folder = wx.Button(self.progress_panel,label="Eğitim kayıt klasörünü aç")
+        self.btn_folder.Bind(wx.EVT_BUTTON,self.OnOpenFolder)
         self.btn_folder.Disable()
-        layout.Add(self.btn_folder, 0, wx.ALL, 8)
-        self.txt_job = wx.TextCtrl(self, value="Oturum seçilmedi.", style=wx.TE_READONLY)
-        self.txt_job.SetName("Eğitim oturumu klasörü")
-        layout.Add(self.txt_job, 0, wx.EXPAND | wx.ALL, 8)
-        self.candidate = wx.Choice(self, choices=["Son epoch modeli", "En düşük değerlendirme mel hatalı model"])
+        progress_layout.Add(self.btn_folder,0,wx.ALL,8)
+        self.progress_panel.SetSizer(progress_layout)
+        layout.Add(self.progress_panel,0,wx.EXPAND | wx.ALL,8)
+        self.progress_panel.Hide()
+
+        self.result_panel = wx.Panel(self,style=wx.TAB_TRAVERSAL)
+        result_layout = wx.BoxSizer(wx.VERTICAL)
+        section_title(self.result_panel,result_layout,"Sonucu dinle ve kullan")
+        self.candidate = field(self.result_panel,result_layout,"Dinlenecek ses modeli",lambda:wx.Choice(self.result_panel,choices=["Son eğitim modeli","Kontrol hatası en düşük model"]),"İkinci seçenek mutlaka daha iyi ses demek değildir; iki sonucu da dinleyin.")
         self.candidate.SetSelection(0)
-        self.candidate.SetName("AI Cover'a eklenecek aday; mel hatası ses kalitesi garantisi değildir")
-        self.candidate.Disable()
-        layout.Add(self.candidate, 0, wx.EXPAND | wx.ALL, 8)
-        self.test_mode = wx.Choice(self,choices=["Index kapalı: modelin kendi sesi", "Index açık: oturumun kayıtlı test sesi"])
+        self.test_mode = field(self.result_panel,result_layout,"Dinlenecek test kaydı",lambda:wx.Choice(self.result_panel,choices=["Modelin kendi sesi (index kapalı)","Eğitim kayıtlarından destekli ses (index açık)"]))
         self.test_mode.SetSelection(0)
-        self.test_mode.SetName("Dinlenecek uyumluluk sesi; kalite puanı değildir")
-        self.test_mode.Disable()
-        layout.Add(self.test_mode,0,wx.EXPAND | wx.ALL,8)
-        self.btn_listen = wx.Button(self,label="Seçili adayın test sesini aç")
+        self.btn_listen = wx.Button(self.result_panel,label="Seçili modelin test sesini dinle")
         self.btn_listen.Bind(wx.EVT_BUTTON,self.OnListen)
-        self.btn_listen.Disable()
-        layout.Add(self.btn_listen,0,wx.ALL,8)
-        self.btn_register = wx.Button(self, label="Seçili modeli AI Cover'a ekle")
-        self.btn_register.Bind(wx.EVT_BUTTON, self.OnRegister)
-        self.btn_register.Disable()
-        layout.Add(self.btn_register, 0, wx.ALL, 8)
-        self.txt_log = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY, size=(-1, 150))
-        self.txt_log.SetName("Eğitim günlüğü; tam günlük oturum klasöründe")
-        layout.Add(self.txt_log, 0, wx.EXPAND | wx.ALL, 8)
+        result_layout.Add(self.btn_listen,0,wx.ALL,8)
+        self.btn_register = wx.Button(self.result_panel,label="Seçili modeli ses değiştirme listesine ekle")
+        self.btn_register.Bind(wx.EVT_BUTTON,self.OnRegister)
+        result_layout.Add(self.btn_register,0,wx.ALL,8)
+        for control in (self.candidate,self.test_mode,self.btn_listen,self.btn_register):control.Disable()
+        self.result_panel.SetSizer(result_layout)
+        layout.Add(self.result_panel,0,wx.EXPAND | wx.ALL,8)
+        self.result_panel.Hide()
         self.SetSizer(layout)
+        apply_native_style(self)
+        self.FitInside()
+
+    def ShowProgress(self):
+        self.progress_panel.Show()
+        self.Layout()
+        self.FitInside()
+
+    def RefreshSections(self):
+        self.result_panel.Show(self.result is not None)
+        for control in (self.txt_resources,self.txt_timing,self.txt_job,self.txt_analysis,self.txt_pitch,self.txt_log):
+            control.Show(bool(control.GetValue()))
+        self.Layout()
         self.FitInside()
 
     def OnAdvanced(self, event):
         enabled = self.advanced_toggle.GetValue()
-        self.advanced_toggle.SetLabel("Gelişmiş ayarlar [AÇIK]" if enabled else "Gelişmiş ayarlar [KAPALI]")
+        self.advanced_toggle.SetLabel("Gelişmiş eğitim ayarları [AÇIK]" if enabled else "Gelişmiş eğitim ayarları [KAPALI]")
         self.advanced.Show(enabled)
         self.Layout()
         self.FitInside()
@@ -173,7 +183,8 @@ class TrainingPanel(wx.ScrolledWindow):
                         self.sources.append(source)
                         self.source_list.Append(source)
                 self.ClearAnalysis()
-                self.source_list.SetFocus()
+                self.RefreshSources()
+                if self.sources: self.source_list.SetFocus()
 
     def OnRemove(self, event):
         selected = self.source_list.GetSelection()
@@ -182,24 +193,34 @@ class TrainingPanel(wx.ScrolledWindow):
             del self.sources[selected]
             self.source_list.Delete(selected)
             self.ClearAnalysis()
-        self.source_list.SetFocus()
+        self.RefreshSources()
+        (self.source_list if self.sources else self.btn_add).SetFocus()
 
     def RefreshSources(self):
         selection = self.source_list.GetSelection()
-        self.source_list.Set([source+(f" | Grup: {self.source_groups[source]}" if self.source_groups.get(source) else " | Ayrı kayıt") for source in self.sources])
+        self.source_list.Show(bool(self.sources))
+        self.empty_sources.Show(not self.sources)
+        self.btn_remove.Enable(bool(self.sources) and not self.busy)
+        self.btn_group.Enable(bool(self.sources) and not self.busy)
+        self.group_intro.Show(len(self.sources)>1 or bool(self.source_groups))
+        self.btn_group.Show(len(self.sources)>1 or bool(self.source_groups))
+        self.Layout()
+        self.FitInside()
+        self.source_list.Set([f"{i+1}. {Path(source).name}"+(f" | Aynı şarkı: {self.source_groups[source]}" if self.source_groups.get(source) else " | Ayrı kayıt") for i,source in enumerate(self.sources)])
         if 0 <= selection < len(self.sources): self.source_list.SetSelection(selection)
+        elif self.sources: self.source_list.SetSelection(0)
 
     def OnGroup(self,event):
         selected = self.source_list.GetSelection()
         if selected == wx.NOT_FOUND:
-            self.txt_status.SetValue("Önce gruplandırılacak kaydı seçin.")
+            wx.MessageBox("Önce kayıt listesinden eşleştirilecek ses kaydını seçin.","Ses kaydı seçilmedi",wx.OK | wx.ICON_INFORMATION,parent=self)
             return
         source = self.sources[selected]
-        with wx.TextEntryDialog(self,"Aynı şarkı/oturum/stem sürümleri için aynı adı kullanın. Boş bırakırsanız ayrı kayıt sayılır.","Kayıt grubu",self.source_groups.get(source,"")) as dialog:
+        with wx.TextEntryDialog(self,"Aynı şarkının farklı kayıtlarına aynı eşleştirme adını verin. Farklı şarkılarda bu alanı boş bırakın.","Aynı şarkının kayıtlarını eşleştir",self.source_groups.get(source,"")) as dialog:
             if dialog.ShowModal()!=wx.ID_OK: return
             group=dialog.GetValue().strip()
         if len(group)>100:
-            self.txt_status.SetValue("Grup adı en fazla 100 karakter olmalı.")
+            wx.MessageBox("Eşleştirme adı en fazla 100 karakter olabilir.","Eşleştirme adı",wx.OK | wx.ICON_INFORMATION,parent=self)
             return
         if group: self.source_groups[source]=group
         else: self.source_groups.pop(source,None)
@@ -208,13 +229,14 @@ class TrainingPanel(wx.ScrolledWindow):
         self.source_list.SetFocus()
 
     def OnProfile(self,event):
-        from training.config import architecture
-        rate=(32000,40000,48000)[self.sample_rate.GetSelection()]
-        config=architecture(rate)
-        seconds=config['train']['segment_size']/rate
-        self.txt_profile.SetValue(f"{rate//1000} kHz, RVC V2, FP32. Hazırlama parçası kaydı böler; optimizasyon parçası profilde {seconds:.3f} saniyedir. Yüksek örnekleme hızı kayıtta olmayan ayrıntıyı geri getirmez.")
+        pass  # Sample rate is read directly by Options; no technical filler field.
 
     def Options(self):
+        def decimal(control, label):
+            try:
+                return float(control.GetValue().strip().replace(',', '.'))
+            except ValueError:
+                raise ValueError(f'{label} bir sayı olmalı; örneğin 0.3.')
         try:
             learning_rate = float(self.learning_rate.GetValue().strip().replace(",", "."))
         except ValueError:
@@ -223,7 +245,7 @@ class TrainingPanel(wx.ScrolledWindow):
                                sample_rate=(32000, 40000, 48000)[self.sample_rate.GetSelection()],
                                epochs=self.epochs.GetValue(), batch_size=self.batch.GetValue(),
                                save_every=self.interval.GetValue(), learning_rate=learning_rate,
-                               segment_seconds=self.segment.GetValue(), overlap_seconds=self.overlap.GetValue(),
+                               segment_seconds=decimal(self.segment,'Ses parçası süresi'), overlap_seconds=decimal(self.overlap,'Ortak süre'),
                                holdout_fraction=self.holdout.GetValue()/100, cpu_threads=self.threads.GetValue(),
                                f0_method=("rmvpe", "crepe", "crepe-tiny")[self.f0.GetSelection()],
                                checkpointing=self.checkpointing.GetValue(),
@@ -233,7 +255,7 @@ class TrainingPanel(wx.ScrolledWindow):
         self.busy = not enable
         for control in (self.source_list, self.btn_add, self.btn_remove, self.model_name, self.sample_rate,
                         self.epochs, self.batch, self.interval, self.advanced_toggle, self.advanced,
-                        self.btn_start, self.btn_resume, self.btn_analyze, self.btn_load, self.btn_group):
+                        self.btn_start, self.btn_resume, self.btn_load, self.btn_group):
             control.Enable(enable)
         self.btn_cancel.Enable(not enable)
         self.btn_force_stop.Disable()
@@ -241,6 +263,9 @@ class TrainingPanel(wx.ScrolledWindow):
         self.btn_register.Enable(enable and self.result is not None)
         self.test_mode.Enable(enable and self.result is not None)
         self.btn_listen.Enable(enable and self.result is not None)
+        self.btn_remove.Enable(enable and bool(self.sources))
+        self.btn_group.Enable(enable and bool(self.sources))
+        self.RefreshSections()
 
     def OnListen(self,event):
         if self.busy or not self.result: return
@@ -260,10 +285,13 @@ class TrainingPanel(wx.ScrolledWindow):
             lines.append(f"{label}: sesli çerçeve %{summary['voiced_fraction']*100:.1f}; yaklaşık %5 {frequency('p05_hz')}, medyan {frequency('median_hz')}, %95 {frequency('p95_hz')}; 50–1100 Hz dışı %{summary['out_of_range_fraction']*100:.2f}.")
         lines.append("Sıfır F0 nefes/ünsüz olabilir. Örtüşen parçalardaki çerçeveler benzersiz sesli süre değildir.")
         self.txt_pitch.SetValue("\n".join(lines))
+        self.RefreshSections()
 
     def ClearAnalysis(self):
         self.analysis_report = None
-        self.txt_analysis.SetValue("Kayıt listesi değişti; güncel kayıtları analiz edin.")
+        self.txt_analysis.Clear()
+        self.txt_analysis.Hide()
+        self.RefreshSections()
 
     def OnAnalyze(self, event):
         if self.busy:
@@ -310,12 +338,14 @@ class TrainingPanel(wx.ScrolledWindow):
         from training.analysis import report_text
         self.analysis_report = report
         self.txt_analysis.SetValue(report_text(report))
+        self.RefreshSections()
         self.txt_status.SetValue("Analiz tamamlandı. Uyarıları okuyun; kayıtları dinleyerek kontrol edin.")
         if announce:
             self.NotifyResult(self.txt_status.GetValue(),"Kayıt analizi tamamlandı",self.txt_analysis)
 
     def NotifyResult(self,message,title,focus=None,error=False):
         """A native focused dialog exposes terminal results to screen readers."""
+        self.ShowProgress()
         self.txt_status.SetValue(message)
         wx.MessageBox(message,title,wx.OK | (wx.ICON_ERROR if error else wx.ICON_INFORMATION),parent=self)
         (focus or self.txt_status).SetFocus()
@@ -348,7 +378,7 @@ class TrainingPanel(wx.ScrolledWindow):
                                (self.interval,options.save_every),(self.segment,options.segment_seconds),
                                (self.overlap,options.overlap_seconds),(self.holdout,round(options.holdout_fraction*100)),
                                (self.threads,options.cpu_threads)):
-            control.SetValue(value)
+            control.SetValue(str(value) if isinstance(control,wx.TextCtrl) else value)
         self.learning_rate.SetValue(str(options.learning_rate))
         self.f0.SetSelection(("rmvpe","crepe","crepe-tiny").index(options.f0_method))
         self.checkpointing.SetValue(options.checkpointing)
@@ -356,12 +386,14 @@ class TrainingPanel(wx.ScrolledWindow):
     def OnLoad(self, event):
         if self.busy:
             return
-        with wx.DirDialog(self, "Kayıtlı eğitim oturumunu seçin", defaultPath=str(Path(data_directory())/"training_runs")) as dialog:
+        with wx.DirDialog(self, "Kayıtlı eğitimin sonuç klasörünü seçin", defaultPath=str(Path(data_directory())/"training_runs")) as dialog:
             if dialog.ShowModal() != wx.ID_OK:
                 return
             job = Path(dialog.GetPath())
+        self.ShowProgress()
         try:
             from training.storage import read_manifest
+            for control in (self.txt_resources,self.txt_log,self.txt_pitch,self.txt_analysis):control.Clear()
             manifest = read_manifest(job)
             options = TrainingOptions.from_dict(manifest["options"])
             result = json.loads((job/"result.json").read_text(encoding="utf-8")) if manifest.get("status")=="completed" else None
@@ -374,7 +406,7 @@ class TrainingPanel(wx.ScrolledWindow):
             if (job/"pitch_report.json").exists():
                 self.ShowPitch(json.loads((job/"pitch_report.json").read_text(encoding="utf-8")))
             else:
-                self.txt_pitch.SetValue("Bu oturumda perde kapsamı raporu yok.")
+                self.txt_pitch.Clear()
             if report:
                 self.OnAnalyzed(report,announce=False)
             else:
@@ -390,6 +422,7 @@ class TrainingPanel(wx.ScrolledWindow):
         if self.busy or not JOB_LOCK.acquire(blocking=False):
             self.txt_status.SetValue("Başka bir işlem sürüyor. Bitmesini bekleyin.")
             return
+        self.ShowProgress()
         try:
             if resume:
                 self.ShowOptions(validate_resume(job, self.settings))
@@ -405,7 +438,9 @@ class TrainingPanel(wx.ScrolledWindow):
             self.EnableUI(False)
             self.gauge.SetValue(0)
             self.txt_job.SetValue(job)
-            self.txt_pitch.SetValue("Perde kapsamı nota çıkarımı tamamlandığında gösterilir.")
+            self.txt_pitch.Clear()
+            self.txt_resources.Clear()
+            self.txt_log.Clear()
             self.btn_folder.Enable()
             self.txt_timing.SetValue("Kalan süre hesaplanıyor. Devam noktaları eğitim sırasında yaklaşık beş dakikada bir ve durdurmada kaydedilir.")
             self.txt_status.SetValue("Eğitim alt işlemi başlatılıyor...")
@@ -426,6 +461,7 @@ class TrainingPanel(wx.ScrolledWindow):
             finish_job(self)
 
     def OnProgress(self, value):
+        self.ShowProgress()
         stage = value.get("stage")
         if stage == "unresponsive":
             self.btn_force_stop.Enable(self.busy and self.runner is not None)
@@ -447,6 +483,7 @@ class TrainingPanel(wx.ScrolledWindow):
                 if key in value:
                     text += f"; {label} {value[key]:.0f} MB"
             self.txt_resources.SetValue(text)
+            self.RefreshSections()
             return
         message = value.get("message", "")
         if stage != "log":
@@ -461,9 +498,11 @@ class TrainingPanel(wx.ScrolledWindow):
             if self.txt_log.GetLastPosition() > 48000:
                 self.txt_log.SetValue(self.txt_log.GetValue()[-24000:])
             self.txt_log.AppendText(message+"\n")
+        self.RefreshSections()
 
     def OnFinished(self, result, message):
         self.result = result
+        self.RefreshSections()
         self.txt_status.SetValue(message)
         if result:
             self.gauge.SetValue(100)

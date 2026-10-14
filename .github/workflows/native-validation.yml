@@ -51,4 +51,20 @@ jobs:
           exit $LASTEXITCODE
       - name: Offline update, native launch contract and packaging regressions
         shell: pwsh
-        run: build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_release_update.py -v
+        run: |
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_release_update.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_auto_update.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_xpu_fixture.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_app_version.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_ffmpeg_runtime.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_ffmpeg_source_build.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_installer_build.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          build/ci-venv/Scripts/python.exe -m unittest discover -s test -p test_ui.py -v
+          exit $LASTEXITCODE

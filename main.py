@@ -17,7 +17,8 @@ Bu modül, uygulamanın giriş noktası (entry point) olup şu görevleri üstle
 import os
 import sys
 from app_runtime import (JOB_LOCK, resource_directory, data_directory, post_ui,
-                         configure_runtime_cache, configure_thread_environment)
+                         configure_runtime_cache, configure_thread_environment,
+                         configure_ffmpeg_environment)
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
@@ -36,6 +37,7 @@ if __name__ == '__main__':
     install(quiet='--self-test' in sys.argv or worker_flag is not None,
             directory=diagnostic_directory,worker=worker_flag is not None)
 
+configure_ffmpeg_environment()
 configure_runtime_cache()
 configure_thread_environment()
 
@@ -52,22 +54,14 @@ if __name__ == '__main__' and '--audio-worker' in sys.argv:
     sys.exit(audio_main(sys.argv[sys.argv.index('--audio-worker') + 1:]))
 
 import wx
+from ui_common import apply_native_style
 import traceback
 
 # .exe (PyInstaller) ve farklı Windows ortamları için kodlama, PATH ve kaynak dizini korumaları
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
-if getattr(sys, 'frozen', False):
-    app_dir = os.path.dirname(sys.executable)
-    meipass_dir = getattr(sys, '_MEIPASS', app_dir)
-    os.environ["PATH"] = app_dir + os.pathsep + meipass_dir + os.pathsep + os.environ.get("PATH", "")
-else:
-    app_dir = os.path.dirname(os.path.abspath(__file__))
-    ffmpeg_dir = os.path.join(app_dir, "tools", "ffmpeg")
-    os.environ["PATH"] = app_dir + os.pathsep + ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
-
 # Modüler sekmeleri içe aktar
-from updater import check_for_updates, CURRENT_VERSION
+from updater import check_for_updates, check_startup_updates, CURRENT_VERSION
 
 
 class GhostkillerMainFrame(wx.Frame):
@@ -93,8 +87,6 @@ class GhostkillerMainFrame(wx.Frame):
         self.Centre()
 
         wx.CallAfter(lambda: post_ui(self, self.ShowStartupMessage))
-        # Açılışta arka planda sessiz güncelleme kontrolü yap
-        wx.CallAfter(lambda: post_ui(self, check_for_updates, self, True))
 
     def OnClose(self, event):
         if JOB_LOCK.locked() and event.CanVeto():
@@ -135,6 +127,9 @@ class GhostkillerMainFrame(wx.Frame):
             "Ghostkiller Sound Toolbox",
             wx.OK | wx.ICON_INFORMATION
         )
+        # Start after the native welcome dialog closes, so it cannot keep the
+        # process alive while the detached updater waits to replace its files.
+        check_startup_updates(self)
 
     def InitUI(self):
         """Arayüz bileşenlerini, Karanlık Modu ve wx.Notebook sekmelerini oluşturur."""
@@ -145,7 +140,6 @@ class GhostkillerMainFrame(wx.Frame):
         from app_settings import AppSettings
         self.settings = AppSettings()
         self.settings.open_settings = self.OpenSettings
-        wx.SystemOptions.SetOption("msw.window.dark-mode", 1)
         self.SetBackgroundColour(self.bg_main)
 
         panel = wx.Panel(self)
@@ -181,6 +175,8 @@ class GhostkillerMainFrame(wx.Frame):
 
         # A11y (Erişilebilirlik): Uygulama açıldığında NVDA / JAWS ekran okuyucunun
         # anında aktif sekmeyi seslendirmesi için odağı açıkça wx.Notebook üzerine ayarlıyoruz.
+        apply_native_style(self)
+        self.Layout()
         self.notebook.SetFocus()
 
     def OpenSettings(self):

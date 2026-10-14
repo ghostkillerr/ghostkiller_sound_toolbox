@@ -2,14 +2,18 @@
 from importlib import metadata
 import json
 from pathlib import Path
+import sys
 from packaging.utils import canonicalize_name
+from app_version import read_application_version
+from tools.release.source_identity import source_digest
 from tools.release.preflight import (ROOT, checked_local_asset, locked_versions, sha256,
-                                     validate_environment, validate_ffmpeg_bundle)
+                                     validate_environment, validate_ffmpeg_bundle, validate_build_runtime)
 
 
 def prepare_build(backend, ffmpeg_directory, *, purpose='release'):
     if purpose not in {'release', 'diagnostic'}:
         raise ValueError('Build purpose must be release or diagnostic.')
+    validate_build_runtime()
     report = validate_environment(backend)
     ffmpeg_directory = Path(ffmpeg_directory).resolve()
     ffmpeg = validate_ffmpeg_bundle(ffmpeg_directory, allow_incomplete_source=purpose == 'diagnostic')
@@ -17,14 +21,27 @@ def prepare_build(backend, ffmpeg_directory, *, purpose='release'):
     output.mkdir(parents=True, exist_ok=True)
     (output / 'build-info.json').write_text(json.dumps({
         'backend': backend, 'purpose': purpose, 'release_eligible': purpose == 'release',
+        'application_version': read_application_version(ROOT/'version.json'),
         'python': report['python'], 'torch': report['torch'],
         'dependency_lock_sha256': sha256(ROOT / 'requirements' / f'{backend}.lock'),
         'common_lock_sha256': sha256(ROOT / 'requirements' / 'common.lock'),
+        'application_source_sha256': source_digest(),
         'ffmpeg': {'version': ffmpeg['version'], 'license': ffmpeg['license']},
     }, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     datas = [(str(output / 'build-info.json'), '.')]
+    runtime_root=ROOT/'third_party/runtime'
+    runtime=json.loads((runtime_root/'manifest.json').read_text(encoding='utf-8'))
+    if runtime.get('python')!=report['python'] or runtime.get('python_dll_sha256')!=sha256(Path(sys.base_prefix)/'python312.dll'):
+        raise ValueError('CPython runtime differs from its vendored license/provenance material.')
+    runtime_files=runtime.get('files',[])
+    if not {'LICENSE.txt','LICENSE.cpython.txt','PYTHON.json'}.issubset({item.get('path') for item in runtime_files}):
+        raise ValueError('CPython runtime license material is incomplete.')
+    datas.append((str(runtime_root/'manifest.json'),'third_party/runtime'))
+    for item in runtime_files:
+        datas.append((str(checked_local_asset(runtime_root,item)),'third_party/runtime'))
     declarations = ['# Third-party components\n',
                     'These components retain their own licenses. The application EULA does not restrict rights granted by those licenses.\n',
+                    f"CPython {report['python']}: PSF license and native dependency notices from the exact runtime build are in third_party/runtime.\n",
                     f"FFmpeg {ffmpeg['version']}: {ffmpeg['license']}. Exact binaries, sources, licenses and build recipes are described in third_party/ffmpeg/manifest.json.\n"]
     missing = []
     vendor_path = ROOT / 'third_party' / 'python' / 'manifest.json'

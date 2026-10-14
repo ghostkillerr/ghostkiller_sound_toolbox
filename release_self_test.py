@@ -24,7 +24,7 @@ def main(argv=None):
         import torch
         import soundfile as sf
         import wx
-        from app_runtime import resource_directory
+        from app_runtime import resource_directory, ffmpeg_executable
         from audio_service import NativeAudioSession
         from tools.release.preflight import validate_onnx_session
         # Imports validate DLL loading and module collection without model assets.
@@ -44,6 +44,22 @@ def main(argv=None):
         result['cpu_forward_backward'] = True
         validate_onnx_session('cpu')
         result['onnx_cpu_session'] = True
+        worker_device = 'cpu'
+        if result['build'].get('backend') == 'cuda':
+            if torch.cuda.is_available():
+                # Exercise the packaged DLLs on a real GPU when this host has
+                # one; a CUDA package must also start on a CPU-only Windows VM.
+                worker_device = 'cuda:0'
+                x = torch.randn(8, 8, device=worker_device, requires_grad=True)
+                (x @ x.T).square().mean().backward()
+                if not bool(torch.isfinite(x.grad).all().item()):
+                    raise RuntimeError('CUDA forward/backward non-finite.')
+                result['cuda_forward_backward'] = True
+                result['cuda_device'] = torch.cuda.get_device_name(0)
+                validate_onnx_session('cuda')
+                result['onnx_cuda_session'] = True
+            else:
+                result['cuda_hardware_check'] = 'skipped: no available NVIDIA GPU on this host'
         app = wx.App(False)
         frame = wx.Frame(None, title='Native smoke', size=(300, 200))
         frame.Show(False)
@@ -63,13 +79,8 @@ def main(argv=None):
             source = folder / 'Türkçe ses.wav'
             destination = folder / 'Türkçe çıktı.flac'
             sf.write(source, np.sin(np.arange(1600) * .1).astype(np.float32) * .1, 16000)
-            ffmpeg = resources / 'ffmpeg.exe'
-            ffprobe = resources / 'ffprobe.exe'
-            if not ffmpeg.is_file() or not ffprobe.is_file():
-                if getattr(sys, 'frozen', False):
-                    raise FileNotFoundError('Bundled FFmpeg/FFprobe missing.')
-                ffmpeg = Path(__file__).resolve().parent / 'tools' / 'ffmpeg' / 'ffmpeg.exe'
-                ffprobe = ffmpeg.with_name('ffprobe.exe')
+            ffmpeg = ffmpeg_executable()
+            ffprobe = ffmpeg_executable('ffprobe')
             subprocess.run([str(ffmpeg), '-nostdin', '-hide_banner', '-v', 'error',
                             '-i', str(source), '-c:a', 'flac', str(destination)],
                            capture_output=True, check=True, timeout=30,
@@ -84,8 +95,8 @@ def main(argv=None):
                 raise RuntimeError('Bundled FFprobe failed.')
             result['ffmpeg_flac_roundtrip_unicode'] = True
             with NativeAudioSession(directory=output.parent / 'native_smoke_cache') as session:
-                ping = session.execute('ping', {'device': 'cpu'})
-                if ping.get('pid') == os.getpid() or ping.get('device') != 'cpu':
+                ping = session.execute('ping', {'device': worker_device})
+                if ping.get('pid') == os.getpid() or ping.get('device') != worker_device:
                     raise RuntimeError('Audio worker did not run as a separate native process.')
                 result['audio_worker'] = ping
             training_result = folder / 'training-probe.json'

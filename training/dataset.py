@@ -8,6 +8,7 @@ import shutil
 import subprocess
 from app_settings import write_json_atomic
 from model_manager import file_digest
+from app_runtime import ffmpeg_executable
 
 
 def check_cancel(job):
@@ -18,7 +19,7 @@ def check_cancel(job):
 def decode(source, target, rate, job):
     """FFmpeg performs bounded streaming decode; no entire recording in memory."""
     creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-    command = ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(source),
+    command = [ffmpeg_executable(), "-nostdin", "-v", "error", "-y", "-i", str(source),
                "-vn", "-ac", "1", "-af", f"aresample={rate}:resampler=soxr:precision=28",
                "-c:a", "pcm_f32le", str(target)]
     log_path = Path(job) / "decode.log"
@@ -146,7 +147,7 @@ def prepare(job, options, emit):
     estimates = []
     for row in rows:
         check_cancel(job)
-        probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+        probe = subprocess.run([ffmpeg_executable('ffprobe'), "-v", "error", "-show_entries", "format=duration",
                                 "-of", "default=noprint_wrappers=1:nokey=1", row["path"]],
                                capture_output=True, timeout=30,
                                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)

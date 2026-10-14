@@ -1,0 +1,40 @@
+name: Publish program website
+
+on:
+  push:
+    branches: [master]
+    paths: [website/**, tools/build_site.py, test/test_site.mjs, test/test_site_build.py, logo.ico, lisans.txt, version.json, .github/workflows/pages.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate download behavior
+        run: node --test test/test_site.mjs
+      - name: Validate public staging
+        run: |
+          mkdir -p build
+          python3 -m unittest discover -s test -p test_site_build.py -v
+      - name: Stage public assets
+        run: python3 tools/build_site.py
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
+        with:
+          path: build/site
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e

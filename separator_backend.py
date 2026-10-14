@@ -9,6 +9,14 @@ from audio_separator.separator import Separator
 
 
 class LocalSeparator(Separator):
+    def check_ffmpeg_installed(self):
+        import subprocess
+        from app_runtime import ffmpeg_executable, configure_pydub
+        configure_pydub()
+        output = subprocess.check_output([ffmpeg_executable(), '-version'], text=True,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), timeout=15)
+        self.logger.info(output.splitlines()[0])
+
     def load_model(self, *args, **kwargs):
         result = super().load_model(*args,**kwargs)
         if self.output_format.upper()=='FLAC':

@@ -13,6 +13,7 @@ ve arayüzünü modüler bir wx.Panel (SeparatorPanel) bileşenine dönüştür�
 """
 
 import wx
+from ui_common import apply_native_style, add_intro
 import os
 import sys
 import re
@@ -47,17 +48,12 @@ def get_app_dir():
 
 def setup_ffmpeg_paths(app_dir):
     """ffmpeg ve ffprobe yollarını ayarlar."""
-    tools_dir = os.path.join(app_dir, "tools", "ffmpeg")
-    os.environ["PATH"] = app_dir + os.pathsep + tools_dir + os.pathsep + os.environ.get("PATH", "")
+    from app_runtime import configure_ffmpeg_environment, configure_pydub
+    configure_ffmpeg_environment(app_dir)
     try:
-        import pydub
-        ffmpeg_path = os.path.join(app_dir, "ffmpeg.exe")
-        ffprobe_path = os.path.join(app_dir, "ffprobe.exe")
-        if os.path.exists(ffmpeg_path):
-            pydub.AudioSegment.converter = ffmpeg_path
-        if os.path.exists(ffprobe_path):
-            pydub.utils.get_prober_name = lambda: ffprobe_path
-    except Exception:
+        configure_pydub(app_dir)
+    except (ImportError, FileNotFoundError):
+        # Keep Settings reachable; workers reject missing bundled codecs explicitly.
         pass
 
 
@@ -102,7 +98,7 @@ class SeparatorPanel(wx.ScrolledWindow):
     """
     def __init__(self, parent, settings=None):
         """Ses Ayrıştırma paneli yollarını, renk paletini ve durumlarını başlatır."""
-        super(SeparatorPanel, self).__init__(parent)
+        super(SeparatorPanel, self).__init__(parent, style=wx.VSCROLL | wx.TAB_TRAVERSAL)
         self.SetScrollRate(0,20)
         from app_settings import AppSettings
         self.settings = settings or AppSettings()
@@ -131,7 +127,6 @@ class SeparatorPanel(wx.ScrolledWindow):
 
     def InitUI(self):
         """Ayrıştırma paneli butonlarını, kanal toggle düğmelerini ve log ekranını oluşturur."""
-        wx.SystemOptions.SetOption("msw.window.dark-mode", 1)
 
         font_large = wx.Font(12, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
         font_normal = wx.Font(11, wx.FONTFAMILY_SWISS, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
@@ -143,7 +138,7 @@ class SeparatorPanel(wx.ScrolledWindow):
 
         # 1. Ses Dosyası Seçimi
         file_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_file = wx.Button(self, label="1. Şarkı veya Ses Dosyası Seç (.mp3 / .wav / .flac)", size=(-1, 45))
+        self.btn_select_file = wx.Button(self, label="Ses dosyası seç", size=(-1, 45))
         self.btn_select_file.SetFont(font_large)
         self.btn_select_file.SetBackgroundColour(self.bg_btn)
         self.btn_select_file.SetForegroundColour(self.fg_light)
@@ -160,7 +155,7 @@ class SeparatorPanel(wx.ScrolledWindow):
 
         # 2. Çıktı Klasörü Seçimi
         dir_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_dir = wx.Button(self, label="2. Kaydedilecek Klasörü Seç", size=(-1, 45))
+        self.btn_select_dir = wx.Button(self, label="Çıktı klasörü seç", size=(-1, 45))
         self.btn_select_dir.SetFont(font_large)
         self.btn_select_dir.SetBackgroundColour(self.bg_btn)
         self.btn_select_dir.SetForegroundColour(self.fg_light)
@@ -210,21 +205,21 @@ class SeparatorPanel(wx.ScrolledWindow):
         vbox.Add(sizer_options, 0, wx.EXPAND | wx.ALL, 5)
 
         # 4. İşlem Butonları (Başlat / İptal)
-        btn_box = wx.BoxSizer(wx.HORIZONTAL)
+        btn_box = wx.WrapSizer(wx.HORIZONTAL)
 
-        self.btn_start = wx.Button(self, label="Temizleme İşlemini Başlat", size=(-1, 60))
+        self.btn_start = wx.Button(self, label="Ses temizlemeyi başlat", size=(-1, 60))
         self.btn_start.SetFont(font_large)
         self.btn_start.SetBackgroundColour(wx.Colour(0, 150, 100))
         self.btn_start.SetForegroundColour(self.fg_light)
         self.btn_start.Bind(wx.EVT_BUTTON, self.OnStart)
 
-        self.btn_cancel = wx.Button(self, label="İptal Et", size=(150, 60))
+        self.btn_cancel = wx.Button(self, label="İptal et", size=(150, 60))
         self.btn_cancel.SetFont(font_large)
         self.btn_cancel.SetBackgroundColour(wx.Colour(200, 50, 50))
         self.btn_cancel.SetForegroundColour(self.fg_light)
         self.btn_cancel.Enable(False)
         self.btn_cancel.Bind(wx.EVT_BUTTON, self.OnCancel)
-        self.btn_force_stop = wx.Button(self, label="Zorla Durdur")
+        self.btn_force_stop = wx.Button(self, label="Zorla durdur")
         self.btn_force_stop.Enable(False)
         self.btn_force_stop.Bind(wx.EVT_BUTTON, self.OnForceStop)
 
@@ -244,20 +239,29 @@ class SeparatorPanel(wx.ScrolledWindow):
         self.txt_status.SetFont(font_large)
         self.txt_status.SetBackgroundColour(self.bg_main)
         self.txt_status.SetForegroundColour(self.fg_status)
-        self.txt_status.SetValue("Durum: Bekliyor (Yüzde takibi için burayı okutun)")
+        self.txt_status.SetValue("Hazır. Ses dosyasını ve yapılacak işlemleri seçin.")
         vbox.Add(self.txt_status, 0, wx.EXPAND | wx.ALL, 5)
 
         self.gauge = wx.Gauge(self, range=100, style=wx.GA_HORIZONTAL)
         vbox.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 5)
+        for control in (self.txt_log, self.txt_status, self.gauge):
+            vbox.Detach(control)
+        vbox.Add(self.gauge, 0, wx.EXPAND | wx.ALL, 8)
+        vbox.Add(self.txt_status, 0, wx.EXPAND | wx.ALL, 8)
+        vbox.Add(self.txt_log, 1, wx.EXPAND | wx.ALL, 8)
+        self.txt_status.MoveAfterInTabOrder(self.gauge)
+        self.txt_log.MoveAfterInTabOrder(self.txt_status)
 
         self.SetSizer(vbox)
+        add_intro(self, vbox, "Müzik ve ses temizleme", "Ses dosyasını seçin ve yapılacak işlemleri açın. Sonuçlar seçtiğiniz çıktı klasörüne kaydedilir.")
+        apply_native_style(self)
         self.FitInside()
         self.txt_selected_file.SetName("Seçilen ses dosyası")
         self.txt_selected_dir.SetName("Çıktı klasörü")
         self.txt_log.SetName("İşlem günlüğü")
         self.txt_status.SetName("İşlem durumu ve yüzde")
         self.gauge.SetName("İşlem ilerlemesi")
-        self.LogMessage("Sistem Hazır. İşlem yapmak için dosya seçin.")
+        self.LogMessage("Hazır. Başlamak için bir ses dosyası seçin.")
 
     def OnCheckToggle(self, event):
         """Kanal seçim düğmesi basıldığında [AÇIK]/[KAPALI] durum ve rengini NVDA uyumlu günceller."""
@@ -271,6 +275,7 @@ class SeparatorPanel(wx.ScrolledWindow):
             btn.SetLabel(f"{base_label} - [KAPALI]")
             btn.SetBackgroundColour(self.bg_btn)
 
+        apply_native_style(btn)
         btn.Refresh()
 
     def OnFileSelect(self, event):

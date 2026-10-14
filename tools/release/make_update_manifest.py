@@ -3,6 +3,7 @@ import argparse
 from datetime import date
 import json
 from pathlib import Path
+import re
 from release_security import RELEASE_PAGE, RELEASE_REPOSITORY, validate_package, verify_installer
 from tools.release.preflight import sha256
 
@@ -18,8 +19,28 @@ def create_manifest(version, packages, *, changelog='', release_date=None):
         info = json.loads(Path(build_info).read_text(encoding='utf-8'))
         if info.get('backend') != backend or info.get('release_eligible') is not True or info.get('purpose') != 'release':
             raise ValueError('Diagnostic or mismatched backend builds cannot produce update metadata.')
+        if info.get('application_version') != version:
+            raise ValueError('Manifest version does not match the frozen application version.')
+        receipt_path = installer.with_suffix('.build.json')
+        if not receipt_path.is_file():
+            raise ValueError('Installer build receipt missing; compile it with tools.release.build_installer.')
+        receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
+        if (receipt.get('schema_version') != 1 or receipt.get('backend') != backend
+                or receipt.get('application_version') != version or receipt.get('purpose') != 'release'
+                or receipt.get('release_eligible') is not True
+                or receipt.get('build_info_sha256') != sha256(build_info)
+                or not re.fullmatch(r'[0-9a-f]{64}',info.get('application_source_sha256',''))
+                or receipt.get('application_source_sha256') != info['application_source_sha256']):
+            raise ValueError('Installer build receipt does not match this frozen build/backend/version.')
+        binary = receipt.get('installer',{})
+        actual_digest, actual_size = sha256(installer), installer.stat().st_size
+        if (binary.get('filename') != installer.name or binary.get('sha256') != actual_digest
+                or binary.get('size') != actual_size):
+            raise ValueError('Installer bytes differ from the recorded compilation output.')
+        if backend in result['packages']:
+            raise ValueError('Duplicate backend in update manifest: '+backend)
         asset = {'download_url': f'https://github.com/{RELEASE_REPOSITORY}/releases/download/v{version}/{installer.name}',
-                 'sha256': sha256(installer), 'size': installer.stat().st_size}
+                 'sha256': actual_digest, 'size': actual_size}
         result['packages'][backend] = asset
         package = validate_package(result, backend)
         verify_installer(installer, package)

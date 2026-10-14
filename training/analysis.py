@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import json
 from model_manager import file_digest
+from app_runtime import ffmpeg_executable
 
 
 def _cancel(cancelled):
@@ -89,7 +90,7 @@ def analyze_sources(sources, sample_rate, cancelled=lambda: False, emit=lambda *
                 continue
             seen[digest] = str(path)
             emit("analysis", message=f"Kayıt analizi: {index + 1}/{len(sources)} — {path.name}", percent=100 * index / len(sources))
-            probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=sample_rate,channels:format=duration", "-of", "json", str(path)],
+            probe = subprocess.run([ffmpeg_executable('ffprobe'), "-v", "error", "-show_entries", "stream=sample_rate,channels:format=duration", "-of", "json", str(path)],
                                    capture_output=True, timeout=15, check=True,
                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
             metadata = json.loads(probe.stdout)
@@ -102,7 +103,7 @@ def analyze_sources(sources, sample_rate, cancelled=lambda: False, emit=lambda *
             if shutil.disk_usage(folder).free < seconds * sample_rate * channels * 4 + 256 * 1024**2:
                 raise ValueError("Kayıt analizi için geçici diskte yeterli boş alan yok.")
             decoded = folder / "decoded.wav"
-            _command(["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", str(path), "-vn", "-ar", str(sample_rate), "-c:a", "pcm_f32le", str(decoded)], folder, cancelled)
+            _command([ffmpeg_executable(), "-nostdin", "-v", "error", "-y", "-i", str(path), "-vn", "-ar", str(sample_rate), "-c:a", "pcm_f32le", str(decoded)], folder, cancelled)
             values = inspect_audio(decoded, cancelled)
             if file_digest(path, cancelled) != digest:
                 raise ValueError("Kayıt analiz sırasında değişti; sonucu kullanmayın.")
