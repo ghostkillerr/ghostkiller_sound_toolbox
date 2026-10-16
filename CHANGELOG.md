@@ -3,7 +3,7 @@
 Ghostkiller Sound Toolbox'ın kullanıcıya yansıyan önemli değişiklikleri burada
 toplanır. Küçük teknik düzeltmeler ilgili özelliğin altında birleştirilir.
 
-## 2.0.0 — Yayın hazırlığında
+## 2.1.0 — Yayın hazırlığında
 
 CPU ve NVIDIA CUDA kurulumları için hazırlanan sürüm. GitHub'da henüz indirilebilir
 bir Release yayımlanmadı; aşağıdaki yenilikler mevcut kaynak kodunun kapsamıdır.
@@ -11,6 +11,10 @@ Kurulum kabul testleri tamamlandığında gerçek yayın tarihi ve indirmeler ek
 
 ### Ses araçları ve model eğitimi
 
+- **İsteğe bağlı kısa vokal onarımı:** arka vokal temizliğinde kaybolan kısa
+  bölümler A2SB ile ayrıca onarılabilir. Standart ve onarılmış mono sonuçlar
+  ayrı kaydedilir. Özellik varsayılan kapalıdır; model araştırma/değerlendirme
+  içindir. [Kullanım ve sınırlar](docs/VOKAL_ONARIMI.md).
 - **Eğitim verisini önceden inceleme:** kayıtları dinleyin, kullanılacak bölümü
   belirleyin ve gerçek eğitim/kontrol dağılımını eğitim başlamadan görün.
 - **Sonuçları karşılaştırma:** sınırlı ara model arşivi, ortak test kayıtları,

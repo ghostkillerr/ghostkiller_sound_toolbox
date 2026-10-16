@@ -21,12 +21,56 @@ class NamedAccessible(wx.Accessible):
     def GetDescription(self, child_id):
         return self.GetHelpText(child_id)
 
-
 def name_control(control, name, help_text=''):
     control.SetName(name)
     control.SetHelpText(help_text)
     control.SetAccessible(NamedAccessible(control,name,help_text))
     return control
+
+
+class ToggleAccessible(wx.Accessible):
+    """Expose the native toggle's current label, pressed state and help to MSAA."""
+    def __init__(self, window, help_text=''):
+        super().__init__(window)
+        self.help_text = help_text
+
+    def GetName(self, child_id):
+        return (wx.ACC_OK, self.GetWindow().GetLabel()) if child_id == wx.ACC_SELF else (wx.ACC_NOT_IMPLEMENTED, '')
+
+    def GetRole(self, child_id):
+        return (wx.ACC_OK, wx.ROLE_SYSTEM_PUSHBUTTON) if child_id == wx.ACC_SELF else (wx.ACC_NOT_IMPLEMENTED, 0)
+
+    def GetState(self, child_id):
+        if child_id != wx.ACC_SELF:
+            return wx.ACC_NOT_IMPLEMENTED, 0
+        control = self.GetWindow()
+        state = wx.ACC_STATE_SYSTEM_FOCUSABLE
+        if control.GetValue(): state |= wx.ACC_STATE_SYSTEM_PRESSED
+        if control.HasFocus(): state |= wx.ACC_STATE_SYSTEM_FOCUSED
+        if not control.IsEnabled(): state |= wx.ACC_STATE_SYSTEM_UNAVAILABLE
+        if not control.IsShownOnScreen(): state |= wx.ACC_STATE_SYSTEM_INVISIBLE
+        return wx.ACC_OK, state
+
+    def GetHelpText(self, child_id):
+        return (wx.ACC_OK, self.help_text) if child_id == wx.ACC_SELF else (wx.ACC_NOT_IMPLEMENTED, '')
+
+    def GetDescription(self, child_id):
+        return self.GetHelpText(child_id)
+
+    def GetDefaultAction(self, child_id):
+        if child_id == wx.ACC_SELF:
+            return wx.ACC_OK, 'Kapat' if self.GetWindow().GetValue() else 'Aç'
+        return wx.ACC_NOT_IMPLEMENTED, ''
+
+    def DoDefaultAction(self, child_id):
+        control = self.GetWindow()
+        if child_id != wx.ACC_SELF or not control.IsEnabled() or not control.IsShownOnScreen():
+            return wx.ACC_FAIL
+        control.SetValue(not control.GetValue())
+        event = wx.CommandEvent(wx.EVT_TOGGLEBUTTON.typeId,control.GetId())
+        event.SetEventObject(control)
+        control.GetEventHandler().ProcessEvent(event)
+        return wx.ACC_OK
 
 
 class ExplanationAccessible(NamedAccessible):

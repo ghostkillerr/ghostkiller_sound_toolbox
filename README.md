@@ -11,6 +11,8 @@ sürümü yayımlandığında tanıtım sayfasındaki indirme bağlantıları ot
 GitHub kaynak kodu, hazır installer yayını anlamına gelmez.
 
 - Müzik/vokal ayırma, arka vokal, yankı ve gürültü temizleme.
+- Arka vokal temizliğinden sonra isteğe bağlı [kısa vokal onarımı](docs/VOKAL_ONARIMI.md);
+  standart ve onarılmış mono çıktılar ayrı saklanır.
 - Yerel RVC modelleriyle ses değiştirme; iki motor için ortak işlemci/ekran kartı tercihi.
 - RVC V2 model eğitimi, kayıt analizi, durdur/devam, index ve AI Cover'a model kaydı.
 - Eğitim öncesi kayıt/bölüm inceleme, ara modelleri aynı seslerle karşılaştırma,

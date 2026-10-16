@@ -72,6 +72,12 @@ class NativeAudioSession:
             raise
         last_notice = time.monotonic()
         while True:
+            try:
+                if kind == 'restore_vocal' and cancelled and cancelled():
+                    (self.directory/f'cancel_{sequence}').touch(exist_ok=True)
+            except BaseException:
+                self.close()
+                raise
             if self._force.is_set():
                 self._group.terminate(timeout=3.)
                 self.close()
@@ -105,7 +111,12 @@ class NativeAudioSession:
                 heartbeat = self.directory/'heartbeat'
                 age = time.time()-heartbeat.stat().st_mtime if heartbeat.exists() else None
                 try:
-                    progress('Motor çalışıyor.' if age is not None and age < 10. else
+                    notice = None
+                    progress_path = self.directory/f'progress_{sequence}.json'
+                    if progress_path.is_file() and progress_path.stat().st_size < 4096:
+                        notice = json.loads(progress_path.read_text(encoding='utf-8')).get('message')
+                    progress(str(notice)[:1000] if notice else
+                             'Motor çalışıyor.' if age is not None and age < 10. else
                              'Motor yanıtı bekleniyor. Gerekirse İptal Et ardından Zorla Durdur kullanın.')
                 except BaseException:
                     self.close()

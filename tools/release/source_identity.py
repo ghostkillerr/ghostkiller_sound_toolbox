@@ -8,7 +8,9 @@ def source_digest(root=None):
     paths = list(root.glob('*.py')) + list(root.glob('*.spec')) + list(root.glob('*.ps1'))
     paths.extend(root/name for name in ('version.json','logo.ico','lisans.txt',
                                        'training/vendor/LICENSE','training/vendor/NOTICE.md'))
-    for directory in ('rvc','training','tools/release'):
+    paths.extend(root/'restoration/vendor'/name for name in
+                 ('LICENSE','NOTICE.md','MODEL_LICENSE.md','GUIDED_DIFFUSION_LICENSE'))
+    for directory in ('rvc','training','restoration','tools/release'):
         paths.extend(path for path in (root/directory).rglob('*')
                      if path.is_file() and path.suffix in ('.py','.json')
                      and not {'models','__pycache__'}.intersection(path.relative_to(root).parts))

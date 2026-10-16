@@ -8,11 +8,13 @@ from copy import deepcopy
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from app_runtime import app_directory, model_directory, download_model, copy_model, same_path, configure_runtime_cache
+from restoration import MODEL_ID as RESTORATION_MODEL, MODEL_SHA256, MODEL_URL
 
 
 ASSET_COMMIT = "b81f9708367b124b29a47788e4c89b721166234f"
 BASE_URL = f"https://huggingface.co/IAHispano/Applio/resolve/{ASSET_COMMIT}/Resources"
 PUBLISHED_ASSET_HASHES = {
+    RESTORATION_MODEL: MODEL_SHA256,
     "embedders/contentvec/config.json": "2ddde063b795d38d9051a7215a092fecf4cfe148b54251e38de51d88d356898b",
     "embedders/contentvec/pytorch_model.bin": "d8dd400e054ddf4e6be75dab5a2549db748cc99e756a097c496c099f65a4854e",
     "predictors/rmvpe.pt": "6d62215f4306e3ca278246188607209f09af3dc77ed4232efdd069798c4ec193",
@@ -38,6 +40,10 @@ RVC_ASSETS = {
         ("predictors/rmvpe.pt", f"{BASE_URL}/predictors/rmvpe.pt"),
     )),
 }
+RESTORATION_ASSETS = {
+    RESTORATION_MODEL: ('Kısa vokal kayıplarını onar: A2SB (araştırma/değerlendirme)',
+                        ((RESTORATION_MODEL, MODEL_URL),)),
+}
 
 # Training weights are prepared only in Settings; training never downloads them.
 for _rate in (32, 40, 48):
@@ -61,6 +67,7 @@ PUBLISHED_TRAINING_HASHES = {
 def model_catalog():
     from separation_steps import SEPARATION_STEPS
     return {**{step[0]: step[1] for step in SEPARATION_STEPS},
+            **{key: value[0] for key, value in RESTORATION_ASSETS.items()},
             **{key: value[0] for key, value in RVC_ASSETS.items()}}
 
 
@@ -156,7 +163,14 @@ def validate_weight_schema(weights, relative, config=None):
     configure_runtime_cache()
     import torch
     relative = relative.replace('\\', '/')
-    if relative == 'predictors/rmvpe.pt':
+    if relative == RESTORATION_MODEL:
+        from restoration.engine import build_model, model_weights
+        weights = model_weights({'state_dict':weights})
+        with torch.device('meta'):
+            expected = build_model().state_dict()
+        if set(weights) != set(expected):
+            raise ValueError('A2SB ağ katmanları eksik veya beklenmeyen katman içeriyor.')
+    elif relative == 'predictors/rmvpe.pt':
         from rvc.lib.predictors.RMVPE import E2E
         with torch.device('meta'):
             expected = E2E(4, 1, (2, 2)).state_dict()
@@ -259,7 +273,9 @@ def validate_file(path, relative, cancelled=None, config=None):
                           or REVIEWED_SEPARATOR_HASHES.get(relative))
         if trusted_digest and file_digest(path,cancelled) != trusted_digest:
             raise ValueError('Model dosyası sabit SHA-256 kaynak kimliğiyle eşleşmiyor.')
-        use_mmap = checkpoint_archive_precheck(path,allow_legacy=bool(trusted_digest))
+        archive_options = {'max_file_bytes':2262312618,'max_expanded_bytes':2262312618,
+                           'mmap_only':True} if relative == RESTORATION_MODEL else {}
+        use_mmap = checkpoint_archive_precheck(path,allow_legacy=bool(trusted_digest),**archive_options)
         if use_mmap:
             with zipfile.ZipFile(path) as archive:
                 for member in archive.infolist():
@@ -352,7 +368,8 @@ class ModelManager:
         return path
 
     def primary_files(self, model_id):
-        return [asset[0] for asset in RVC_ASSETS[model_id][1]] if model_id in RVC_ASSETS else [model_id]
+        assets = {**RVC_ASSETS, **RESTORATION_ASSETS}
+        return [asset[0] for asset in assets[model_id][1]] if model_id in assets else [model_id]
 
     def status(self, model_id):
         try:
@@ -524,8 +541,9 @@ class ModelManager:
                 checked[relative] = {"sha256": digest, "size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
 
             try:
-                if model_id in RVC_ASSETS:
-                    for relative, url in RVC_ASSETS[model_id][1]:
+                assets = {**RVC_ASSETS, **RESTORATION_ASSETS}
+                if model_id in assets:
+                    for relative, url in assets[model_id][1]:
                         asset_handler(url, self.path(relative))
                 else:
                     from separator_backend import LocalSeparator

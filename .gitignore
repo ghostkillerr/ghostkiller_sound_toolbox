@@ -21,6 +21,8 @@ models/
 /training_presets.json.lock
 /trained_models/
 /deneme/
+# Kesintiye uğrayan kaynak testlerinin geçici klasörleri
+/tmp*/
 *.pth
 *.ckpt
 *.index

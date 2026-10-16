@@ -13,7 +13,7 @@ ve arayüzünü modüler bir wx.Panel (SeparatorPanel) bileşenine dönüştür�
 """
 
 import wx
-from ui_common import apply_native_style, add_intro
+from ui_common import apply_native_style, add_intro, ToggleAccessible
 import os
 import sys
 import re
@@ -183,6 +183,8 @@ class SeparatorPanel(wx.ScrolledWindow):
             btn.SetFont(font_normal)
             btn.SetForegroundColour(self.fg_light)
             btn.SetValue(is_active)
+            btn.SetName(btn.GetLabel())
+            btn.SetAccessible(ToggleAccessible(btn))
             btn.SetBackgroundColour(self.bg_btn_active if is_active else self.bg_btn)
             btn.Bind(wx.EVT_TOGGLEBUTTON, self.OnCheckToggle)
             return btn
@@ -195,6 +197,14 @@ class SeparatorPanel(wx.ScrolledWindow):
 
         self.chk_step2 = CreateToggleBtn("3. Arka Vokalleri ve Harmoni Seslerini Temizle", False)
         sizer_options.Add(self.chk_step2, 0, wx.EXPAND | wx.ALL, 5)
+
+        self.chk_restore = CreateToggleBtn("Arka vokal temizliğinden sonra kısa vokal kayıplarını onar", False)
+        restoration_help = "İsteğe bağlı deneysel onarım. Standart ve onarılmış dosyalar ayrı kaydedilir. Onarılmış çıktı mono olur. Uzun kayıp cümleler tamamlanmaz. Boşluk tuşuyla açılır veya kapatılır."
+        self.chk_restore.SetHelpText(restoration_help)
+        self.chk_restore.GetAccessible().help_text = restoration_help
+        self.chk_restore.MoveAfterInTabOrder(self.chk_step2)
+        sizer_options.Add(self.chk_restore, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 18)
+        self.chk_restore.Hide()
 
         self.chk_step3 = CreateToggleBtn("4. Yankıyı ve Eko Seslerini Temizle", False)
         sizer_options.Add(self.chk_step3, 0, wx.EXPAND | wx.ALL, 5)
@@ -276,7 +286,25 @@ class SeparatorPanel(wx.ScrolledWindow):
             btn.SetBackgroundColour(self.bg_btn)
 
         apply_native_style(btn)
+        btn.SetName(btn.GetLabel())
         btn.Refresh()
+        wx.Accessible.NotifyEvent(wx.ACC_EVENT_OBJECT_NAMECHANGE,btn,wx.OBJID_CLIENT,wx.ACC_SELF)
+        wx.Accessible.NotifyEvent(wx.ACC_EVENT_OBJECT_STATECHANGE,btn,wx.OBJID_CLIENT,wx.ACC_SELF)
+        if btn is self.chk_step2:
+            self.UpdateRestorationVisibility()
+
+    def UpdateRestorationVisibility(self):
+        visible = self.chk_step2.GetValue()
+        if not visible:
+            if self.chk_restore.HasFocus():
+                self.chk_step2.SetFocus()
+            self.chk_restore.SetValue(False)
+            base = self.chk_restore.GetLabel().split(" - ")[0]
+            self.chk_restore.SetLabel(f"{base} - [KAPALI]")
+            self.chk_restore.SetName(self.chk_restore.GetLabel())
+        self.chk_restore.Show(visible)
+        self.Layout()
+        self.FitInside()
 
     def OnFileSelect(self, event):
         """İşlenecek ses dosyasını (.wav, .flac, .mp3) seçtirir."""
@@ -329,6 +357,7 @@ class SeparatorPanel(wx.ScrolledWindow):
         post_ui(self, self.chk_inst.Enable, enable)
         post_ui(self, self.chk_step1.Enable, enable)
         post_ui(self, self.chk_step2.Enable, enable)
+        post_ui(self, self.chk_restore.Enable, enable)
         post_ui(self, self.chk_step3.Enable, enable)
         post_ui(self, self.chk_step4.Enable, enable)
 
@@ -443,7 +472,17 @@ class SeparatorPanel(wx.ScrolledWindow):
                 pass
             gc.collect()
 
-    def ProcessChain(self, selected_steps, input_file=None, output_directory=None, device="cpu"):
+    def RunVocalRestoration(self, reference, cleaned, output_dir):
+        payload = {'reference_file':reference, 'cleaned_file':cleaned,
+                   'output_file':os.path.join(output_dir,'restored.flac'),
+                   'model_dir':self.model_dir, 'device':self.job_device}
+        if self.audio_session is not None:
+            return self.audio_session.execute('restore_vocal',payload,
+                cancelled=lambda:self.is_cancelled,progress=lambda text:self.UpdateStatus(text))
+        from restoration.engine import restore_file
+        return restore_file(**payload,cancelled=lambda:self.is_cancelled,progress=self.LogMessage)
+
+    def ProcessChain(self, selected_steps, input_file=None, output_directory=None, device="cpu", restore_vocal=False):
         completed = 0
         failed = False
         self.job_device = device
@@ -487,6 +526,26 @@ class SeparatorPanel(wx.ScrolledWindow):
                     self.LogMessage(f"Oluşturuldu: {os.path.basename(destination)}")
                     if idx != 0:
                         working_file = destination
+                    if idx == 2 and restore_vocal:
+                        self.LogMessage('Standart temizleme kaydedildi; kısa vokal kayıpları ayrıca onarılıyor.')
+                        result = self.RunVocalRestoration(source,destination,stage)
+                        if self.is_cancelled:
+                            break
+                        restored = os.path.realpath(result['output'])
+                        if os.path.normcase(os.path.commonpath([os.path.realpath(stage),restored])) != os.path.normcase(os.path.realpath(stage)):
+                            raise ValueError('Onarım çıktısı iş klasörü dışında olamaz.')
+                        validate_audio_file(restored)
+                        target = os.path.join(output_directory,output_filename(base_name,'_Ghostkiller_2_Onarilmis_Mono_Vokal.flac'))
+                        if same_path(target,input_file):
+                            raise ValueError('Onarım giriş dosyasının üzerine yazamaz.')
+                        if self.is_cancelled:
+                            break
+                        os.replace(restored,target)
+                        working_file = target
+                        completed += 1
+                        self.LogMessage(f"Oluşturuldu: {os.path.basename(target)}; onarılan kısa aralık: {result['repaired_intervals']}.")
+                        if result.get('skipped_long_intervals'):
+                            self.LogMessage('Uzun kayıp aralıklar kısa onarım kapsamı dışında bırakıldı.')
         except Exception as error:
             failed = True
             self.LogMessage(f"HATA: {error}")
@@ -521,6 +580,7 @@ class SeparatorPanel(wx.ScrolledWindow):
 
         selected_steps = tuple(control.GetValue() for control in
                                (self.chk_inst, self.chk_step1, self.chk_step2, self.chk_step3, self.chk_step4))
+        restore_vocal = bool(selected_steps[2] and self.chk_restore.GetValue())
         if not any(selected_steps):
             wx.MessageBox("En az bir temizleme işlemi seçin.", "Eksik Bilgi", wx.OK | wx.ICON_WARNING)
             return
@@ -529,6 +589,9 @@ class SeparatorPanel(wx.ScrolledWindow):
             return
         try:
             required = [step[0] for enabled, step in zip(selected_steps, SEPARATION_STEPS) if enabled]
+            if restore_vocal:
+                from restoration import MODEL_ID
+                required.append(MODEL_ID)
             device = self.settings.prepare_job(required)
         except Exception as error:
             wx.MessageBox(str(error), "Donanım ve model kontrolü", wx.OK | wx.ICON_WARNING)
@@ -542,7 +605,7 @@ class SeparatorPanel(wx.ScrolledWindow):
             self.EnableUI(False)
             self.txt_log.Clear()
             self.LogMessage(f"İşlemler başlıyor. Kullanılacak cihaz: {device}. Modeller yerel klasörden yüklenecek.")
-            thread = threading.Thread(target=self.ProcessChain, args=(selected_steps, self.current_input_file, self.output_directory, device), daemon=True)
+            thread = threading.Thread(target=self.ProcessChain, args=(selected_steps, self.current_input_file, self.output_directory, device), kwargs={'restore_vocal':restore_vocal}, daemon=True)
             thread.start()
         except Exception:
             JOB_LOCK.release()

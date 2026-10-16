@@ -63,21 +63,26 @@ def _zip_directory_budget(stream, size, maximum_members):
 
 def checkpoint_archive_precheck(path, max_file_bytes=2 * 1024**3,
                                 max_expanded_bytes=4 * 1024**3,
-                                available_ram=None, allow_legacy=False):
+                                available_ram=None, allow_legacy=False, mmap_only=False):
     """Bound checkpoint IO before torch.load; return mmap eligibility.
 
     User RVC accepts new PyTorch stored ZIP only. A managed asset loader may
     opt into an already publisher-verified legacy asset separately; this
     function cannot bound legacy pickle's declared storage allocations.
+    Publisher-pinned, mmap-only validation can scan larger fixed archives without
+    allocating their storage. It retains explicit disk/metadata bounds; callers
+    must use mmap=True and budget model allocation separately.
     """
     from rvc.infer.safe_index import available_memory
     free = available_memory() if available_ram is None else available_ram
+    if mmap_only and free < 256*1024**2:
+        raise ValueError('Model doğrulaması için kullanılabilir RAM yetersiz.')
     with open(path, "rb") as stream:
         size = os.fstat(stream.fileno()).st_size
-        if not 1 <= size <= min(max_file_bytes, int(free * .4)):
+        if not 1 <= size <= (max_file_bytes if mmap_only else min(max_file_bytes, int(free * .4))):
             raise ValueError("PTH dosyası boyut veya kullanılabilir RAM sınırını aşıyor.")
         if stream.read(4) != b"PK\x03\x04":
-            if allow_legacy:
+            if allow_legacy and not mmap_only:
                 return False
             raise ValueError("Eski ZIP olmayan PTH desteklenmiyor. Modeli güvenilen ortamda güncel torch.save ile RVC olarak dışa aktarın.")
         _zip_directory_budget(stream, size, 20000)
@@ -91,7 +96,7 @@ def checkpoint_archive_precheck(path, max_file_bytes=2 * 1024**3,
                         raise ValueError("PTH ZIP yinelenen, şifreli veya sıkıştırılmış üye içeriyor; standart torch.save ZIP gereklidir.")
                     seen.add(name)
                     expanded += member.file_size
-                    if expanded > min(max_expanded_bytes, int(free * .6)):
+                    if expanded > (max_expanded_bytes if mmap_only else min(max_expanded_bytes, int(free * .6))):
                         raise ValueError("PTH ZIP açılmış veri boyutu RAM sınırını aşıyor.")
                     if name.endswith("/data.pkl") or name == "data.pkl":
                         pickles += 1

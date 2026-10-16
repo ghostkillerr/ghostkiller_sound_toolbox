@@ -35,9 +35,10 @@ def check_audio_memory(path):
 
 
 class AudioEngine:
-    def __init__(self):
+    def __init__(self, progress=None, cancelled=None):
         self.converter = None
         self.device = None
+        self.progress, self.cancelled = progress, cancelled
 
     def execute(self, kind, payload):
         from hardware import configure_runtime
@@ -60,6 +61,20 @@ class AudioEngine:
                 return options['audio_output_path']
             finally:
                 self.converter.cleanup_model(release_helpers=False)
+        if kind == 'restore_vocal':
+            from restoration.engine import restore_file
+            from app_runtime import validate_audio_file
+            for path in (payload['reference_file'],payload['cleaned_file']):
+                check_audio_memory(path)
+                validate_audio_file(path)
+            # The separator's allocator cache must not occupy the repair model's VRAM.
+            gc.collect()
+            import torch
+            if device.startswith('cuda'):
+                torch.cuda.empty_cache()
+            return restore_file(payload['reference_file'],payload['cleaned_file'],
+                payload['output_file'],payload['model_dir'],device,
+                cancelled=self.cancelled,progress=self.progress)
         if kind == 'separate':
             from separator_backend import LocalSeparator
             import tempfile
@@ -120,8 +135,9 @@ def main(argv=None):
             done.wait(1.)
     beat = threading.Thread(target=heartbeat,daemon=True)
     beat.start()
-    engine = AudioEngine()
     sequence = 1
+    engine = AudioEngine(progress=lambda text:write_message(root/f'progress_{sequence}.json',{'message':text}),
+                         cancelled=lambda:(root/f'cancel_{sequence}').exists() or (root/'stop').exists())
     try:
         while not (root/'stop').exists():
             request_path = root/f'request_{sequence}.json'

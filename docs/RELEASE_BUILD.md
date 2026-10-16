@@ -61,14 +61,14 @@ SHA-256'sı `11ed9f8a6ac64fb1b5a55e40e305a6744a3f77a70863c8f8197a6e4349abc64a`.
 Metadata/URL/hash kaydı `build/dagitim_python_provenance.json` içindedir.
 [uv runtime açıklaması](https://docs.astral.sh/uv/guides/install-python/).
 
-Önceki geçici `build/release_venv_cpu_py31215`, yeni interpreter ile oluşturuldu ve
-`locked_cpu_dependencies.pth` üzerinden zaten hash-locked kurulmuş mevcut
-CPU venv'in site-packages dizinini kullanır. Bu, ikinci bağımsız dependency
-download/install kanıtı değildir; runtime 3.12.15 ve aynı sabit CPU
-bağımlılıklarıyla test/derleme ortamıdır. Metadata/runtime/gerçek ORT ve
-CPU forward/backward preflight geçti. Yeni üretim ortamları yine yukarıdaki
-hash-locked kurulum reçetesiyle hazırlanmalıdır. Derleme/test için bu
-makinedeki güncel Python yolu `build/release_venv_cpu_py31215/Scripts/python.exe`.
+Önceki geçici `build/release_venv_cpu_py31215`, `locked_cpu_dependencies.pth`
+üzerinden eski CPU ortamının bağımlılıklarını paylaşıyordu; bağımsız bir yayın
+ortamı değildi. Bu geçici ortam ve eski Python 3.12.0 CPU/XPU ortamları,
+16 Ekim yerel disk temizliğinde kaldırıldı. Güncel bağımsız Python **3.12.15**
+ortamları `build/release_cpu/Scripts/python.exe` ve
+`build/release_cuda/Scripts/python.exe` olarak korunur. Yeni makinede yukarıdaki
+hash-locked kurulum reçetesini kullanın. Tarihsel test kayıtları korunmuştur;
+silinen diagnostic EXE ve eski derleme çalışma klasörleri güncel çıktı sayılmaz.
 
 `tools.release.generate_locks` sadece resmi PyPI/PyTorch metadata'sını okur.
 Sürüm güncellemesi `requirements/versions.json` ve ilgili profil değişikliği
@@ -350,7 +350,7 @@ ayarları, eğitim oturumları ve korunan model byte'ları değiştirilmedi.
 ## Kaynak geliştirme tanısı
 
 ```powershell
-build/release_venv_cpu/Scripts/python.exe main.py --self-test build/source_native_smoke.json
+build/release_cpu/Scripts/python.exe main.py --self-test build/source_native_smoke.json
 ```
 
 Bu kaynak komutu EXE üretmez veya çalıştırmaz. Model indirmeden gizli native

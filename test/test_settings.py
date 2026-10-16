@@ -59,11 +59,11 @@ class SettingsTests(unittest.TestCase):
             with patch.dict(sys.modules, {'separator_backend': None}), tempfile.TemporaryDirectory(dir=ROOT) as folder:
                 spec.loader.exec_module(module)
                 self.assertIsNone(module.Separator)
-                self.assertEqual(len(model_catalog()), 10)
+                self.assertEqual(len(model_catalog()), 11)
                 settings = AppSettings(str(Path(folder) / 'settings.json'), ModelManager(folder))
                 panel = module.SeparatorPanel(frame, settings)
                 maintenance = SettingsPanel(frame, settings, auto_detect=False)
-                self.assertEqual(len(maintenance.model_list.buttons), 10)
+                self.assertEqual(len(maintenance.model_list.buttons), 11)
                 with patch.object(panel, 'LogMessage') as log:
                     self.assertFalse(panel.RunSeparatorCommand('unused', 'unused', 'test', folder))
                     self.assertIn('audio-separator', log.call_args.args[0])
@@ -326,7 +326,7 @@ class SettingsTests(unittest.TestCase):
                 settings = AppSettings(str(Path(folder) / 'settings.json'), ModelManager(folder))
                 panel = SettingsPanel(frame, settings, auto_detect=False)
                 self.assertEqual(panel.device_choice.GetCount(), 2)
-                self.assertEqual(len(panel.model_list.GetCheckedModels()), 10)
+                self.assertEqual(len(panel.model_list.GetCheckedModels()), 11)
                 first = panel.model_list.buttons[0]
                 self.assertIsInstance(first, wx.ToggleButton)
                 self.assertIn('[AÇIK]', first.GetLabel())

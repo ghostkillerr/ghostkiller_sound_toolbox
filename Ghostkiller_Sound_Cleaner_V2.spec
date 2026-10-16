@@ -19,6 +19,10 @@ datas = [
     ('training/vendor/config_*.json', 'training/vendor'),
     ('training/vendor/LICENSE', 'training/vendor'),
     ('training/vendor/NOTICE.md', 'training/vendor'),
+    ('restoration/vendor/LICENSE', 'restoration/vendor'),
+    ('restoration/vendor/NOTICE.md', 'restoration/vendor'),
+    ('restoration/vendor/MODEL_LICENSE.md', 'restoration/vendor'),
+    ('restoration/vendor/GUIDED_DIFFUSION_LICENSE', 'restoration/vendor'),
 ]
 datas += release_datas + backend_datas
 binaries = release_binaries + backend_binaries
@@ -40,6 +44,7 @@ hiddenimports = [
     'model_manager',
     'separator_backend',
     'separation_steps',
+    'restoration.engine',
     'ui_settings',
     'ui_training',
     'ui_common',
