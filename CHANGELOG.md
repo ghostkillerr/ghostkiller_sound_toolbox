@@ -36,6 +36,8 @@ Kurulum kabul testleri tamamlandığında gerçek yayın tarihi ve indirmeler ek
 
 - **Ortak model ve donanım yönetimi:** işlemci/ekran kartı seçimi, eksik modelleri
   indirme, çevrimdışı dosya kontrolü ve bozuk dosyaları onarma Ayarlar'da toplandı.
+  Eğitim ve isteğe bağlı vokal onarımı modelleri kendiliğinden seçilmez;
+  kullanıcı gerektiğinde ayrıca seçer. Durum yenileme mevcut seçimleri korur.
 - **Erişilebilir arayüz:** Türkçe native kontroller, klavye ile gezinme ve eğitim
   alanlarının açıklamaları düzenlendi. Açık/koyu görünüm tercihi kalıcı saklanır.
 - **Daha dayanıklı işlemler:** ses ve eğitim işleri ayrı süreçlerde çalışır;

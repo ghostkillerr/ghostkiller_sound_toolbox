@@ -1,8 +1,9 @@
 # İlk deneme: senden beklenenler
 
-Güncelleme: **16 Ekim 2026**. Önceki CPU ve NVIDIA CUDA 2.1.0 kurulumlarının
-üretildiği kaynakta 296'şar otomatik test geçti. Sonraki isteğe bağlı vokal
-onarımı kaynak sürümüne eklendi; önceki installer'larda henüz yoktur.
+Güncelleme: **16 Ekim 2026**. Güncel CPU ve NVIDIA CUDA 2.1.0 yerel kurulum
+adaylarında isteğe bağlı vokal onarımı da bulunuyor. İki ortamda 307'şer
+otomatik test, paketli açılış ve ayrı yerel kurulum kontrolleri geçti.
+Kurulumlar henüz GitHub'da yayımlanmadı.
 Gerçek sesle dinleme ve günlük kullanım
 denemesi henüz tamamlanmadı. Otomatik testler, sesin kulağa iyi geldiğini ölçmez.
 

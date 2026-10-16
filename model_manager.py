@@ -71,6 +71,12 @@ def model_catalog():
             **{key: value[0] for key, value in RVC_ASSETS.items()}}
 
 
+def default_model_selection():
+    """Prepare the standard audio tools; training and restoration are opt-in."""
+    from separation_steps import SEPARATION_STEPS
+    return [step[0] for step in SEPARATION_STEPS] + ['contentvec', 'rmvpe']
+
+
 def file_digest(path, cancelled=None):
     digest = hashlib.sha256()
     with open(path, "rb") as stream:

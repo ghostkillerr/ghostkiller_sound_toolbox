@@ -34,10 +34,12 @@ dosyalarındadır. Bu bilgisayarda mevcut ağırlık doğrulanıp hazırlandı.
 - İşlem sırasında seçenekler kilitlenir; İptal et ve Zorla durdur korunur.
 
 Yerel kontroller görünürlük, Tab sırası, erişilebilir rol/ad/durum/eylem ve
-dosya korumasını doğrular. CPU ve NVIDIA ortamlarında 306'şar otomatik test geçti.
+dosya korumasını doğrular. CPU ve NVIDIA ortamlarında 307'şer otomatik test geçti.
 Canlı NVDA konuşması için kullanıcı dinlemesi ayrıca
 gerekir. Gerçek CUDA işleyicisi kayıt örneğinde onarım, ilerleme, iptal ve PCM24
 kaydını doğruladı. Bunlar bütün şarkıların ses kalitesi kabulü değildir.
 
-Bu seçenek kaynak sürümüne eklendi. Önceki 2.1.0 kurulumları bu yeni değişikliği
-içermez; yeni kurulum derlemesi ve yayın ayrı işlemdir.
+Bu seçenek güncel CPU ve NVIDIA CUDA 2.1.0 yerel kurulumlarına da eklendi.
+Paketli işleyicide CPU başlangıcı ve NVIDIA'da gerçek A2SB üretimi doğrulandı.
+Kurulumlar henüz GitHub Release olarak yayımlanmadı; temiz Windows ve dinleme
+kabulü ayrıca bekliyor. [Güncel kurulum kanıtı](KURULUM_YENIDEN_DERLEME_2026-10-16.md).

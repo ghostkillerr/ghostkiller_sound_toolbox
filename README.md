@@ -30,6 +30,11 @@ program açık kalır. Kişisel model/ayarlar güncelleme paketine dahil edilmez
 
 İlk kullanımda **Ayarlar** sekmesinden **İşlemci** veya **Ekran kartı** seçin. Donanım testi tamamlandıktan sonra seçili modeller için **Eksikleri indir** düğmesine basın. Ses işlemi sırasında model indirilmez; eksik veya değiştirilmiş dosyalar için Ayarlar açılır. **Dosyaları kontrol et** çevrimdışı çalışır; **Seçilenleri onar** eksik/bozuk dosyaları yeniden indirir. Eski yerel önbellekler bu ekranda kontrol edilerek kullanılabilir. Kişisel RVC ses modelleri AI Cover sekmesinden eklenir.
 
+Ses temizleme ve ses değiştirme için gereken modeller başlangıçta seçilidir.
+Eğitim modellerini ve yaklaşık 2,26 GB boyutundaki isteğe bağlı vokal onarım
+modelini ihtiyaç duyduğunuzda ayrıca seçin. Dosya durumları yenilenirken
+yaptığınız seçimler korunur.
+
 Intel/AMD işlemciler CPU yolunu, uygun NVIDIA kartları ayrı CUDA paketini kullanır. Intel GPU için ayrı XPU profili ve cihaz katmanı vardır; fiziksel kart/model doğrulaması yayın kabul koşuludur. AMD GPU native ROCm runtime ve doğrulanmış sürüm/kart profili gerektirir; CUDA paketi AMD runtime içermez. DirectML bu uygulamanın RVC/RoFormer zinciri için açılmaz. Paket profilleri ve doğrulama sınırları [yayın derleme rehberinde](docs/RELEASE_BUILD.md) açıklanır.
 
 ## Geliştirme

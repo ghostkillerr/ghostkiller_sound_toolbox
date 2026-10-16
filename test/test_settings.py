@@ -14,7 +14,7 @@ import app_runtime
 import hardware
 from app_settings import AppSettings
 from hardware import DeviceSupport, HardwareReport
-from model_manager import ModelManager, file_digest, validate_file
+from model_manager import ModelManager, file_digest, validate_file, default_model_selection
 from separator_backend import LocalSeparator
 from ui_settings import SettingsPanel
 import ui_cover
@@ -326,7 +326,7 @@ class SettingsTests(unittest.TestCase):
                 settings = AppSettings(str(Path(folder) / 'settings.json'), ModelManager(folder))
                 panel = SettingsPanel(frame, settings, auto_detect=False)
                 self.assertEqual(panel.device_choice.GetCount(), 2)
-                self.assertEqual(len(panel.model_list.GetCheckedModels()), 11)
+                self.assertEqual(panel.model_list.GetCheckedModels(), default_model_selection())
                 first = panel.model_list.buttons[0]
                 self.assertIsInstance(first, wx.ToggleButton)
                 self.assertIn('[AÇIK]', first.GetLabel())
@@ -340,13 +340,42 @@ class SettingsTests(unittest.TestCase):
                 self.assertNotIn(panel.model_ids[0], panel.model_list.GetCheckedModels())
                 with patch.object(panel, 'StartJob') as start:
                     panel.OnModels('verify')
-                    self.assertEqual(start.call_args.args, ('verify', panel.model_ids[1:]))
+                    self.assertEqual(start.call_args.args, ('verify', default_model_selection()[1:]))
                 self.assertIn('dosya durumları', panel.model_list.GetName())
                 with patch('ui_settings.threading.Thread', side_effect=RuntimeError('thread unavailable')), self.assertRaisesRegex(RuntimeError, 'thread unavailable'):
                     panel.OnHardware(None)
                 self.assertFalse(app_runtime.JOB_LOCK.locked())
                 self.assertTrue(panel.btn_install.IsEnabled())
                 self.assertFalse(panel.btn_cancel.IsEnabled())
+        finally:
+            frame.Destroy()
+            app.ProcessPendingEvents()
+
+    def test_optional_downloads_require_selection_and_refresh_preserves_user_choices(self):
+        from restoration import MODEL_ID
+        app = wx.GetApp() or wx.App(False)
+        frame = wx.Frame(None)
+        try:
+            with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+                settings = AppSettings(str(Path(folder) / 'settings.json'), ModelManager(folder))
+                panel = SettingsPanel(frame, settings, auto_detect=False)
+                optional = [MODEL_ID, 'training_v2_32k', 'training_v2_40k', 'training_v2_48k']
+                self.assertTrue(set(optional).isdisjoint(panel.model_list.GetCheckedModels()))
+                with patch.object(settings, 'device_for', return_value='cpu'), patch.object(panel, 'StartJob') as start:
+                    panel.OnModels('install')
+                    self.assertEqual(start.call_args.args, ('install', default_model_selection()))
+                    for name in (MODEL_ID, 'training_v2_40k'):
+                        panel.model_list.buttons[panel.model_ids.index(name)].SetValue(True)
+                    panel.model_list.buttons[0].SetValue(False)
+                    selected = panel.model_list.GetCheckedModels()
+                    panel.RefreshModels()
+                    self.assertEqual(panel.model_list.GetCheckedModels(), selected)
+                    panel.OnModels('install')
+                    self.assertEqual(start.call_args.args, ('install', selected))
+                    self.assertIn(MODEL_ID, selected)
+                    self.assertIn('training_v2_40k', selected)
+                    self.assertNotIn('training_v2_32k', selected)
+                    self.assertNotIn('training_v2_48k', selected)
         finally:
             frame.Destroy()
             app.ProcessPendingEvents()

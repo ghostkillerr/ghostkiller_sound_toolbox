@@ -1,5 +1,29 @@
 # Ghostkiller Sound Toolbox — Geliştirme, kurulum ve yayın rehberi
 
+**16 Ekim son durum — GitHub ve eksiklerin giderilmesi:** Eski geçmiş,
+`build/github_cleanup_20261016/history-before-curation.bundle` içinde doğrulanmış
+yedeğe alındı. İlk dört geliştirme aşaması korundu; eğitim düzeltmeleri ve
+sonraki durum kayıtları ilgili özelliklerde toplandı, dosya ağacı korunarak
+altı aşamalı kaynak geçmişi GitHub'a gönderildi. Sonraki tek düzeltme aşaması,
+isteğe bağlı modellerin başlangıçta seçilmemesini ve Windows CI'de CPU/CUDA/XPU
+için bütün Python testlerinin çalışmasını içerir. Eski CI çalışmaları yeni
+gönderim geldiğinde otomatik iptal edilir.
+`test/__init__.py`, tam CPython kurulumundaki standart `test` paketiyle ad
+çakışmasını önler; onarım testleri temiz GitHub ortamında da yüklenir.
+
+Güncel CPU/CUDA **2.1.0** installer'ları yeniden üretildi: kısa vokal onarımı ve
+model seçimi düzeltmesi iki pakette de var. **307'şer kaynak testi**, iki frozen
+açılış, iki ayrı Inno kurulum fixture'ı ve gerçek CUDA kontrolleri geçti.
+Paketli onarım işleyicisi CPU'da üretim gerekmeyen kayıtla, CUDA'da gerçek A2SB
+üretimiyle doğrulandı. Kaynak eşleşmesi artık başarılı;
+`build/training_release_verified.json` bunu yeni makine kanıtına bağlar.
+Kaynak kimliği `2298e0800174ace7f2b42b969b45b472b5495e0c93e2a477c1e1f22c12686e89`.
+Güncel kanıtlar `build/github_cleanup_20261016/` altındadır; kişisel kayıtlar,
+modeller, ayarlar ve büyük derleme çıktıları Git'e girmez. Kurulum Release'i
+yayımlanmadı; temiz Windows/UAC/eski sürümden geçiş/kaldırma, canlı NVDA ve tam
+şarkı kalite kabulü bekliyor. Aşağıdaki 01:28/03:46 ve ilk temizlik kayıtları
+tarihseldir; eski installer hash'lerini güncel dosyalar için kullanma.
+
 Son güncelleme: **16 Ekim 2026**. Bir yapay zekâ ajanı işe başlamadan önce bu
 dosyayı okumalı, sonra ilgili kaynakları ve güncel çalışma ağacını incelemelidir.
 Kullanıcının sonraki talimatı bu rehberden önceliklidir. Eski raporlar tarihsel
@@ -146,9 +170,9 @@ Ses dosyalarını yerel işler; internet model indirme ve güncellemeler için k
 | Dağıtılacak iki profil | **CPU** ve **NVIDIA CUDA**; XPU/ROCm bu iki setup'ın yerine geçmez |
 | Derleme ortamları | Bağımsız `build/release_cpu`, `build/release_cuda`; Python **3.12.15**, backend hash kilitleri |
 | Inno Setup | Kullanıcı **7.1.0** kurdu; helper 7/6 standart yollarını bulur |
-| Kaynak testleri | Son kaynakta CPU **306 / OK**, CUDA **306 / OK**; önceki installer kaynağında 296'şar test vardı |
+| Kaynak testleri | Güncel kaynakta CPU **307 / OK**, CUDA **307 / OK**; iki ortamda tüm kaynak testleri geçti |
 | Otomatik güncelleme | Kaynakta uygulandı, varsayılan açık, Ayarlar'dan kapatılır; elle düğme/F5 korunur |
-| Setup adayları | CPU/CUDA **2.1.0**, 16 Ekim 01:28 kaynağından üretildi; 296'şar test, frozen ve yerel kurulum fixture'ları geçti. Sonraki isteğe bağlı vokal onarımı bu installer'larda yok; yeni kaynak eşleşmesi için yeniden derleme gerekiyor |
+| Setup adayları | CPU/CUDA **2.1.0** güncel kaynakla yeniden üretildi; vokal onarımı ve model seçimi düzeltmesi dahil. 307'şer test, frozen, gerçek CUDA ve yerel kurulum fixture'ları geçti. Yayın/kullanıcı kabulü bekliyor; yeni kanıt `build/github_cleanup_20261016/candidate_verification.json` |
 | Eski setup adayları | Enfekte eski CPU/CUDA **2.0.0** dosyaları da aynı talimatla silindi; önceki koruma tercihi bu açık talimatla değişti. Receipt'lar yalnız tarihsel kayıt |
 | Sandbox | Kullanıcı kurduğunu bildirdi; temiz Windows/üretim UAC kabul testlerini **daha sonra kendisi yapacak** |
 | Kullanıcıya dağıtılan yeni sürüm | Henüz yok; GitHub kaynak gönderimi ve tanıtım sayfası, installer Release yayını değildir |

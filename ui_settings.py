@@ -5,7 +5,7 @@ import time
 import wx
 from app_runtime import JOB_LOCK, post_ui, append_log, finish_job
 from hardware import detect_hardware
-from model_manager import model_catalog
+from model_manager import model_catalog, default_model_selection
 from ui_cover import ModelToggleList
 from ui_common import apply_native_style, DetailsDialog, add_intro, section_title
 from updater import check_for_updates, last_update_result
@@ -64,12 +64,12 @@ class SettingsPanel(wx.ScrolledWindow):
         self.txt_path.SetName("Modellerin indirileceği klasör")
         layout.Add(self.txt_path, 0, wx.EXPAND | wx.ALL, 8)
         section_title(self, layout, "2. Model dosyaları")
-        layout.Add(wx.StaticText(self, label="Seçimleri Boşluk ile değiştirin; ok tuşlarıyla listede dolaşın.\nEksikleri indir: olmayan dosyaları tamamlar. Kontrol et: dosyaları inceler. Onar: sorunlu dosyaları yeniden indirir."),
+        layout.Add(wx.StaticText(self, label="Ses temizleme ve ses değiştirme modelleri seçili gelir.\nEğitim ve isteğe bağlı vokal onarımı modellerini gerektiğinde ayrıca seçin.\nSeçimleri Boşluk ile değiştirin; ok tuşlarıyla listede dolaşın.\nEksikleri indir: olmayan dosyaları tamamlar. Kontrol et: dosyaları inceler. Onar: sorunlu dosyaları yeniden indirir."),
                    0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.model_list = ModelToggleList(self)
         self.model_list.SetMinSize((-1, 180))
         self.model_list.SetName("İndirilecek veya kontrol edilecek modeller ve dosya durumları")
-        self.RefreshModels(select_all=True)
+        self.RefreshModels(initial_selection=True)
         layout.Add(self.model_list, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
         buttons = wx.WrapSizer(wx.HORIZONTAL)
         self.btn_install = wx.Button(self, label="Eksikleri indir")
@@ -105,14 +105,14 @@ class SettingsPanel(wx.ScrolledWindow):
         if auto_detect:
             wx.CallAfter(lambda: post_ui(self, self.OnHardware, None))
 
-    def RefreshModels(self, select_all=False):
+    def RefreshModels(self, initial_selection=False):
         catalog = model_catalog()
         catalog.update({'contentvec': 'Ses değiştirme ve eğitim için ses bilgisi',
                         'rmvpe': 'Ses değiştirme ve eğitim için nota algılama',
                         **{f'training_v2_{rate}k': f'Model eğitimi için başlangıç dosyaları ({rate} kHz)' for rate in (32,40,48)}})
         labels = {key: f"{catalog[key]} — {self.settings.manager.status(key)}" for key in self.model_ids}
         self.model_list.SetModels(self.model_ids, labels=labels,
-                                  checked_models=self.model_ids if select_all else None)
+                                  checked_models=default_model_selection() if initial_selection else None)
 
     def OnTheme(self,event):
         previous = self.settings.theme
