@@ -125,7 +125,7 @@ kurulumları geliştirme tarafı hazırlar; kullanıcı sesleri dinleyerek ve
 ekran okuyucuyla deneyerek geri bildirim verir. Kullanıcı programı kullanırken
 eşzamanlı UI girişi gönderme.
 
-Gerçek ses denemeleri `deneme/private_model/` altındadır; kişisel ses ve
+Gerçek ses denemeleri Git dışındaki `deneme/` altında tutulur; kişisel ses ve
 raporları Git'e ekleme. İlk vokal ayırma sonucu beğenildi. Arka vokal temizliğinde
 ana ses kaybı bildirildi; işlem sırasını değiştirmek çözüm olarak kabul edilmedi.
 İsteğe bağlı kısa A2SB onarımı standart sonucu ayrı korur; onarılmış çıktı
@@ -159,7 +159,7 @@ installer'a ekleme, üçüncü taraf lisans/NOTICE materyallerini çıkarma.
 
 **Korunan kullanıcı yolları:** `deneme/`, `models/`, eski `modeller/`,
 `rvc/models/`, `trained_models/`, `training_runs/`, `settings.json`, `models.json`.
-`models/voices/private_model/` altındaki model/index özellikle korunur.
+`models/voices/` altındaki kişisel model/index dosyaları özellikle korunur.
 Ses/model/ayar/session dosyalarını topluca silme, üzerine yazma, Git'e veya
 installer'a koyma. `build/`, `dist/`, `Setup/` ignored türetilmiş çıktıdır;
 eski kullanıcı artifact'ini varsayımla temizleme. Windows recursive işleminden
@@ -441,8 +441,10 @@ Güncel sonuç [Son durum](docs/SON_DURUM.md) içindedir. Yerel özetler:
 Son paket kanıtı tarihsel adaylara aittir; dosyaları temizlendi, yayın için
 yeniden derleme gerekir. Yerel günlük/kanıt/installer ve kişisel veriler Git'e girmez.
 
-`docs/` altındaki eski JSON ölçümleri belirli cihaz/model/sentetik ses
-denemeleridir; güncel kaynak veya yayın kabulü olarak sunulmaz.
+Yerel JSON ölçümleri `build/local_reports/` altında Git dışında tutulur;
+kişisel model adları, kayıt yolları, ayarlar veya cihaz dökümleri kamuya açık
+raporlara kopyalanmaz. Genel RVC/eğitim/model mimarisi config dosyaları
+uygulamanın kaynaklarıdır; kişisel ayar dosyalarıyla karıştırılıp silinmez.
 [RVC](docs/INFERENCE_RELEASE_FIXES.md) ve [eğitim](docs/TRAINING_RELEASE_FIXES.md)
 belgeleri motorun teknik sınırlarını saklar.
 

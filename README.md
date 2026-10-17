@@ -85,6 +85,13 @@ yükseltmede eski installer'ın kökte bıraktığı iki codec EXE'si kaldırıl
 
 `test/` geliştirme testlerini, `docs/` teknik raporları barındırır; ikisi setup'a eklenmez. `models/`, `models.json`, `settings.json`, eski `modeller/`, `rvc/models/` ve FFmpeg ikilileri yerel veridir; Git'e eklenmez. Kişisel test modelleri kurulum paketine alınmaz.
 
+Kişisel model adları, yerel dosya yolları ve cihaz/ayar dökümleri içerebilen
+doğrulama raporları `build/local_reports/` altında Git dışında tutulur.
+Değişiklikleri `git add` ile hazırladıktan sonra `python tools/check_public_tree.py`
+çalıştırın. CI de Git'e hazırlanmış dosyaları kontrol eder. `rvc/configs/`,
+`training/vendor/config_*.json` ve model mimarisi config'leri ortak uygulama
+varsayılanlarıdır; kişisel ayar veya model kayıt listesi içermez.
+
 Modeller programın kurulu olduğu yerdeki `models/` klasörüne indirilir. Ayrıştırma ağırlıkları doğrudan burada, RVC yardımcıları `models/predictors/` ve `models/embedders/` altında tutulur. Inno Setup bu klasöre normal Windows kullanıcıları için yazma izni verir. Eski yerel modeller gerektiğinde kopyalanarak yeniden indirme önlenir. `models.json` kayıtları kaynak çalışmada proje kökünde, kurulu uygulamada `%LOCALAPPDATA%/GhostkillerSoundToolbox` altında tutulur.
 
 Lisans metni [lisans.txt](lisans.txt) dosyasındadır. Üçüncü taraf bileşenler kendi lisanslarını korur; yayın paketi `THIRD_PARTY_NOTICES.md` ve `third_party/` materyalini içerir. Proje sitesi: [Ekransız Oyuncular](https://ekransizoyuncular.gen.tr/).

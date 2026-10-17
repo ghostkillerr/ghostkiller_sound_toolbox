@@ -1,7 +1,7 @@
 """Short synthetic local-model compatibility test; never downloads models.
 
 python test/audit_separation_models.py --devices cpu cuda:0
-Writes only temporary sounds and a compact diagnostic JSON in docs/.
+Writes only temporary sounds and a private diagnostic JSON in build/local_reports/.
 """
 from pathlib import Path
 import argparse
@@ -88,7 +88,9 @@ def main():
     evidence = {"date":"2026-10-13","synthetic_audio_seconds":4,"cpu_threads":2,
                 "torch":str(torch.__version__),"results":results,
                 "note":"Compatibility test; no perceptual quality score. No downloads or personal audio."}
-    (ROOT/"docs"/"YAYIN_DENETIMI_AYRISTIRMA_KANITLARI.json").write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    reports = ROOT/'build'/'local_reports'
+    reports.mkdir(parents=True,exist_ok=True)
+    (reports/"YAYIN_DENETIMI_AYRISTIRMA_KANITLARI.json").write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -16,7 +16,9 @@ def main():
     from training.storage import validate_checkpoint_backend
     from rvc.infer.safe_index import inspect_index
     torch.set_num_threads(2)
-    log = ROOT/"docs"/"TRAINING_FIXED_REAL_SMOKE.log"
+    reports = ROOT/'build'/'local_reports'
+    reports.mkdir(parents=True,exist_ok=True)
+    log = reports/"TRAINING_FIXED_REAL_SMOKE.log"
     lines = log.read_text(encoding="utf-8").splitlines()
     job = Path(next(line[4:] for line in lines if line.startswith("JOB "))).resolve()
     verification = Path(next(line[13:] for line in lines if line.startswith("VERIFICATION "))).resolve()
@@ -69,11 +71,11 @@ def main():
                 "event_span_seconds":max(value["time"] for value in events)-min(value["time"] for value in events),
                 "protected_files_unchanged":True,"synthetic_sources_unchanged":sources_unchanged,
                 "protected_sha256":protected_after,"asset_verification":"Full real schema, CRC and pinned publisher SHA-256; only temporary integrity manifest written",
-                "cuda_exact_fixture":json.loads((ROOT/"docs"/"TRAINING_FIXED_CUDA_CHECKPOINT_EXACT.json").read_text(encoding="utf-8")),
+                "cuda_exact_fixture":json.loads((reports/"TRAINING_FIXED_CUDA_CHECKPOINT_EXACT.json").read_text(encoding="utf-8")),
                 "readonly_findings_fixed":["Resume could drop incompatible GPU RNG on backend migration; explicit backend/runtime/count/index guard added.","Duplicate parent controller could clear session markers before child guard; parent controller lock and active-worker startup guard added.","Official RMVPE frozen FP16 BN counter +Inf was rejected by generic finiteness; root narrowed exception to exact published RMVPE hash and scalar positive-infinite num_batches_tracked counters."],
                 "limitations":["Small synthetic audio validates execution and formats, not voice quality.","Real GAN bitwise reproducibility across CUDA kernels is not asserted; separate small deterministic CUDA checkpoint fixture is bitwise equal.","No physical AMD/Intel GPU, packaged clean Windows, NVDA/JAWS or long-recording quality claim."],
                 "temporary_sessions":[str(job),str(verification)],"temporary_sessions_cleaned":False}
-    target = ROOT/"docs"/"TRAINING_FIXED_REAL_CHECK.json"
+    target = reports/"TRAINING_FIXED_REAL_CHECK.json"
     target.write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     print(json.dumps({"passed":True,"steps":12,"outputs":len(audio),"index_vectors":index.vectors,
                       "peak_vram_mb":evidence["sampled_peak_vram_mb"],"peak_rss_mb":evidence["sampled_peak_worker_rss_mb"],

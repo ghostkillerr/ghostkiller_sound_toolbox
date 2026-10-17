@@ -161,7 +161,7 @@ embedder uyumu, ignored-hop reddi, CPU'nun CUDA cache'e dokunmaması, büyük se
 header'ı ve meta config allocation sınırını kapsar.
 
 Gerçek E2E RMVPE ağıyla yalnız sentetik harmonik/vibrato/sessizlik sinyali
-kullanıldı. Tam kanıt [INFERENCE_RMVPE_REAL_CHECK.json](INFERENCE_RMVPE_REAL_CHECK.json),
+kullanıldı. Tam yerel kanıt Git dışındaki `build/local_reports/INFERENCE_RMVPE_REAL_CHECK.json`,
 tekrar betiği `test/audit_inference_release.py`.
 
 | Ölçüm | AMD CPU | NVIDIA CUDA |

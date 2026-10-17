@@ -17,5 +17,7 @@ Git'e kaydedilen sürümleri geçmişten bulunabilir.
 Motorun teknik sınırları [RVC çıkarımı](INFERENCE_RELEASE_FIXES.md),
 [eğitim](TRAINING_RELEASE_FIXES.md) ve [araştırma kararlarında](RAPOR_UYGULAMA.md)
 açıklanır. [Vokal onarımı araştırması](VOKAL_ONARIMI_ARASTIRMASI_2026-10-16.md)
-model seçiminin gerekçesini saklar. JSON dosyaları önceki ölçümlerin ve model
-kaynağı doğrulamasının kanıtlarıdır; güncel yayın durumu olarak okunmamalıdır.
+model seçiminin gerekçesini saklar. Kişisel yol ve ayar bilgisi içerebilen
+yerel ölçüm raporları Git dışındaki `build/local_reports/` klasöründedir.
+`REVIEWED_UVR_SOURCE_HASHES.json` yalnız kamuya açık üretici modellerinin
+kaynak ve dosya kimliklerini içerir.

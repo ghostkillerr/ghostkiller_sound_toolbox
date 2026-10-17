@@ -4,6 +4,12 @@ Kaynak sürümü **2.1.0**, durum **yayın hazırlığında**. GitHub'a kaynak g
 kurulu programları güncellemez; installer Release henüz yayımlanmadı.
 Kullanım rehberleri [belgeler dizininde](README.md) toplanır.
 
+Kişisel ayar/model kayıtları Git dışındadır. Yerel yollar ve model adları
+içerebilen eski JSON raporları `build/local_reports/` klasörüne taşındı.
+Kullanıcıya ait model adları kaynak ve rehberlerden çıkarıldı; özel veri
+ve mutlak kullanıcı yolu kontrolü Git indeksi üzerinde ve CI'de uygulanır.
+Genel mimari config'leri uygulamanın çalışması için kaynakta korunur.
+
 ## Tamamlanan düzeltmeler
 
 - Dört kanallı SCNet ve deneysel altı kanallı HTDemucs ile ayrı stereo PCM24

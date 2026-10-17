@@ -11,14 +11,16 @@ dist/
 # Model dosyaları (GitHub dosya boyutu sınırını aşmaması ve disk kaplamaması için)
 modeller/
 models/
-/models.json
-/settings.json
-/models.json.lock
-/settings.json.lock
+models.json
+settings.json
+models.json.lock
+settings.json.lock
+.integrity.json
+.integrity.json.lock
 /cache/
 /training_runs/
-/training_presets.json
-/training_presets.json.lock
+training_presets.json
+training_presets.json.lock
 /trained_models/
 /deneme/
 # Kesintiye uğrayan kaynak testlerinin geçici klasörleri
@@ -28,16 +30,28 @@ models/
 *.index
 *.bin
 *.pt
+*.th
+*.safetensors
 
 # Geçici ses ve log dosyaları
 *.wav
 *.mp3
 *.flac
 *.ogg
+*.m4a
+*.aac
+*.wma
 *.log
 Ghostkiller_CrashLog.txt
 Setup/
 /tools/ffmpeg/*.exe
+
+# Yerel denetim raporları bilgisayar yolları ve kişisel model bilgileri içerebilir.
+/docs/*.json
+!/docs/REVIEWED_UVR_SOURCE_HASHES.json
+.env
+.env.*
+!.env.example
 
 # IDE / Editör
 .vscode/

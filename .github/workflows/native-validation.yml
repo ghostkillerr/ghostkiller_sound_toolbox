@@ -32,6 +32,8 @@ jobs:
         with:
           python-version: '3.12'
           architecture: x64
+      - name: Reject private configuration and local reports
+        run: python tools/check_public_tree.py
       - name: Create clean environment from SHA-256 locks
         shell: pwsh
         run: |

@@ -16,6 +16,10 @@ import soundfile as sf
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--device",default="cpu")
+    parser.add_argument('--voice-model',type=Path,action='append',required=True,
+                        help='Local RVC model to test; repeat for multiple models.')
+    parser.add_argument('--voice-index',type=Path,required=True,
+                        help='Local RVC index; paths are never stored in the source.')
     args = parser.parse_args()
     device = args.device
     results = []
@@ -45,13 +49,14 @@ def main():
                 record.update(seconds=round(time.monotonic()-start,3),worker_pid=ping['pid'])
                 results.append(record)
                 print(json.dumps(record,ensure_ascii=False),flush=True)
-            for name in ('latest.pth','best_validation.pth'):
+            for number,model_path in enumerate(args.voice_model,1):
+                name = f'voice_{number}'
                 start = time.monotonic()
                 target = root/(name+'.wav')
                 try:
                     session.execute('cover',{'device':device,'options':{'audio_input_path':str(source),
-                        'audio_output_path':str(target),'model_path':str(ROOT/'models'/'voices'/'private_model'/name),
-                        'index_path':str(ROOT/'models'/'voices'/'private_model'/'voice.index'),
+                        'audio_output_path':str(target),'model_path':str(model_path.resolve()),
+                        'index_path':str(args.voice_index.resolve()),
                         'pitch':0,'index_rate':.75,'f0_method':'rmvpe','embedder_model':'contentvec'}},
                         progress=lambda message:print(message,flush=True))
                     validate_audio_file(target)
@@ -71,7 +76,9 @@ def main():
                 'synthetic_seconds':4,'personal_files_modified':False,'results':results,
                 'note':'Process integration/finite output check; cold timings, no quality or full device certification.'}
     evidence_file = 'NATIVE_AUDIO_REAL_CHECK.json' if device=='cpu' else 'NATIVE_AUDIO_'+device.replace(':','_').upper()+'_REAL_CHECK.json'
-    (ROOT/'docs'/evidence_file).write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    reports = ROOT/'build'/'local_reports'
+    reports.mkdir(parents=True,exist_ok=True)
+    (reports/evidence_file).write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     return int(any(result['status']!='passed' for result in results))
 
 

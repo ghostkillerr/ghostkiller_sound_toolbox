@@ -23,6 +23,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Check public source tree
+        run: python3 tools/check_public_tree.py
       - name: Validate download behavior
         run: node --test test/test_site.mjs
       - name: Validate public staging

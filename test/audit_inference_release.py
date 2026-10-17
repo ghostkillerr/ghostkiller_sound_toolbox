@@ -80,6 +80,7 @@ def run(device):
 if __name__ == '__main__':
     devices = sys.argv[1:] or ['cpu','cuda:0']
     values = [run(device) for device in devices]
-    target = Path(__file__).resolve().parents[1]/'docs'/'INFERENCE_RMVPE_REAL_CHECK.json'
+    target = Path(__file__).resolve().parents[1]/'build'/'local_reports'/'INFERENCE_RMVPE_REAL_CHECK.json'
+    target.parent.mkdir(parents=True,exist_ok=True)
     target.write_text(json.dumps(values,indent=2),encoding='utf-8')
     print(json.dumps(values,indent=2))

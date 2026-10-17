@@ -22,5 +22,7 @@ result = {"passed":True,"backend":"cuda:0","gpu":torch.cuda.get_device_name(0),
           "torch_cpu_and_gpu_rng_bitwise_equal":True,"python_numpy_rng_equal":True,
           "fixture":"substituted small networks with actual CUDA AdamW and device RNG",
           "limitation":"This validates checkpoint control flow; it is not real GAN numerical reproducibility or a voice-quality score."}
-(ROOT/"docs"/"TRAINING_FIXED_CUDA_CHECKPOINT_EXACT.json").write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+reports = ROOT/'build'/'local_reports'
+reports.mkdir(parents=True,exist_ok=True)
+(reports/"TRAINING_FIXED_CUDA_CHECKPOINT_EXACT.json").write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
 print(json.dumps(result,ensure_ascii=False),flush=True)

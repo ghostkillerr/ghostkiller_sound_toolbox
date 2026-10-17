@@ -154,7 +154,9 @@ def main():
             engine.run_training(directory, options, "cpu", directory, lambda *a, **k: None)
     results["single_batch_epoch_checkpoint_times"] = saves
     if "--save-evidence" in sys.argv:
-        (ROOT/"docs"/"YAYIN_DENETIMI_HATA_KANITLARI.json").write_text(json.dumps(results, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
+        reports = ROOT/'build'/'local_reports'
+        reports.mkdir(parents=True,exist_ok=True)
+        (reports/"YAYIN_DENETIMI_HATA_KANITLARI.json").write_text(json.dumps(results, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
     print(json.dumps(results, ensure_ascii=False, indent=2))
 
 
