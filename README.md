@@ -11,6 +11,7 @@ sürümü yayımlandığında tanıtım sayfasındaki indirme bağlantıları ot
 GitHub kaynak kodu, hazır installer yayını anlamına gelmez.
 
 - Müzik/vokal ayırma, arka vokal, yankı ve gürültü temizleme.
+- [Enstrüman ayırma](docs/ENSTRUMAN_AYIRMA.md): dört kanallı SCNet ve bilimsel kullanım için deneysel altı kanallı HTDemucs; ayrı stereo FLAC dosyaları.
 - Arka vokal temizliğinden sonra isteğe bağlı [kısa vokal onarımı](docs/VOKAL_ONARIMI.md);
   standart ve onarılmış mono çıktılar ayrı saklanır.
 - Yerel RVC modelleriyle ses değiştirme; iki motor için ortak işlemci/ekran kartı tercihi.
@@ -35,13 +36,20 @@ Eğitim modellerini ve yaklaşık 2,26 GB boyutundaki isteğe bağlı vokal onar
 modelini ihtiyaç duyduğunuzda ayrıca seçin. Dosya durumları yenilenirken
 yaptığınız seçimler korunur.
 
+İsteğe bağlı A2SB modeli ticari olmayan kullanım, altı kanallı HTDemucs
+ağırlıkları bilimsel kullanım koşullarıyla sunulur. İndirme ve kullanım
+öncesinde açıklama ve üreticinin koşullarına bağlantı gösterilir; kabul
+etmezseniz işlem başlamaz. Dört kanallı SCNet ayrı bir modeldir.
+
 Intel/AMD işlemciler CPU yolunu, uygun NVIDIA kartları ayrı CUDA paketini kullanır. Intel GPU için ayrı XPU profili ve cihaz katmanı vardır; fiziksel kart/model doğrulaması yayın kabul koşuludur. AMD GPU native ROCm runtime ve doğrulanmış sürüm/kart profili gerektirir; CUDA paketi AMD runtime içermez. DirectML bu uygulamanın RVC/RoFormer zinciri için açılmaz. Paket profilleri ve doğrulama sınırları [yayın derleme rehberinde](docs/RELEASE_BUILD.md) açıklanır.
 
 ## Geliştirme
 
 Eğitime başlamak ve sonuçları karşılaştırmak için [adım adım eğitim rehberini](docs/MODEL_EGITIMI.md) okuyun.
 
-Mimari, dosya görevleri, erişilebilirlik ve işlem akışları için [oku.md](oku.md) dosyasını okuyun. Son senaryolar [senaryo raporunda](docs/SENARYO_TARAMASI.md), önceki düzeltmeler [düzeltme raporunda](docs/HATA_DUZELTME_RAPORU.md) açıklanır.
+Mimari, dosya görevleri, erişilebilirlik ve işlem akışları için [oku.md](oku.md)
+dosyasını okuyun. Güncel testler ve kalan yayın işleri [Son durum](docs/SON_DURUM.md),
+kullanım rehberleri [belgeler dizininde](docs/README.md) toplanır.
 
 Mevcut doğrulama ortamı Python 3.12'dir. wxPython, audio-separator ve RVC/PyTorch bağımlılıkları kurulmuş bir ortamda:
 

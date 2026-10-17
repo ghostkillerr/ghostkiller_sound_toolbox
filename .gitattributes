@@ -1,3 +1,5 @@
 # License manifests hash exact upstream bytes; Windows checkout must preserve them.
 third_party/python/** -text
 third_party/runtime/** -text
+# Preserve the copied upstream SCNet sources, including their whitespace.
+instruments/vendor/** -text whitespace=-blank-at-eol,-blank-at-eof

@@ -23,6 +23,8 @@ datas = [
     ('restoration/vendor/NOTICE.md', 'restoration/vendor'),
     ('restoration/vendor/MODEL_LICENSE.md', 'restoration/vendor'),
     ('restoration/vendor/GUIDED_DIFFUSION_LICENSE', 'restoration/vendor'),
+    ('instruments/vendor/LICENSE', 'instruments/vendor'),
+    ('instruments/vendor/NOTICE.md', 'instruments/vendor'),
 ]
 datas += release_datas + backend_datas
 binaries = release_binaries + backend_binaries
@@ -45,6 +47,8 @@ hiddenimports = [
     'separator_backend',
     'separation_steps',
     'restoration.engine',
+    'instruments.engine',
+    'instruments.models',
     'ui_settings',
     'ui_training',
     'ui_common',

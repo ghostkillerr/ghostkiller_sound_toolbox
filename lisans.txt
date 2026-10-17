@@ -1,12 +1,16 @@
 Ghostkiller SOUND TOOLBOX - SON KULLANICI LİSANS SÖZLEŞMESİ (EULA)
 
 Yazılım Geliştiricisi: Yasin Talha Gençsoy (Ghostkiller)
-Sürüm: 2.0.0
+Sürüm: 2.1.0
 
 Bu yazılımı bilgisayarınıza kurarak ve kullanarak, aşağıda belirtilen tüm şartları ve koşulları okuduğunuzu, anladığınızı ve gayrikabili rücu (geri dönülemez) şekilde kabul ettiğinizi beyan etmiş olursunuz. Şartları kabul etmiyorsanız, kurulumu iptal ediniz.
 
 1. KULLANIM HAKLARI VE LİSANS
-Ghostkiller Sound Toolbox tamamen ücretsiz (Freeware) bir yazılımdır. Yazılımı kişisel veya profesyonel ses/müzik işleme süreçlerinizde herhangi bir kısıtlama olmaksızın kullanabilirsiniz.
+Ghostkiller Sound Toolbox tamamen ücretsiz (Freeware) bir yazılımdır. Geliştiriciye ait uygulama bileşenlerini kişisel veya profesyonel ses/müzik işleme süreçlerinizde kullanabilirsiniz. Üçüncü taraf bileşenler ve isteğe bağlı modeller kendi lisans koşullarına tabidir; bu sözleşme onlar için ek kullanım hakkı vermez.
+
+İsteğe bağlı A2SB vokal onarım modeli NVIDIA OneWay NonCommercial License koşullarına tabidir ve ticari olmayan kullanım içindir. Bu modelin kullanımı için NVIDIA'nın model koşullarını inceleyiniz. Modeli indirmeden veya kullanmadan önce uygulamada bu koşullar gösterilir. A2SB kapalıyken diğer ses işlemlerini kullanabilirsiniz. Model ağırlıkları kurulum paketine dahil edilmez.
+
+İsteğe bağlı altı kanallı HTDemucs modelinin ağırlıkları, üreticinin açıklamasına göre yalnız bilimsel amaçlarla sunulmaktadır. Demucs kaynak kodunun MIT lisansı bu ağırlıklar için ticari kullanım izni vermez. İndirme ve kullanım öncesi üreticinin açıklaması uygulamadan açılabilir: https://github.com/facebookresearch/demucs/issues/327 . Dört kanallı SCNet ayrı bir modeldir.
 
 2. KISITLAMALAR
 Bu bölüm yalnız geliştiriciye ait uygulama bileşenlerini kapsar. FFmpeg,

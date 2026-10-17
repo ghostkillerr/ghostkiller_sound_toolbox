@@ -60,6 +60,20 @@ class ExperimentTests(unittest.TestCase):
             self.assertEqual(review['independent_groups'],2)
             self.assertIn(review['holdout_seconds'],(40.,80.))
 
+    def test_split_review_cancels_during_the_final_source_hash_read(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as temporary:
+            path = Path(temporary)/'large-source.wav'
+            path.write_bytes(b'x'*(2*1024**2))
+            options = TrainingOptions('voice',(str(path),))
+            report = {'sources':[{'path':str(path.resolve()),'seconds':10.}]}
+            checks = []
+            def cancelled():
+                checks.append(True)
+                return len(checks)>=2
+            with self.assertRaises(InterruptedError):
+                split_review(report,options,cancelled)
+            self.assertEqual(len(checks),2)
+
     def test_archive_retention_never_deletes_resume_best_or_preferred_snapshot(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as temporary:
             root=Path(temporary)

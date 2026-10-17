@@ -33,12 +33,15 @@ def selected_range(options, source, seconds):
     return float(start), min(float(end), seconds)
 
 
-def split_review(report, options):
+def split_review(report, options, cancelled=None):
     from training.dataset import source_splits
-    rows = source_splits(options.sources, options.holdout_fraction, options.seed, groups=options.source_groups)
+    rows = source_splits(options.sources, options.holdout_fraction, options.seed,
+                         cancelled=cancelled, groups=options.source_groups)
     by_path = {str(Path(r['path']).resolve()): r for r in report['sources'] if 'duplicate_of' not in r}
     result = []
     for row in rows:
+        if cancelled and cancelled():
+            raise InterruptedError('Kayıt incelemesi iptal edildi.')
         record = by_path[row['path']]
         start, end = selected_range(options, row['path'], record['seconds'])
         if len(rows) == 1:

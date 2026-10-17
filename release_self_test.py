@@ -32,6 +32,9 @@ def main(argv=None):
         from rvc.infer import model_validation
         from training import engine
         from separator_backend import LocalSeparator
+        from instruments.models import load_model
+        from restoration.engine import restore_file
+        from ui_model_terms import RestorationTermsDialog, DemucsTermsDialog
         resources = Path(resource_directory())
         info_path = resources / 'build-info.json'
         result['build'] = json.loads(info_path.read_text(encoding='utf-8')) if info_path.is_file() else {'purpose': 'source'}
@@ -72,6 +75,11 @@ def main(argv=None):
             raise RuntimeError('Native wx control initialization failed.')
         result['wx'] = wx.version()
         result['hidden_native_controls'] = True
+        for dialog_type in (RestorationTermsDialog, DemucsTermsDialog):
+            with dialog_type(frame) as dialog:
+                if dialog.GetDefaultItem().GetId() != wx.ID_CANCEL:
+                    raise RuntimeError('Optional model terms must default to cancel.')
+        result['optional_model_dialogs'] = True
         frame.Destroy()
         app.Destroy()
         with tempfile.TemporaryDirectory(prefix='release_native_', dir=output.parent) as folder:

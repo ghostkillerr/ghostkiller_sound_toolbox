@@ -102,5 +102,5 @@ Eğitim ve export FP32; yardımcı model ve hazırlık kimlikleri hash ile sabit
 Index yalnız eğitim özelliklerinden tam FlatL2 ile üretilir. Otomatik denoise,
 perde değiştirme, AMP/TF32 veya farklı vocoder'a sessiz geçiş yapılmaz.
 Uzun gerçek kayıt kalitesi, donanım uyumu ve canlı NVDA/JAWS kullanımı ayrıca
-denetlenmelidir. Önceki ayrıntılar [teknik tarihçe](MODEL_EGITIMI_TARIHCE_2026-10-13.md)
-içindedir; sentetik testler profesyonel ses kalitesi kanıtı değildir.
+denetlenmelidir. Ayrıntılar [teknik eğitim sınırlarında](TRAINING_RELEASE_FIXES.md)
+açıklanır; sentetik testler profesyonel ses kalitesi kanıtı değildir.

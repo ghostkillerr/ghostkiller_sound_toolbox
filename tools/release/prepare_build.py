@@ -44,6 +44,9 @@ def prepare_build(backend, ffmpeg_directory, *, purpose='release'):
                     f"CPython {report['python']}: PSF license and native dependency notices from the exact runtime build are in third_party/runtime.\n",
                     f"FFmpeg {ffmpeg['version']}: {ffmpeg['license']}. Exact binaries, sources, licenses and build recipes are described in third_party/ffmpeg/manifest.json.\n"]
     missing = []
+    declarations.append('\n## SCNet instrument separation\n'
+                        'MIT architecture and model license clarification: instruments/vendor/NOTICE.md and LICENSE.\n'
+                        'Optional instrument weights are downloaded in Settings, not bundled in installers.\n')
     vendor_path = ROOT / 'third_party' / 'python' / 'manifest.json'
     vendor = json.loads(vendor_path.read_text(encoding='utf-8')) if vendor_path.is_file() else {}
     expected = locked_versions(ROOT / 'requirements' / f'{backend}.lock')

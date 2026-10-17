@@ -13,7 +13,7 @@ ve arayüzünü modüler bir wx.Panel (SeparatorPanel) bileşenine dönüştür�
 """
 
 import wx
-from ui_common import apply_native_style, add_intro, ToggleAccessible
+from ui_common import apply_native_style, add_intro, ToggleAccessible, explanation_control, name_control
 import os
 import sys
 import re
@@ -25,6 +25,7 @@ from app_runtime import (JOB_LOCK, post_ui, append_log, model_directory, copy_mo
                          same_path, validate_audio_file, finish_job, output_filename)
 
 from separation_steps import SEPARATION_STEPS
+from ui_model_terms import confirm_restoration_terms, confirm_demucs_terms
 
 def separator_factory(**kwargs):
     # The GUI can open even if a native motor DLL cannot be imported.
@@ -135,6 +136,12 @@ class SeparatorPanel(wx.ScrolledWindow):
         self.SetForegroundColour(self.fg_light)
 
         vbox = wx.BoxSizer(wx.VERTICAL)
+        vbox.Add(wx.StaticText(self,label='İşlem alanı'),0,wx.LEFT | wx.TOP,10)
+        self.mode_choice = name_control(wx.Choice(self,
+            choices=['Vokal işleme','Enstrüman işleme']),'İşlem alanı')
+        self.mode_choice.SetSelection(0)
+        self.mode_choice.Bind(wx.EVT_CHOICE,self.OnMode)
+        vbox.Add(self.mode_choice,0,wx.EXPAND | wx.ALL,10)
 
         # 1. Ses Dosyası Seçimi
         file_box = wx.BoxSizer(wx.HORIZONTAL)
@@ -175,11 +182,13 @@ class SeparatorPanel(wx.ScrolledWindow):
         box_options.SetForegroundColour(self.fg_light)
         box_options.SetFont(font_large)
         sizer_options = wx.StaticBoxSizer(box_options, wx.VERTICAL)
+        self.vocal_box, self.vocal_options = box_options, sizer_options
 
-        def CreateToggleBtn(label, is_active=False):
+        def CreateToggleBtn(label, is_active=False, parent=None):
             """NVDA uyumlu [AÇIK]/[KAPALI] durumunu barındıran wx.ToggleButton üretir."""
             state_text = "[AÇIK]" if is_active else "[KAPALI]"
-            btn = wx.ToggleButton(self, label=f"{label} - {state_text}", size=(-1, 40))
+            btn = wx.ToggleButton(self if parent is None else parent,
+                                  label=f"{label} - {state_text}", size=(-1, 40))
             btn.SetFont(font_normal)
             btn.SetForegroundColour(self.fg_light)
             btn.SetValue(is_active)
@@ -199,7 +208,7 @@ class SeparatorPanel(wx.ScrolledWindow):
         sizer_options.Add(self.chk_step2, 0, wx.EXPAND | wx.ALL, 5)
 
         self.chk_restore = CreateToggleBtn("Arka vokal temizliğinden sonra kısa vokal kayıplarını onar", False)
-        restoration_help = "İsteğe bağlı deneysel onarım. Standart ve onarılmış dosyalar ayrı kaydedilir. Onarılmış çıktı mono olur. Uzun kayıp cümleler tamamlanmaz. Boşluk tuşuyla açılır veya kapatılır."
+        restoration_help = "İsteğe bağlı deneysel onarım; model ticari olmayan kullanım içindir. Standart ve onarılmış dosyalar ayrı kaydedilir. Onarılmış çıktı mono olur. Uzun kayıp cümleler tamamlanmaz. Boşluk tuşuyla açılır veya kapatılır."
         self.chk_restore.SetHelpText(restoration_help)
         self.chk_restore.GetAccessible().help_text = restoration_help
         self.chk_restore.MoveAfterInTabOrder(self.chk_step2)
@@ -213,6 +222,35 @@ class SeparatorPanel(wx.ScrolledWindow):
         sizer_options.Add(self.chk_step4, 0, wx.EXPAND | wx.ALL, 5)
 
         vbox.Add(sizer_options, 0, wx.EXPAND | wx.ALL, 5)
+
+        self.instrument_panel = wx.Panel(self,style=wx.TAB_TRAVERSAL)
+        instruments = wx.BoxSizer(wx.VERTICAL)
+        heading = wx.StaticText(self.instrument_panel,label='Enstrümanları ayrı ses dosyalarına ayır')
+        heading._ui_section = True
+        instruments.Add(heading,0,wx.ALL,8)
+        from instruments import PROFILES, STEM_LABELS
+        self.instrument_profiles = tuple(PROFILES)
+        instruments.Add(wx.StaticText(self.instrument_panel,label='Ayırma modeli'),0,wx.LEFT | wx.TOP,8)
+        self.instrument_profile = name_control(wx.Choice(self.instrument_panel,
+            choices=[p['label'] for p in PROFILES.values()]),'Enstrüman ayırma modeli')
+        self.instrument_profile.SetSelection(1)
+        self.instrument_profile.Bind(wx.EVT_CHOICE,self.OnInstrumentProfile)
+        instruments.Add(self.instrument_profile,0,wx.EXPAND | wx.ALL,8)
+        self.instrument_help = explanation_control(self.instrument_panel,'Enstrüman ayırma açıklaması',
+            'Özgün şarkıyı seçmeniz önerilir. Her kanal ayrı kaydedilir. '
+            'Altı kanallı modelde gitar ve özellikle piyano sonuçları deneysel olabilir. '
+            'Diğer enstrümanlar, ayrıca ayrılmayan seslerin birlikte bulunduğu kanaldır. '
+            'Modeller Ayarlar’dan bir kez indirilir; sesiniz bilgisayarda işlenir.')
+        instruments.Add(self.instrument_help,0,wx.EXPAND | wx.ALL,8)
+        self.instrument_stems = {}
+        for stem in ('bass','drums','guitar','piano','vocals','other'):
+            control = CreateToggleBtn(STEM_LABELS[stem]+' dosyasını kaydet', True,
+                                      parent=self.instrument_panel)
+            instruments.Add(control,0,wx.EXPAND | wx.ALL,6)
+            self.instrument_stems[stem] = control
+        self.instrument_panel.SetSizer(instruments)
+        vbox.Add(self.instrument_panel,0,wx.EXPAND | wx.ALL,5)
+        self.instrument_panel.Hide()
 
         # 4. İşlem Butonları (Başlat / İptal)
         btn_box = wx.WrapSizer(wx.HORIZONTAL)
@@ -272,6 +310,30 @@ class SeparatorPanel(wx.ScrolledWindow):
         self.txt_status.SetName("İşlem durumu ve yüzde")
         self.gauge.SetName("İşlem ilerlemesi")
         self.LogMessage("Hazır. Başlamak için bir ses dosyası seçin.")
+
+    def OnMode(self,event):
+        instrument = self.mode_choice.GetSelection()==1
+        self.vocal_options.ShowItems(not instrument)
+        self.vocal_box.Show(not instrument)
+        self.instrument_panel.Show(instrument)
+        self.btn_start.SetLabel('Enstrümanları ayırmayı başlat' if instrument else 'Ses temizlemeyi başlat')
+        self.btn_start.SetName(self.btn_start.GetLabel())
+        if instrument:
+            self.OnInstrumentProfile(None)
+        else:
+            self.UpdateRestorationVisibility()
+        self.Layout()
+        self.FitInside()
+
+    def OnInstrumentProfile(self,event):
+        from instruments import profile_for
+        key = self.instrument_profiles[self.instrument_profile.GetSelection()]
+        supported = profile_for(key)['stems']
+        for stem,control in self.instrument_stems.items():
+            control.Show(stem in supported)
+        self.instrument_panel.Layout()
+        self.Layout()
+        self.FitInside()
 
     def OnCheckToggle(self, event):
         """Kanal seçim düğmesi basıldığında [AÇIK]/[KAPALI] durum ve rengini NVDA uyumlu günceller."""
@@ -360,6 +422,93 @@ class SeparatorPanel(wx.ScrolledWindow):
         post_ui(self, self.chk_restore.Enable, enable)
         post_ui(self, self.chk_step3.Enable, enable)
         post_ui(self, self.chk_step4.Enable, enable)
+        post_ui(self, self.mode_choice.Enable, enable)
+        post_ui(self, self.instrument_panel.Enable, enable)
+
+    def OnInstrumentStart(self):
+        if not os.path.isfile(self.current_input_file) or not os.path.isdir(self.output_directory):
+            wx.MessageBox('Önce ses dosyasını ve çıktı klasörünü seçin.','Eksik bilgi',wx.OK | wx.ICON_WARNING)
+            return
+        from instruments import profile_for
+        profile = self.instrument_profiles[self.instrument_profile.GetSelection()]
+        stems = tuple(s for s in profile_for(profile)['stems'] if self.instrument_stems[s].GetValue())
+        if not stems:
+            wx.MessageBox('En az bir ses kanalını seçin.','Kanal seçimi',wx.OK | wx.ICON_INFORMATION)
+            return
+        if profile == 'demucs6' and not confirm_demucs_terms(self):
+            return
+        try:
+            device = self.settings.prepare_job([profile])
+        except Exception as error:
+            wx.MessageBox(str(error),'Enstrüman modeli ve donanım',wx.OK | wx.ICON_WARNING)
+            self.settings.open_settings()
+            return
+        if not JOB_LOCK.acquire(blocking=False):
+            wx.MessageBox('Başka bir işlem sürüyor. Bitmesini bekleyin.','İşlem sürüyor',wx.OK | wx.ICON_INFORMATION)
+            return
+        try:
+            self.is_cancelled = False
+            self.EnableUI(False)
+            self.txt_log.Clear()
+            threading.Thread(target=self.ProcessInstruments,
+                args=(self.current_input_file,self.output_directory,profile,stems,device),daemon=True).start()
+        except Exception:
+            JOB_LOCK.release()
+            self.EnableUI(True)
+            raise
+
+    def ProcessInstruments(self,input_file,output_directory,profile,stems,device):
+        import uuid
+        from app_runtime import safe_filename
+        try:
+            folder = os.path.join(output_directory,safe_filename(os.path.splitext(os.path.basename(input_file))[0])+
+                                  '_Enstrumanlar_'+uuid.uuid4().hex[:8])
+            def progress(text):
+                match = re.search(r'%(\d+)',text)
+                self.UpdateStatus(text,int(match.group(1)) if match else None)
+            self.LogMessage('Enstrüman ayırma başlıyor. Seçilen modelin kanalları ayrı dosyalara kaydedilecek.')
+            # The GUI owns staging so it can also clean up after a worker crash
+            # or force-stop, when the worker's finally blocks cannot execute.
+            with tempfile.TemporaryDirectory(prefix='ghostkiller_instruments_',dir=output_directory) as stage:
+                staged_output = os.path.join(stage,'results')
+                try:
+                    self.audio_session = self.audio_session_factory()
+                    result = self.audio_session.execute('instruments',{'input_file':input_file,'output_dir':staged_output,
+                        'model_root':self.model_dir,'profile':profile,'stems':stems,'device':device},
+                        cancelled=lambda:self.is_cancelled,progress=progress)
+                finally:
+                    try:
+                        if self.audio_session is not None:
+                            self.audio_session.close()
+                    finally:
+                        self.audio_session = None
+                if self.is_cancelled:
+                    raise InterruptedError('Enstrüman ayırma iptal edildi.')
+                if (not same_path(result['directory'],staged_output) or not os.path.isdir(staged_output)
+                        or set(result['files']) != set(stems)):
+                    raise ValueError('Enstrüman sonuç klasörü veya kanalları geçersiz.')
+                for stem,path in result['files'].items():
+                    if not same_path(path,os.path.join(staged_output,stem+'.flac')) or not os.path.isfile(path):
+                        raise ValueError('Enstrüman çıktı dosyası iş klasörü dışında veya eksik.')
+                os.rename(staged_output,folder)
+                result = {**result,'directory':folder,
+                          'files':{stem:os.path.join(folder,stem+'.flac') for stem in stems}}
+            self.LogMessage('Sonuç klasörü: '+result['directory'])
+            from instruments import STEM_LABELS
+            for stem,path in result['files'].items():
+                self.LogMessage(STEM_LABELS[stem]+': '+path)
+            if result.get('shared_gain',1)<1:
+                self.LogMessage('Ses taşmasını önlemek için bütün kanallar aynı oranda kısıldı; göreli seviyeler korundu.')
+            message = f"{len(result['files'])} kanal ayrı kaydedildi. Sonuç klasörü: {result['directory']}"
+            self.UpdateStatus(message,100)
+            post_ui(self,wx.MessageBox,message,'Enstrüman ayırma tamamlandı',wx.OK | wx.ICON_INFORMATION)
+        except Exception as error:
+            message = 'Enstrüman ayırma iptal edildi.' if self.is_cancelled else str(error)
+            self.LogMessage(message)
+            self.UpdateStatus(message,0)
+            post_ui(self,wx.MessageBox,message,'Enstrüman ayırma',wx.OK | wx.ICON_WARNING)
+        finally:
+            finish_job(self)
 
     def OnCancel(self, event):
         """Devam eden ayrıştırma zincirini iptal etme bayrağını tetikler."""
@@ -571,6 +720,9 @@ class SeparatorPanel(wx.ScrolledWindow):
 
     def OnStart(self, event):
         """Ayrıştırma işlemini arka plan iş parçacığı (threading) olarak başlatır."""
+        if self.mode_choice.GetSelection()==1:
+            self.OnInstrumentStart()
+            return
         if not self.current_input_file:
             wx.MessageBox("Lütfen önce bir ses dosyası seçin.", "Eksik Bilgi", wx.OK | wx.ICON_WARNING)
             return
@@ -586,6 +738,8 @@ class SeparatorPanel(wx.ScrolledWindow):
             return
         if not os.path.isfile(self.current_input_file) or not os.path.isdir(self.output_directory):
             wx.MessageBox("Giriş dosyası veya çıktı klasörü bulunamadı.", "Hata", wx.OK | wx.ICON_ERROR)
+            return
+        if restore_vocal and not confirm_restoration_terms(self):
             return
         try:
             required = [step[0] for enabled, step in zip(selected_steps, SEPARATION_STEPS) if enabled]

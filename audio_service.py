@@ -73,7 +73,7 @@ class NativeAudioSession:
         last_notice = time.monotonic()
         while True:
             try:
-                if kind == 'restore_vocal' and cancelled and cancelled():
+                if kind in ('restore_vocal','instruments') and cancelled and cancelled():
                     (self.directory/f'cancel_{sequence}').touch(exist_ok=True)
             except BaseException:
                 self.close()

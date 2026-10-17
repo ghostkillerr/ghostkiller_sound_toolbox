@@ -27,6 +27,34 @@ def toggle(panel, control, active):
 
 
 class RestorationUI(unittest.TestCase):
+    def setUp(self):
+        self.terms = patch('ui_separator.confirm_restoration_terms',return_value=True)
+        self.terms.start()
+        self.addCleanup(self.terms.stop)
+
+    def test_declining_model_terms_does_not_prepare_or_start_restoration(self):
+        app = wx.GetApp() or wx.App(False)
+        frame = wx.Frame(None)
+        try:
+            with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+                source = Path(folder)/'input.wav'
+                source.touch()
+                prepare = Mock(return_value='cpu')
+                panel = ui_separator.SeparatorPanel(frame,SimpleNamespace(theme='light',prepare_job=prepare))
+                panel.current_input_file = str(source)
+                panel.output_directory = folder
+                panel.chk_step2.SetValue(True)
+                panel.chk_restore.SetValue(True)
+                with patch('ui_separator.confirm_restoration_terms',return_value=False), \
+                        patch('ui_separator.threading.Thread') as worker:
+                    panel.OnStart(None)
+                prepare.assert_not_called()
+                worker.assert_not_called()
+                self.assertFalse(JOB_LOCK.locked())
+        finally:
+            frame.Destroy()
+            app.ProcessPendingEvents()
+
     def test_conditional_visibility_native_states_and_keyboard_order(self):
         app = wx.GetApp() or wx.App(False)
         frame = wx.Frame(None,size=(850,850))
@@ -106,6 +134,44 @@ class RestorationUI(unittest.TestCase):
 
 
 class RestorationFiles(unittest.TestCase):
+    def test_duration_has_no_hour_cap_with_scaled_working_rate(self):
+        # 3601 real seconds at 1 Hz; scale the working rate to avoid a multi-GB
+        # fixture. The former 3600*RATE guard rejected this exact code path.
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+            root=Path(folder)
+            source=root/'long.wav'
+            sf.write(source,np.zeros(3601),1,subtype='FLOAT')
+            with patch('restoration.engine.RATE',1), patch('training.resources.memory_status',return_value={'available_ram_mb':1000}):
+                result=restore_file(source,source,root/'long.flac',root,repair_factory=Mock())
+            self.assertEqual(result['frames'],3601)
+            self.assertEqual(sf.info(root/'long.flac').frames,3601)
+
+    def test_combined_resampled_memory_is_checked_before_decoding(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+            root=Path(folder)
+            source=root/'voice.wav'
+            sf.write(source,np.zeros(16000),16000)
+            with patch('training.resources.memory_status',return_value={'available_ram_mb':1}), patch('soundfile.SoundFile') as decode:
+                # sf.info itself uses SoundFile; provide metadata independently.
+                with patch('soundfile.info',return_value=SimpleNamespace(frames=16000,samplerate=16000,channels=1)):
+                    with self.assertRaises(MemoryError):
+                        restore_file(source,source,root/'out.flac',root)
+                decode.assert_not_called()
+            self.assertFalse((root/'out.flac').exists())
+
+    def test_streaming_resampling_keeps_length_and_output_samples(self):
+        import soxr
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+            root=Path(folder)
+            source=root/'voice.wav'
+            signal=.1*np.sin(np.arange(16000*5)*2*np.pi*220/16000)
+            sf.write(source,signal,16000,subtype='FLOAT')
+            result=restore_file(source,source,root/'out.flac',root)
+            expected=soxr.resample(sf.read(source)[0],16000,RATE,quality='VHQ')
+            actual=sf.read(root/'out.flac')[0]
+            self.assertEqual(result['frames'],len(expected))
+            np.testing.assert_allclose(actual,expected,atol=2e-7,rtol=0)
+
     def test_short_recording_supplies_full_sampler_window_and_trims_context(self):
         import torch
         from restoration.engine import A2SBRepair

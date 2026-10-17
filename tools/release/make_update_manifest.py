@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from release_security import RELEASE_PAGE, RELEASE_REPOSITORY, validate_package, verify_installer
 from tools.release.preflight import sha256
+from tools.release.source_identity import source_digest
 
 
 def create_manifest(version, packages, *, changelog='', release_date=None):
@@ -14,6 +15,8 @@ def create_manifest(version, packages, *, changelog='', release_date=None):
               'release_url': RELEASE_PAGE + '/tag/v' + version, 'packages': {}}
     if release_date is not None:
         result['release_date'] = date.fromisoformat(release_date).isoformat()
+    expected_source = source_digest()
+    package_source = None
     for backend, installer, build_info in packages:
         installer = Path(installer)
         info = json.loads(Path(build_info).read_text(encoding='utf-8'))
@@ -21,6 +24,12 @@ def create_manifest(version, packages, *, changelog='', release_date=None):
             raise ValueError('Diagnostic or mismatched backend builds cannot produce update metadata.')
         if info.get('application_version') != version:
             raise ValueError('Manifest version does not match the frozen application version.')
+        source = info.get('application_source_sha256')
+        if package_source is not None and source != package_source:
+            raise ValueError('All update packages must use the same application sources.')
+        if source != expected_source:
+            raise ValueError('Frozen application sources are outdated. Rebuild before creating update metadata.')
+        package_source = source
         receipt_path = installer.with_suffix('.build.json')
         if not receipt_path.is_file():
             raise ValueError('Installer build receipt missing; compile it with tools.release.build_installer.')

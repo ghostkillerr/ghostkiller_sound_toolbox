@@ -9,6 +9,8 @@ from model_manager import model_catalog, default_model_selection
 from ui_cover import ModelToggleList
 from ui_common import apply_native_style, DetailsDialog, add_intro, section_title
 from updater import check_for_updates, last_update_result
+from ui_model_terms import confirm_restoration_terms, confirm_demucs_terms
+from restoration import MODEL_ID as RESTORATION_MODEL
 
 
 class SettingsPanel(wx.ScrolledWindow):
@@ -64,7 +66,7 @@ class SettingsPanel(wx.ScrolledWindow):
         self.txt_path.SetName("Modellerin indirileceği klasör")
         layout.Add(self.txt_path, 0, wx.EXPAND | wx.ALL, 8)
         section_title(self, layout, "2. Model dosyaları")
-        layout.Add(wx.StaticText(self, label="Ses temizleme ve ses değiştirme modelleri seçili gelir.\nEğitim ve isteğe bağlı vokal onarımı modellerini gerektiğinde ayrıca seçin.\nSeçimleri Boşluk ile değiştirin; ok tuşlarıyla listede dolaşın.\nEksikleri indir: olmayan dosyaları tamamlar. Kontrol et: dosyaları inceler. Onar: sorunlu dosyaları yeniden indirir."),
+        layout.Add(wx.StaticText(self, label="Ses temizleme ve ses değiştirme modelleri seçili gelir.\nEğitim, enstrüman ayırma ve isteğe bağlı vokal onarımı modellerini gerektiğinde ayrıca seçin.\nSeçimleri Boşluk ile değiştirin; ok tuşlarıyla listede dolaşın.\nEksikleri indir: olmayan dosyaları tamamlar. Kontrol et: dosyaları inceler. Onar: sorunlu dosyaları yeniden indirir."),
                    0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.model_list = ModelToggleList(self)
         self.model_list.SetMinSize((-1, 180))
@@ -185,6 +187,10 @@ class SettingsPanel(wx.ScrolledWindow):
                 self.settings.device_for()
         except Exception as error:
             wx.MessageBox(str(error), "Donanım desteği", wx.OK | wx.ICON_WARNING)
+            return
+        if action != 'verify' and RESTORATION_MODEL in selected and not confirm_restoration_terms(self):
+            return
+        if action != 'verify' and 'demucs6' in selected and not confirm_demucs_terms(self):
             return
         self.StartJob(action, selected)
 

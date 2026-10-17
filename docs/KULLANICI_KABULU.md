@@ -1,11 +1,14 @@
 # İlk deneme: senden beklenenler
 
-Güncelleme: **16 Ekim 2026**. Güncel CPU ve NVIDIA CUDA 2.1.0 yerel kurulum
-adaylarında isteğe bağlı vokal onarımı da bulunuyor. İki ortamda 307'şer
-otomatik test, paketli açılış ve ayrı yerel kurulum kontrolleri geçti.
-Kurulumlar henüz GitHub'da yayımlanmadı.
-Gerçek sesle dinleme ve günlük kullanım
-denemesi henüz tamamlanmadı. Otomatik testler, sesin kulağa iyi geldiğini ölçmez.
+Güncelleme: **17 Ekim 2026**. Güncel test ve kurulum sonucu için
+[Son durum](SON_DURUM.md) dosyasını esas alın. Eski 16 Ekim kurulumlarının
+307 test/Sandbox kanıtları bugünkü değişikliklerin kabulü sayılmaz.
+
+Enstrüman kanal düğmelerinin açık/kapalı okuması düzeltildi ve 17 Ekim'de
+kullanıcı tarafından çalıştığı doğrulandı. Bu kabul yalnız denenen kontrolleri
+kapsar. Sırada gerçek sesleri sırayla dinlemek var. A2SB ve
+altı kanallı HTDemucs seçilirse ilgili modelin kullanım koşulları gösterilir;
+Vazgeç ile çıkmak mümkündür, işlem kendiliğinden başlamaz.
 
 Kod yazman, komut çalıştırman veya eğitim teorisini bilmen gerekmiyor.
 Yazılım değişiklikleri, hata incelemesi, teknik ayarlar, testler ve kurulum
@@ -74,9 +77,12 @@ kuyruğu zaten vardır; bunlar yeni eklenecek özellikler olarak sayılmamalıd�
 
 ## Daha sonra, dağıtımdan önce
 
-Temiz Windows kurulumu, güncelleme, model ve ayarların korunması ve kaldırma
-kontrolleri ayrı bir aşamadır. Hazır Sandbox dosyaları vardır; bu rehberi
-okumak bunları başlatmaz. Bu işlemler zamanı geldiğinde adım adım yürütülür.
+16 Ekim eski adaylar için temiz Windows Sandbox'ta kurulum, aynı sürümü
+yeniden kurma, örnek model/ayarları koruma ve kaldırma kontrolleri tamamlanmıştı.
+17 Ekim yeni adayın temiz Windows kabulü ayrıca yapılmalıdır. Gerçek eski sürümden
+yükseltme ve yönetici izni penceresini kabul/iptal etme ayrıca sınanacak.
+Sandbox denemesi kişisel kayıtlarını kullanmadı. Günlük kullanım ve ses
+kalitesi için aşağıdaki ekran okuyucu/dinleme kabulü hâlâ gerekiyor.
 
 NVDA veya JAWS kullanıyorsan düğme adlarının, sonuçların ve Tab geçişlerinin
 anlaşılır olup olmadığını da dene. “Şurada sustu” veya “Aynı yazıyı iki kez

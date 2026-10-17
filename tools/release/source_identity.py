@@ -10,7 +10,8 @@ def source_digest(root=None):
                                        'training/vendor/LICENSE','training/vendor/NOTICE.md'))
     paths.extend(root/'restoration/vendor'/name for name in
                  ('LICENSE','NOTICE.md','MODEL_LICENSE.md','GUIDED_DIFFUSION_LICENSE'))
-    for directory in ('rvc','training','restoration','tools/release'):
+    paths.extend(root/'instruments/vendor'/name for name in ('LICENSE','NOTICE.md'))
+    for directory in ('rvc','training','restoration','instruments','tools/release'):
         paths.extend(path for path in (root/directory).rglob('*')
                      if path.is_file() and path.suffix in ('.py','.json')
                      and not {'models','__pycache__'}.intersection(path.relative_to(root).parts))

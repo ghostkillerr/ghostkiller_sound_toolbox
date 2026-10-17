@@ -47,6 +47,11 @@ class AudioEngine:
         if kind == 'ping':
             return {'pid':os.getpid(), 'device':device,
                     'helper_cache_entries':len(self.converter.helper_cache) if self.converter is not None else 0}
+        if kind == 'instruments':
+            from instruments.engine import separate_file
+            return separate_file(payload['input_file'],payload['output_dir'],payload['model_root'],
+                                 profile=payload['profile'],stems=payload['stems'],device=device,
+                                 cancelled=self.cancelled,progress=self.progress)
         if kind == 'cover':
             from rvc.infer.infer import VoiceConverter
             from rvc.infer.quality_policy import InferenceQualityPolicy

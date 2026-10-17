@@ -14,6 +14,32 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class RecordingAnalysisTests(unittest.TestCase):
+    def test_ui_does_not_publish_analysis_cancelled_after_the_final_review(self):
+        import ui_training
+        def run_now(target, **kwargs):
+            return SimpleNamespace(start=target)
+        for final_stage in ('hash','after_review'):
+            panel = SimpleNamespace(busy=False,sources=['voice.wav'],sample_rate=Mock(),
+                Options=Mock(return_value=Mock()),EnableUI=Mock(),gauge=Mock(),txt_status=Mock(),
+                OnProgress=Mock(),OnAnalyzed=Mock(),OnOperationError=Mock(),AnalysisStopped=Mock())
+            panel.sample_rate.GetSelection.return_value = 1
+            def review(report, options, cancelled):
+                panel.analysis_cancel.set()
+                if final_stage == 'hash':
+                    raise InterruptedError('Kayıt incelemesi iptal edildi.')
+                return {}
+            with self.subTest(stage=final_stage), \
+                    patch('ui_training.threading.Thread',side_effect=run_now), \
+                    patch('training.analysis.analyze_sources',return_value={}), \
+                    patch('ui_training.split_review',side_effect=review) as split, \
+                    patch('ui_training.post_ui',side_effect=lambda parent,fn,*args:fn(*args)), \
+                    patch('ui_training.finish_job',side_effect=lambda parent:JOB_LOCK.release()):
+                ui_training.TrainingPanel.OnAnalyze(panel,None)
+                self.assertTrue(callable(split.call_args.args[2]))
+                panel.OnAnalyzed.assert_not_called()
+                panel.OnOperationError.assert_called_once()
+                self.assertFalse(JOB_LOCK.locked())
+
     def test_phase_cancellation_is_detected_without_changing_audio(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder:
             path = Path(folder)/'stereo.wav'

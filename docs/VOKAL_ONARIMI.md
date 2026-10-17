@@ -1,5 +1,12 @@
 # İsteğe bağlı kısa vokal onarımı
 
+Kayıt uzunluğu için bir saat sınırı kaldırıldı. Sesler parça parça okunur ve
+yeniden örneklenir; onarımın çalışma dizileri yine RAM'de tutulur. Bellek
+ihtiyacı dosyalar tamamen okunmadan önce kontrol edilir. Uzun kayıtlar daha
+fazla bellek ve zaman gerektirir; belleği yetersiz bilgisayarda işlem açıklayıcı
+mesajla durur. Bu değişiklik kaynak kodunda uygulanıp sınandı.
+Güncel paket ve doğrulama sonucu [Son durum](SON_DURUM.md) içindedir.
+
 Müzik ve ses temizleme sekmesinde **3. Arka Vokalleri ve Harmoni Seslerini
 Temizle** açıkken hemen altında **Arka vokal temizliğinden sonra kısa vokal
 kayıplarını onar** seçeneği görünür. Varsayılan kapalıdır. Arka vokal temizliği
@@ -18,8 +25,9 @@ standart sonuç kendi kanal sayısını korur. Uzun kayıp cümleler bu yönteml
 tamamlanmaz. Doğru söz, nota ve ana sesin korunması dinleyerek değerlendirilir.
 
 Model gerekirse Ayarlar'daki **Kısa vokal kayıplarını onar: A2SB
-(araştırma/değerlendirme)** kaydından indirilip kontrol edilir. Boyutu yaklaşık
-2,26 GB'dır; CPU'da daha yavaş çalışabilir. Model NVIDIA'nın ticari olmayan
+(ticari olmayan kullanım)** kaydından indirilip kontrol edilir. Boyutu yaklaşık
+2,26 GB'dır; CPU'da daha yavaş çalışabilir. İndirme veya ilk kullanım
+öncesinde model koşulları gösterilir; kabul edilmezse işlem başlamaz. Model NVIDIA'nın ticari olmayan
 lisansına tabidir. Ayrıntılar `restoration/vendor/` içindeki lisans/NOTICE
 dosyalarındadır. Bu bilgisayarda mevcut ağırlık doğrulanıp hazırlandı.
 
@@ -34,12 +42,12 @@ dosyalarındadır. Bu bilgisayarda mevcut ağırlık doğrulanıp hazırlandı.
 - İşlem sırasında seçenekler kilitlenir; İptal et ve Zorla durdur korunur.
 
 Yerel kontroller görünürlük, Tab sırası, erişilebilir rol/ad/durum/eylem ve
-dosya korumasını doğrular. CPU ve NVIDIA ortamlarında 307'şer otomatik test geçti.
+dosya korumasını doğrular. Güncel CPU/CUDA test sonucu [Son durum](SON_DURUM.md) dosyasındadır.
 Canlı NVDA konuşması için kullanıcı dinlemesi ayrıca
 gerekir. Gerçek CUDA işleyicisi kayıt örneğinde onarım, ilerleme, iptal ve PCM24
 kaydını doğruladı. Bunlar bütün şarkıların ses kalitesi kabulü değildir.
 
-Bu seçenek güncel CPU ve NVIDIA CUDA 2.1.0 yerel kurulumlarına da eklendi.
-Paketli işleyicide CPU başlangıcı ve NVIDIA'da gerçek A2SB üretimi doğrulandı.
-Kurulumlar henüz GitHub Release olarak yayımlanmadı; temiz Windows ve dinleme
-kabulü ayrıca bekliyor. [Güncel kurulum kanıtı](KURULUM_YENIDEN_DERLEME_2026-10-16.md).
+Önceki paketli işleyicilerde CPU başlangıcı ve NVIDIA'da gerçek A2SB üretimi
+doğrulanmıştı. Eski kurulum adayları temizlikte kaldırıldı; yayın için güncel
+kaynakla iki yeni paket gerekir. Güncel durum ve kalan kabuller için
+[Son durum](SON_DURUM.md) dosyasını esas alın.

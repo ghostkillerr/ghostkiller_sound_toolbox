@@ -17,6 +17,7 @@ from release_security import (InstallerPackage, RELEASE_REPOSITORY, validate_pac
 from windows_installer import InstallerLaunchCancelled, ShellExecuteInfo, launch_elevated_installer, hold_installer_file
 from tools.release import preflight
 from tools.release.make_update_manifest import create_manifest
+from tools.release.source_identity import source_digest
 
 
 PAYLOAD = b'MZ' + b'verified synthetic installer fixture' * 4
@@ -28,14 +29,14 @@ def manifest(payload=PAYLOAD):
             'sha256': hashlib.sha256(payload).hexdigest(), 'size': len(payload)}}}
 
 
-def installer_build_fixture(root, installer):
+def installer_build_fixture(root, installer, backend='cpu', source=None):
     """Synthetic compile receipt for release metadata tests; never a real installer."""
     info = root/'build-info.json'
-    source = hashlib.sha256(b'synthetic application sources').hexdigest()
-    info.write_text(json.dumps({'backend':'cpu','purpose':'release','release_eligible':True,
+    source = source or source_digest()
+    info.write_text(json.dumps({'backend':backend,'purpose':'release','release_eligible':True,
                                'application_version':'2.1.0','application_source_sha256':source}))
     installer.with_suffix('.build.json').write_text(json.dumps({
-        'schema_version':1,'backend':'cpu','purpose':'release','release_eligible':True,
+        'schema_version':1,'backend':backend,'purpose':'release','release_eligible':True,
         'application_version':'2.1.0','application_source_sha256':source,
         'build_info_sha256':preflight.sha256(info),
         'installer':{'filename':installer.name,'size':installer.stat().st_size,
@@ -339,6 +340,31 @@ class ReleaseBuildTests(unittest.TestCase):
             info = installer_build_fixture(root,installer)
             with self.assertRaisesRegex(ValueError,'Duplicate backend'):
                 create_manifest('2.1.0',[('cpu',installer,info),('cpu',installer,info)])
+
+    def test_manifest_rejects_internally_valid_but_outdated_sources(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            installer = root/'Setup_cpu.exe'
+            installer.write_bytes(PAYLOAD)
+            info = installer_build_fixture(root,installer,source='ab'*32)
+            with self.assertRaisesRegex(ValueError,'outdated'):
+                create_manifest('2.1.0',[('cpu',installer,info)])
+
+    def test_manifest_requires_both_profiles_to_match_current_sources(self):
+        with tempfile.TemporaryDirectory() as folder:
+            pairs = []
+            for backend in ('cpu','cuda'):
+                root = Path(folder)/backend
+                root.mkdir()
+                installer = root/f'Setup_{backend}.exe'
+                installer.write_bytes(PAYLOAD+backend.encode())
+                info = installer_build_fixture(root,installer,backend=backend)
+                pairs.append((backend,installer,info))
+            self.assertEqual(set(create_manifest('2.1.0',pairs)['packages']),{'cpu','cuda'})
+            root = Path(folder)/'cuda'
+            info = installer_build_fixture(root,pairs[1][1],backend='cuda',source='cd'*32)
+            with self.assertRaisesRegex(ValueError,'same application sources'):
+                create_manifest('2.1.0',[pairs[0],('cuda',pairs[1][1],info)])
 
     def test_all_native_profiles_are_hash_locked_and_have_one_ort(self):
         for backend in ('cpu', 'cuda', 'xpu'):

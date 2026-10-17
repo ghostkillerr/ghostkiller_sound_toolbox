@@ -59,11 +59,11 @@ class SettingsTests(unittest.TestCase):
             with patch.dict(sys.modules, {'separator_backend': None}), tempfile.TemporaryDirectory(dir=ROOT) as folder:
                 spec.loader.exec_module(module)
                 self.assertIsNone(module.Separator)
-                self.assertEqual(len(model_catalog()), 11)
+                self.assertEqual(len(model_catalog()), 13)
                 settings = AppSettings(str(Path(folder) / 'settings.json'), ModelManager(folder))
                 panel = module.SeparatorPanel(frame, settings)
                 maintenance = SettingsPanel(frame, settings, auto_detect=False)
-                self.assertEqual(len(maintenance.model_list.buttons), 11)
+                self.assertEqual(len(maintenance.model_list.buttons), 13)
                 with patch.object(panel, 'LogMessage') as log:
                     self.assertFalse(panel.RunSeparatorCommand('unused', 'unused', 'test', folder))
                     self.assertIn('audio-separator', log.call_args.args[0])
@@ -361,7 +361,9 @@ class SettingsTests(unittest.TestCase):
                 panel = SettingsPanel(frame, settings, auto_detect=False)
                 optional = [MODEL_ID, 'training_v2_32k', 'training_v2_40k', 'training_v2_48k']
                 self.assertTrue(set(optional).isdisjoint(panel.model_list.GetCheckedModels()))
-                with patch.object(settings, 'device_for', return_value='cpu'), patch.object(panel, 'StartJob') as start:
+                with patch.object(settings, 'device_for', return_value='cpu'), \
+                        patch('ui_settings.confirm_restoration_terms',return_value=True), \
+                        patch.object(panel, 'StartJob') as start:
                     panel.OnModels('install')
                     self.assertEqual(start.call_args.args, ('install', default_model_selection()))
                     for name in (MODEL_ID, 'training_v2_40k'):

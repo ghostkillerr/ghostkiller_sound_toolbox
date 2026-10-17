@@ -9,6 +9,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from app_runtime import app_directory, model_directory, download_model, copy_model, same_path, configure_runtime_cache
 from restoration import MODEL_ID as RESTORATION_MODEL, MODEL_SHA256, MODEL_URL
+from instruments import PROFILES as INSTRUMENT_PROFILES
+
+INSTRUMENT_ASSETS = {key: ('Enstrüman ayırma: '+value['label'],
+                          ((value['asset'],value['url']),))
+                     for key,value in INSTRUMENT_PROFILES.items()}
 
 
 ASSET_COMMIT = "b81f9708367b124b29a47788e4c89b721166234f"
@@ -41,7 +46,7 @@ RVC_ASSETS = {
     )),
 }
 RESTORATION_ASSETS = {
-    RESTORATION_MODEL: ('Kısa vokal kayıplarını onar: A2SB (araştırma/değerlendirme)',
+    RESTORATION_MODEL: ('Kısa vokal kayıplarını onar: A2SB (ticari olmayan kullanım)',
                         ((RESTORATION_MODEL, MODEL_URL),)),
 }
 
@@ -68,7 +73,8 @@ def model_catalog():
     from separation_steps import SEPARATION_STEPS
     return {**{step[0]: step[1] for step in SEPARATION_STEPS},
             **{key: value[0] for key, value in RESTORATION_ASSETS.items()},
-            **{key: value[0] for key, value in RVC_ASSETS.items()}}
+            **{key: value[0] for key, value in RVC_ASSETS.items()},
+            **{key: value[0] for key, value in INSTRUMENT_ASSETS.items()}}
 
 
 def default_model_selection():
@@ -257,6 +263,13 @@ def validate_file(path, relative, cancelled=None, config=None):
     """Reject HTML responses, malformed metadata, and damaged checkpoint archives."""
     if not os.path.isfile(path) or not os.path.getsize(path):
         raise ValueError("Dosya boş veya bulunamadı.")
+    for profile in INSTRUMENT_PROFILES.values():
+        if relative.replace('\\','/') == profile['asset']:
+            if os.path.getsize(path) != profile['size'] or file_digest(path,cancelled) != profile['sha256']:
+                raise ValueError('Enstrüman modeli sabit kaynak kimliğiyle eşleşmiyor.')
+            from rvc.infer.model_validation import checkpoint_archive_precheck
+            checkpoint_archive_precheck(path)
+            return
     extension = os.path.splitext(relative)[1].lower()
     if extension in (".json", ".yaml", ".yml"):
         with open(path, encoding="utf-8") as stream:
@@ -374,7 +387,7 @@ class ModelManager:
         return path
 
     def primary_files(self, model_id):
-        assets = {**RVC_ASSETS, **RESTORATION_ASSETS}
+        assets = {**RVC_ASSETS, **RESTORATION_ASSETS, **INSTRUMENT_ASSETS}
         return [asset[0] for asset in assets[model_id][1]] if model_id in assets else [model_id]
 
     def status(self, model_id):
@@ -517,7 +530,7 @@ class ModelManager:
                         raise FileNotFoundError(f"{relative}: dosya eksik.") from error
                 if not valid:
                     parsed = urlparse(url)
-                    if parsed.scheme != "https" or parsed.hostname not in ("huggingface.co", "github.com", "raw.githubusercontent.com", "dl.fbaipublicfiles.com"):
+                    if parsed.scheme != "https" or parsed.hostname not in ("huggingface.co", "github.com", "raw.githubusercontent.com", "dl.fbaipublicfiles.com", "drive.usercontent.google.com"):
                         raise ValueError("Model kaynağı desteklenmiyor.")
                     os.makedirs(os.path.dirname(path), exist_ok=True)
                     if log:
@@ -547,7 +560,7 @@ class ModelManager:
                 checked[relative] = {"sha256": digest, "size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
 
             try:
-                assets = {**RVC_ASSETS, **RESTORATION_ASSETS}
+                assets = {**RVC_ASSETS, **RESTORATION_ASSETS, **INSTRUMENT_ASSETS}
                 if model_id in assets:
                     for relative, url in assets[model_id][1]:
                         asset_handler(url, self.path(relative))

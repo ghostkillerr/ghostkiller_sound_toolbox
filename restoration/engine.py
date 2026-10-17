@@ -113,17 +113,39 @@ def restore_file(reference_file, cleaned_file, output_file, model_dir, device='c
     def check_cancelled():
         if cancelled and cancelled():
             raise InterruptedError('Vokal onarımı iptal edildi.')
+    # Duration is unrestricted. Budget the resampled working arrays before
+    # decoding either input, including detector/filter and mono-copy temporaries.
+    check_cancelled()
+    infos = [sf.info(path) for path in (reference_file, cleaned_file)]
+    if any(info.frames <= 0 or info.samplerate <= 0 or info.channels <= 0 for info in infos):
+        raise ValueError('Onarım için ses dosyası boş veya geçersiz.')
+    lengths = [round(info.frames * RATE / info.samplerate) for info in infos]
+    if abs(lengths[0]-lengths[1]) > 1:
+        raise ValueError('Temizleme öncesi ve sonrası süreler eşleşmiyor.')
+    from training.resources import memory_status
+    available = memory_status().get('available_ram_mb')
+    estimate_mb = (max(lengths)*8*24 + max(info.channels for info in infos)*65536*8)/1024**2
+    if available and estimate_mb > available*.6:
+        raise MemoryError(f'Vokal onarımı için tahmini RAM {estimate_mb:.0f} MiB; '
+                          f'kullanılabilir RAM {available:.0f} MiB. Diğer programları kapatıp yeniden deneyin.')
     def read(path):
         check_cancelled()
-        data, rate = sf.read(path,dtype='float64',always_2d=True)
-        finite_audio(data)
-        mono = data.mean(axis=1)
-        return soxr.resample(mono,rate,RATE,quality='VHQ') if rate!=RATE else mono
+        chunks = []
+        with sf.SoundFile(path) as stream:
+            resampler = (soxr.ResampleStream(stream.samplerate,RATE,1,dtype='float64',quality='VHQ')
+                         if stream.samplerate != RATE else None)
+            for data in stream.blocks(blocksize=65536,dtype='float64',always_2d=True):
+                check_cancelled()
+                finite_audio(data)
+                mono = data.mean(axis=1)
+                if resampler is not None:
+                    mono = resampler.resample_chunk(mono,last=stream.tell()==stream.frames)
+                chunks.append(mono)
+        check_cancelled()
+        return np.concatenate(chunks)
     reference, cleaned = read(reference_file), read(cleaned_file)
     if abs(len(reference)-len(cleaned)) > 1:
         raise ValueError('Temizleme öncesi ve sonrası süreler eşleşmiyor.')
-    if len(cleaned) > 3600*RATE:
-        raise ValueError('Vokal onarımı bir saate kadar kayıt destekler.')
     if len(reference)!=len(cleaned):
         reference = np.pad(reference,(0,max(0,len(cleaned)-len(reference))),mode='edge')[:len(cleaned)]
     intervals, skipped = candidate_intervals(reference,cleaned)

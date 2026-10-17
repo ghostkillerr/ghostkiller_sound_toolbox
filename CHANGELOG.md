@@ -11,6 +11,9 @@ Kurulum kabul testleri tamamlandığında gerçek yayın tarihi ve indirmeler ek
 
 ### Ses araçları ve model eğitimi
 
+- **Enstrümanları ayrı kaydetme:** dört kanallı SCNet ve bilimsel kullanım
+  koşullarına tabi deneysel altı kanallı HTDemucs ile stereo PCM24 FLAC
+  çıktıları. Gitar/piyano kalitesi deneyseldir; ses seviyesi düzenleme ekranı içermez.
 - **İsteğe bağlı kısa vokal onarımı:** arka vokal temizliğinde kaybolan kısa
   bölümler A2SB ile ayrıca onarılabilir. Standart ve onarılmış mono sonuçlar
   ayrı kaydedilir. Özellik varsayılan kapalıdır; model araştırma/değerlendirme
@@ -34,12 +37,20 @@ Kurulum kabul testleri tamamlandığında gerçek yayın tarihi ve indirmeler ek
 
 ### Kullanım ve güvenilirlik
 
+- **İptal ve disk temizliği:** kayıt incelemesinin son dosya kontrolü iptali
+  dikkate alır. Enstrüman ayırmada zorla durdurma veya worker çöküşü sonrası
+  geçici dosyalar temizlenir; tamamlanmış sonuçlar korunur.
+- **Model kullanım koşulları:** A2SB ve altı kanallı HTDemucs için kullanım
+  sınırları indirmeden ve çalıştırmadan önce açıklanır. Üreticinin koşulları
+  açılabilir; kabul edilmeden işlem başlamaz.
 - **Ortak model ve donanım yönetimi:** işlemci/ekran kartı seçimi, eksik modelleri
   indirme, çevrimdışı dosya kontrolü ve bozuk dosyaları onarma Ayarlar'da toplandı.
   Eğitim ve isteğe bağlı vokal onarımı modelleri kendiliğinden seçilmez;
   kullanıcı gerektiğinde ayrıca seçer. Durum yenileme mevcut seçimleri korur.
 - **Erişilebilir arayüz:** Türkçe native kontroller, klavye ile gezinme ve eğitim
-  alanlarının açıklamaları düzenlendi. Açık/koyu görünüm tercihi kalıcı saklanır.
+  alanlarının açıklamaları düzenlendi. Enstrüman kanal düğmeleri de vokal
+  işlemedeki gibi açık ve kapalı durumu adlarında bildirir.
+  Açık/koyu görünüm tercihi kalıcı saklanır.
 - **Daha dayanıklı işlemler:** ses ve eğitim işleri ayrı süreçlerde çalışır;
   hata ve iptal durumlarında önceki başarılı çıktılar ve kişisel veriler korunur.
 

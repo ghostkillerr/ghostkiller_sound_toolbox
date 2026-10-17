@@ -1,152 +1,20 @@
 # Ghostkiller Sound Toolbox — Geliştirme, kurulum ve yayın rehberi
 
-**16 Ekim son durum — GitHub ve eksiklerin giderilmesi:** Eski geçmiş,
-`build/github_cleanup_20261016/history-before-curation.bundle` içinde doğrulanmış
-yedeğe alındı. İlk dört geliştirme aşaması korundu; eğitim düzeltmeleri ve
-sonraki durum kayıtları ilgili özelliklerde toplandı, dosya ağacı korunarak
-altı aşamalı kaynak geçmişi GitHub'a gönderildi. Sonraki tek düzeltme aşaması,
-isteğe bağlı modellerin başlangıçta seçilmemesini ve Windows CI'de CPU/CUDA/XPU
-için bütün Python testlerinin çalışmasını içerir. Eski CI çalışmaları yeni
-gönderim geldiğinde otomatik iptal edilir.
-`test/__init__.py`, tam CPython kurulumundaki standart `test` paketiyle ad
-çakışmasını önler; onarım testleri temiz GitHub ortamında da yüklenir.
+Son güncelleme: **17 Ekim 2026**. Kullanıcının sonraki talimatı bu rehberden
+önceliklidir. Güncel testler ve kalan işler [Son durum](docs/SON_DURUM.md),
+kullanım rehberleri [belgeler dizininde](docs/README.md) tutulur.
 
-Güncel CPU/CUDA **2.1.0** installer'ları yeniden üretildi: kısa vokal onarımı ve
-model seçimi düzeltmesi iki pakette de var. **307'şer kaynak testi**, iki frozen
-açılış, iki ayrı Inno kurulum fixture'ı ve gerçek CUDA kontrolleri geçti.
-Paketli onarım işleyicisi CPU'da üretim gerekmeyen kayıtla, CUDA'da gerçek A2SB
-üretimiyle doğrulandı. Kaynak eşleşmesi artık başarılı;
-`build/training_release_verified.json` bunu yeni makine kanıtına bağlar.
-Kaynak kimliği `2298e0800174ace7f2b42b969b45b472b5495e0c93e2a477c1e1f22c12686e89`.
-Güncel kanıtlar `build/github_cleanup_20261016/` altındadır; kişisel kayıtlar,
-modeller, ayarlar ve büyük derleme çıktıları Git'e girmez. Kurulum Release'i
-yayımlanmadı; temiz Windows/UAC/eski sürümden geçiş/kaldırma, canlı NVDA ve tam
-şarkı kalite kabulü bekliyor. Aşağıdaki 01:28/03:46 ve ilk temizlik kayıtları
-tarihseldir; eski installer hash'lerini güncel dosyalar için kullanma.
+Enstrüman ayırma, isteğe bağlı A2SB vokal onarımı, iptal/geçici dosya temizliği
+ve model kullanım koşulları kaynakta uygulanmıştır. Enstrüman kanal
+düğmelerinin **[AÇIK]/[KAPALI]** okuması kullanıcı tarafından doğrulandı.
+Tüm uygulama ve tam kayıt ses kalitesi kabulü bununla tamamlanmış sayılmaz.
 
-Son güncelleme: **16 Ekim 2026**. Bir yapay zekâ ajanı işe başlamadan önce bu
-dosyayı okumalı, sonra ilgili kaynakları ve güncel çalışma ağacını incelemelidir.
-Kullanıcının sonraki talimatı bu rehberden önceliklidir. Eski raporlar tarihsel
-kanıttır; bu rehberdeki güncel durumla karıştırılmamalıdır.
-
-**16 Ekim yerel disk temizliği ve inceleme:** Kullanıcının talimatıyla eski
-diagnostic/tekrarlanan derlemeler, eski Python 3.12.0 CPU/XPU ortamları ve geçici
-`.pth` ortamı, paketleme çalışma dosyaları, pip önbelleği ve kanıtı bulunan yapay
-eğitim çıktıları kaldırıldı: **28,74 GiB / 215.261 dosya**. Kişisel ses/model/ayarlar,
-`build/release_cpu`, `build/release_cuda`, `build/release_python`, iki installer,
-en son `build/rebuild_2026_10_16/dist_cpu` ve `dist_cuda` paketleri, lisans/kaynak
-materyalleri ve tarihsel raporlar korundu. Eski raporlardaki kaldırılmış artifact
-yolları tarihsel kayıttır; yeniden çalıştırma için güncel ortamları kullan.
-CPU/CUDA 306'şar kaynak testi, gerçek CUDA ortam kontrolü, dört site testi ve
-temizlik sonrası kaynak/worker başlangıcı geçti. GitHub'a gönderim/yayın yapılmadı.
-Temizlik kanıtları `build/workspace_audit_20261016/`; sade sonuç ve kalan eksikler
-[yerel inceleme raporunda](docs/YEREL_TEMIZLIK_VE_INCELEME_2026-10-16.md).
-Ayarlar'da isteğe bağlı modellerin de başlangıçta seçili olması ve Windows CI'nin
-tüm kaynak testlerini çağırmaması mevcut bulgulardır; bu görevde değiştirilmedi.
-
-**16 Ekim sonraki kaynak değişikliği:** İsteğe bağlı kısa vokal onarımı uygulamaya
-eklendi. Arka vokal temizliği açılınca görünür, kapatılınca kapanır/gizlenir;
-varsayılan kapalıdır. Standart ve onarılmış mono sonuç ayrı kaydedilir. Mevcut
-aç/kapat düzeni, NVDA için dinamik ad/basılı durum/eylem ve Tab sırası korundu.
-Kullanım: [Kısa vokal onarımı](docs/VOKAL_ONARIMI.md). A2SB işleyicisi, sabit SHA
-model doğrulaması, lisans materyalleri ve frozen kaynak listesi eklendi.
-Mevcut ağırlık Ayarlar model listesinde hazırlandı. Gerçek CUDA worker onarım,
-ilerleme ve iptal kontrolü geçti. CPU ve NVIDIA ortamlarında 306'şar kaynak
-testi geçti; canlı NVDA dinlemesi ayrıca bekleniyor.
-Son kaynak kanıtı `build/restoration_checks_20261016/verification.json`;
-iki ortamın `*_tests_final.log` kayıtları ve son erişilebilirlik kontrollerinin
-`*_accessibility_final.log` dosyaları aynı klasördedir. Bu yerel kayıtları Git'e ekleme.
-`build/training_release_verified.json` artık kaynak doğrulamasının başarılı,
-mevcut installer'larla kaynak eşleşmesinin ise **geçersiz / yeniden derleme
-bekliyor** olduğunu ayırır. Buradaki `ok: false` değerini onarımın çalışmadığı
-şeklinde yorumlama; eski paketlerin son kaynağı içermediğini gösterir.
-**Aşağıdaki 01:28 kurulum kanıtları bu kaynak ekinden öncedir; yeni seçenek
-henüz installer'larda yoktur.** Kurulumların güncel kaynakla eşleştiğini söyleme.
-
-**16 Ekim 01:28 kurulum sonucu (sonraki kaynak ekinden önce):** CPU ve NVIDIA CUDA **2.1.0** kurulumları o andaki
-kaynaklardan yeniden üretildi ve **01:28** son doğrulamasından geçti. Yeni
-çıktı/çalışma/cache yolları `build/rebuild_2026_10_16/` altında; iki installer
-ve yeni `.build.json` kayıtları `Setup/` içindedir. İki pakette kaynak kimliği
-aynı (`e7a188f4…`); boyut/hash/receipt, lisans/ikon/helper ve frozen eğitim
-modülleri doğrulandı. CPU **296**, CUDA **296** kaynak testi; iki frozen açılış
-ve iki ayrı yerel Inno kurulum fixture'ı geçti. CUDA, ilk frozen ve fixture'a
-kurulan kopyada **RTX 5060 Ti** üzerinde Torch/ONNX GPU testlerinden geçti.
-
-Inno'nun 27 dosyası eski doğrulanmış hash'lerle, Python'ın 55 yerel bileşeni
-özgün arşivle; iki ortamda 103'er dağıtımın toplam 83.180 RECORD dosyası
-hatasız eşleşti. Yeni paket/installer başlıklarında özgül Jeefo işareti yok;
-bilinen servis/dosya/mutex izi yok. **Defender kullanıcının tercihiyle tamamen
-kapalı kaldı; yeni antivirüs taraması yapılmadı.** Bütünlük/özgül işaret
-kontrollerini tam antivirüs temizlik garantisi olarak sunma veya korumayı
-kendiliğinden açma. Eski enfeksiyon uyarısı yedeklenip kaldırıldı.
-
-Güncel rapor: [16 Ekim yeniden derleme](docs/KURULUM_YENIDEN_DERLEME_2026-10-16.md).
-Teknik bilgi gerektirmeyen ilk deneme ve kullanıcıdan beklenenler:
-[İlk deneme rehberi](docs/KULLANICI_KABULU.md).
-Makine kanıtı `build/training_release_verified.json` ve yeni build klasöründeki
-`candidate_verification.json` dosyalarıdır. **Temiz Windows/üretim UAC/eski
-sürümden geçiş/uninstall ve kullanıcı kabulü bekliyor**; üretim installer veya
-Sandbox geliştirici hostta başlatılmadı. Yayın/push yapılmadı; `version.json`
-2.1.0 / unpublished / boş packages kalır. Eski raporlar tarihsel kanıttır.
-
-**15 Ekim 21:22 kullanıcı tercihi:** Kullanıcı Defender'ı önceki şekilde kapatmayı
-açıkça istedi. Önceden değiştirilen yerel `DisableAntiVirus` değeri yedeklenip
-**1** yapıldı. Microsoft imzalı aracın tam kapatma isteği Windows tarafından
-**0x80070005 / erişim engellendi** ile reddedildi. Standart cmdlet ile
-**gerçek zamanlı koruma kapandı**; son sorguda `AntivirusEnabled=True`,
-`AMServiceEnabled=True`, `RealTimeProtectionEnabled=False`. Tam hizmet
-kapanması veya kalıcı kapanma doğrulandı deme. Kurcalama koruması aşılmadı,
-servis/driver izinleri değiştirilmedi, yeniden başlatma yapılmadı. Kullanıcının
-bu açık tercihine karşı korumayı otomatik yeniden açma. Yerel işlem ve yedek:
-`build/defender_disabled_2026_10_15/result.json` ve `before.json`.
-
-**15 Ekim 20:34 son kontrol:** Silme sonrası yeni tam Defender taraması
-**19:00:02–20:33:09 arasında tamamlandı** (1:33:07). Aynı tarama kimliğine ait
-1000/1001 olayları ve komut sonucu **0** doğrulandı. Başlangıç kayıtlarıyla
-karşılaştırmada **yeni tespit, yeni kaynak yolu ve yeni tehdit olayı yok**.
-20:34 kontrolünde bilinen Jeefo servisi/dosyası/mutex'i, başlangıç/görev eşleşmesi
-ve silinen 14 kaynağın geri oluşması yok; örnek 11 dosyanın SHA-256 değerleri
-19:02 kaydıyla aynı, 8 Microsoft paketi ve Inno derleyicisinin imzaları geçerli.
-Defender ve gerçek zamanlı koruma açık; yönetici kontrolünde istisna yok,
-yeniden başlatma gerekmiyor. Bu, gelecekte yeniden bulaşmama garantisi değildir.
-Kurcalamaya karşı koruma kapalı. Kullanıcı Defender'ı kapatacağını söyledi;
-onun tercihine karşı korumayı yeniden açma. Risk açıklandı; ayar değiştirilmedi.
-Sonuç bildirimi için onaylanan `defender-son-tarama-sonucu` geçici takibi sonuç
-kesinleşince **PAUSED** durumuna alındı; yeni tarama veya sürekli izleme başlatma.
-Yerel rapor: `build/defender_recheck_2026_10_15/YENIDEN_BULASMA_KONTROLU.md`;
-aynı klasörde `scan_state.json`, `progress_latest.json`, `command_result.json`
-ve `verification_summary.json` kanıtları bulunur. Installer yeniden derleme
-ve kabul engeli sürer; hiçbir yayın yapılmadı.
-
-**15 Ekim 18:36 sonrası güncel güvenlik durumu:** Elektrik kesintisinden sonra
-16:20'de yeniden başlatılan tam tarama **17:49:57'de tamamlandı**. Defender'ın
-standart temizlemesinde 203 başarılı Jeefo onarım kaydı oluştu; örnek dört
-Microsoft EXE'si yerinde ve imzası geçerli. Defender ve gerçek zamanlı koruma açık.
-
-Kullanıcı önce dosyaları koruyan onarım istedi, ardından yedek/indirme kaynağı
-olmadığını belirterek **kalan sorunlu dosyaların silinmesini açıkça istedi**.
-Güncel kayıtlarla eşleşen **5 EXE ve 4 dış RAR arşivi**, ayrıca görevde oluşturulan
-1 enfekte inceleme kopyası **18:34'te silindi**. Arşiv içi yollar ayrı fiziksel
-dosyalar sayılmadı. Önceki dört CPU/CUDA 2.0.0/2.1.0 installer'ı da 16:19'da
-silinmişti: toplam **13 asıl dosya + 1 inceleme kopyası**. Onarılmış programlar
-bu silme listesine alınmadı. 18:36 kontrolünde bekleyen tespitlerle eşleşen mevcut
-dosya/dış arşiv sayısı **0**; bu, silme sonrası yeni bir tam tarama değildir.
-Kişisel tam yolları içeren son rapor yalnız yerelde:
-`build/defender_repair_2026_10_15/SILINEN_DOSYALAR_RAPORU.md`.
-
-Önceki geniş karantina/kural değişikliği otomatik onay denetimince reddedilmiş ve
-çalıştırılmamıştı. Sonraki somut silme listesi yeni açık talimat kapsamında
-uygulandı; Defender ayarı değiştirilmedi. Bu yetkiyi başka dosyalara genelleme.
-Defender'ın kendi standart işleminde iki HackTool kaydı ayrıca karantinaya alındı.
-
-**15 Ekim tarihsel paket engeli:** O gün dört installer silinmişti. Yeniden
-derleme ve paket doğrulaması 16 Ekim'de tamamlandı; üstteki güncel raporu kullan.
-Eski receipt'ları değiştirilmiş dosyaları geçerli göstermek için kullanma.
-Kullanıcı kabulü ve yayın kararı hâlâ ayrı adımlardır.
-Inno'nun orijinal paketi resmi SHA ile, 23 dosyası üretici imzalarıyla eşleşti.
-7 Ekim'deki Jeefo servis izi, 14 Ekim'deki bu Inno kurulumundan daha eskidir;
-ilk bulaşma kaynağı belirlenemedi. Kaynak düzeltmeleri korunur, yayın yoktur.
-[Güncel engel ve kanıtlar](docs/KURULUM_GUVENLIK_ENGELI_2026-10-15.md).
+Kullanıcı gereksiz dosyaları temizlemeyi ve biriken kaynak değişikliklerini
+GitHub'a göndermeyi istedi. Eski raporlar, günlükler, test artıkları ve son
+düzeltmeyi içermeyen installer adayları kaldırıldı. Aktif ortamlar, modeller,
+kişisel kayıt/ayar/eğitim dosyaları ve son doğrulama özetleri korunur.
+Yayın için güncel kaynakla **CPU ve NVIDIA CUDA** kurulumları yeniden
+üretilmelidir. Kaynak gönderimi, installer Release yayını değildir.
 
 ## 1. Proje ve mevcut durum
 
@@ -166,15 +34,15 @@ Ses dosyalarını yerel işler; internet model indirme ve güncellemeler için k
 
 | Konu | Güncel durum |
 | --- | --- |
-| Uygulama sürümü | Yerel yayın adayı `version.json`: **2.1.0**, `distribution_status: unpublished`, `packages: {}`; master sürüm ilanı Release kabulüne kadar geriden gelir |
+| Uygulama sürümü | Yerel yayın adayı `version.json`: **2.1.0**, `distribution_status: unpublished`, `packages: {}`; paket indirmeleri gerçek Release kabulünden sonra açılır |
 | Dağıtılacak iki profil | **CPU** ve **NVIDIA CUDA**; XPU/ROCm bu iki setup'ın yerine geçmez |
 | Derleme ortamları | Bağımsız `build/release_cpu`, `build/release_cuda`; Python **3.12.15**, backend hash kilitleri |
 | Inno Setup | Kullanıcı **7.1.0** kurdu; helper 7/6 standart yollarını bulur |
-| Kaynak testleri | Güncel kaynakta CPU **307 / OK**, CUDA **307 / OK**; iki ortamda tüm kaynak testleri geçti |
+| Kaynak testleri | Güncel sonuç ve günlükler [Son durum](docs/SON_DURUM.md) içindedir |
 | Otomatik güncelleme | Kaynakta uygulandı, varsayılan açık, Ayarlar'dan kapatılır; elle düğme/F5 korunur |
-| Setup adayları | CPU/CUDA **2.1.0** güncel kaynakla yeniden üretildi; vokal onarımı ve model seçimi düzeltmesi dahil. 307'şer test, frozen, gerçek CUDA ve yerel kurulum fixture'ları geçti. Yayın/kullanıcı kabulü bekliyor; yeni kanıt `build/github_cleanup_20261016/candidate_verification.json` |
-| Eski setup adayları | Enfekte eski CPU/CUDA **2.0.0** dosyaları da aynı talimatla silindi; önceki koruma tercihi bu açık talimatla değişti. Receipt'lar yalnız tarihsel kayıt |
-| Sandbox | Kullanıcı kurduğunu bildirdi; temiz Windows/üretim UAC kabul testlerini **daha sonra kendisi yapacak** |
+| Setup adayları | Bugünkü kaynakla eşleşme ve iki installer doğrulaması için [Son durum](docs/SON_DURUM.md); eski raporları güncel kabul etme |
+| Yerel setup adayları | Son kaynak düzeltmesini içermeyen dosyalar temizlendi; yayın öncesi iki profil yeniden üretilecek |
+| Sandbox | 16 Ekim eski iki adayın ilk kurulum/aynı sürüm yeniden kurulum/kaldırma kontrolü geçti; yeni adayın kabulü ayrıca gerekir |
 | Kullanıcıya dağıtılan yeni sürüm | Henüz yok; GitHub kaynak gönderimi ve tanıtım sayfası, installer Release yayını değildir |
 
 Önceki bağımsız paketler gerçek frozen smoke, sentetik ayrıştırma/cover ve yerel
@@ -243,132 +111,35 @@ ayrı bildirilir. Sonuç `update-result.json`, günlükler `update-logs/` altın
 
 ### Git ve kapsam
 
-**16 Ekim yeni talimat:** Kullanıcı kaynakları GitHub'a göndermeyi, gereksiz
-commitleri birleştirerek geçmişi düzenlemeyi, ardından açık eksikleri düzeltip
-yeniden göndermeyi açıkça istedi. Bu işlem için yeni bundle yedeği alınır;
-ilk dört ana geliştirme aşaması korunur, eğitim düzeltmeleri ve sonraki
-durum kayıtları ilgili özellik aşamalarında toplanır. Ağaç eşitliği ve uzak
-HEAD doğrulanmadan geçmiş değiştirilmez; uzak güncelleme açık SHA'lı
-`--force-with-lease` kullanır. Bu talimat installer Release yayını değildir.
+Kullanıcı tek geliştiricidir; ayrı dal/PR yerine doğrudan **master** tercih eder.
+İlgili değişiklikleri test edip tek anlamlı commit'te topla. Bu görevde GitHub
+gönderimi açıkça istendi. Normal işlerde geçmişi yeniden yazma veya force push
+yapma; eski tag/Release asset'lerini değiştirme. Önceki bir defalık geçmiş
+düzenlemesi tamamlandı, yeni talimat sayılmaz; kurtarma bundle'ları yerelde korunur.
+Kaynak veya site gönderimini installer yayımlama izni olarak yorumlama.
 
-Kullanıcı tek geliştiricidir: **ayrı dal/PR yerine doğrudan master** tercih eder.
-Her küçük düzeltmede push yapma; birbiriyle ilgili değişiklikleri test edip tek
-anlamlı commit'te biriktir. Bu görevde kullanıcı
-rehber, biriken değişiklikler ve GitHub tanıtım sayfasını göndermeyi açıkça istedi.
-Gelecekte yalnız yeni kaynak geliştirmesi istendiğinde bunu otomatik Release
-yayını olarak yorumlama. Force push, eski release/tag değişimi veya kullanıcı
-verisini silme normal iş akışı değildir.
+## 3. Veri ve mimari
 
-14 Ekim 2026 tarihinde kullanıcı eski küçük teknik commit'lerin de
-birleştirilmesini açıkça istedi. Bu **bir defalık geçmiş düzenlemesinde** eski
-geçmiş doğrulanan yerel Git bundle yedeğine alınır, dört anlamlı geliştirme aşaması
-korunur ve son dosya ağacının eksiksiz eşleşmesi kontrol edilir. Uzak HEAD kontrolü
-ve `--force-with-lease` ile güncellenir; açık PR'sı olmayan, önceden master'a
-birleşmiş iki eski dal da yedekte korunarak kaldırılır. Sonraki normal işlerde
-geçmişi yeniden yazma veya force push yapma.
+Kullanıcı teknik konularda adım adım yardım istiyor. Kodu, testleri ve
+kurulumları geliştirme tarafı hazırlar; kullanıcı sesleri dinleyerek ve
+ekran okuyucuyla deneyerek geri bildirim verir. Kullanıcı programı kullanırken
+eşzamanlı UI girişi gönderme.
 
-## 3. Veri ve mimari: nereden devam edilir?
+Gerçek ses denemeleri `deneme/private_model/` altındadır; kişisel ses ve
+raporları Git'e ekleme. İlk vokal ayırma sonucu beğenildi. Arka vokal temizliğinde
+ana ses kaybı bildirildi; işlem sırasını değiştirmek çözüm olarak kabul edilmedi.
+İsteğe bağlı kısa A2SB onarımı standart sonucu ayrı korur; onarılmış çıktı
+monodur. Tam şarkı, cover ve eğitim kalitesi sırayla değerlendirilmeli.
+Tek şarkı/üç tekrar veya sentetik fixture, kaliteli model kanıtı değildir.
 
-16 Ekim gerçek kayıt denemesi: Kullanıcı, verdiği müzik dosyasıyla bütün uygulama
-akışlarını sırayla denemek ve dinleyerek düzeltmek istiyor. Yerel tur planı
-`deneme/private_model/05_rapor/TEST_PLANI.md`, özgün dosya kimliği
-aynı klasördeki `session.json` içindedir; bu kayıtları/sesleri Git'e ekleme.
-Geliştirme arayüzünde ilk müzik/vokal ayırma turu tamamlandı; kullanıcı “gayet
-güzel ve profesyonel duyuluyor” diye değerlendirdi. İki PCM24 FLAC'ın bütünlüğü,
-süresi ve özgün WAV'ın değişmediği doğrulandı. İlk kabul yalnız bu kayda aittir;
-sıradaki arka vokal temizliği kullanıcı tarafından ana sesi kıstığı/bozduğu
-için reddedildi. Kullanıcının önerisiyle önce yankı temizliği denemesi ve
-aynı iki modelin iki sırasını karşılaştıran A–E sesleri hazırlandı. Beş
-20 saniyelik dinleme örneği aynı bölüm/ortalama seviyede; süre/PCM24/sonluluk
-ve özgün dosyaların korunduğu doğrulandı. Kullanıcı yankı öncesi/sonrası farkını
-az buldu; yankı azken daha az bozulma olsa da ani seviye kaybının sürdüğünü
-söyledi ve yapay tamamlama sordu. Sıra değişikliği çözüm olarak kabul edilmedi.
-Yeni `03_vokal_koruma.json` denemesinde hafif sabit ve enerji kaybına bağlı
-kaynak vokal karışımları üretildi ve kullanıcı tarafından dinlendi. Bunlar yapay ses üretimi
-değildir, arka vokali geri getirebilir; enerji ölçümünü ana ses/kalite ölçümü
-diye sunma. Bu karışım turunda kaynak/kurulum değişmedi ve yeni model indirilmedi.
-Kullanıcı hafif karışımı yetersiz, değişken kaynak desteğini iyi ama
-geliştirilebilir buldu; gerçek frekans üretimi yapan model araştırması istedi.
-[Üretken vokal onarımı araştırması](docs/VOKAL_ONARIMI_ARASTIRMASI_2026-10-16.md)
-kapsamında ayrı ignored alana Apollo ve NVIDIA A2SB kaynak/ağırlıkları indirildi
-ve sabit hash'lerle doğrulandı. Apollo vokal uyarlamasıyla iki gerçek CUDA çıktı,
-A2SB ile bir gerçek harmonik frekans çıktısı ve iki kısa aralığı onaran ayrı
-bir çıktı üretildi. Aynı bölüm ve ortak seviye hedefiyle 12 mono PCM24 dinleme
-örneği hazır; `07_uretken_model_karsilastirma.json` teknik kontrolleri geçti.
-Kullanıcı 4 numaralı A2SB kısa aralık üretimini beğendi; hafif arka gürültü
-bildirdi ve bu yöntemi standart arka vokal sonucuna uygulamamızı istedi.
-`08_standart_temizleme_onarim.json` denemesi tamamlandı: aynı 45–65 saniyede
-yedi kısa kayıp aralığına ve yumuşak geçiş çevresine üretim yerleştirildi;
-diğer örneklerin hem dalga biçiminde hem ortak kazançlı PCM24 dışa aktarmada
-birebir korunduğu doğrulandı. Bu, bütün şarkının veya stereo onarımın kabulü değildir.
-Kullanıcı onarımı isteğe bağlı tutup standart sonucu da kullanmayı istedi;
-bu tercih kaynakta uygulandı. Bütün kayıt için son dinleme kararı ayrıca bekleniyor.
-Modellerin ses üretmesini ses kalitesi/aynı söz/nota veya ana
-şarkıcı kimliği kanıtı sayma. A2SB mono olduğundan karşılaştırma kopyaları mono.
-Araştırma turlarında uygulamanın kaynak/kurulumları ve üretim ortamları
-değiştirilmemiş, yalnız ayrı araştırma bağımlılığı eklenmişti. Ardından kullanıcının
-isteğiyle aşağıdaki isteğe bağlı özellik kaynakta uygulandı; bu entegrasyon için
-üretim ortamlarına yeni bağımlılık kurulmadı. Yeni model/deney sesleri Git'e girmez.
-Kanıt `deneme/private_model/05_rapor/02_sira_karsilastirma.json`;
-kalıcı işleme sırası değiştirilmedi; sıra denemesi çözüm olarak kabul edilmedi.
-Kullanıcı programı kullanırken eşzamanlı UI girişi gönderme.
-Sonra arka vokal/yankı/gürültü, ses değiştirme, tek şarkıcı bölümüyle kısa eğitim
-ve oturum özelliklerine geçilir. Tek şarkı/3 tekrar kalite kabulü değildir.
-
-### İsteğe bağlı vokal onarımı: mevcut davranış ve kalan kontroller
-
-**Müzik ve ses temizleme → 3. Arka Vokalleri ve Harmoni Seslerini Temizle**
-açıkken hemen altında **Arka vokal temizliğinden sonra kısa vokal kayıplarını
-onar** seçeneği görünür. Varsayılan kapalıdır. Ana seçenek kapatıldığında alt
-seçim de kapanır ve gizlenir; gizli bir onarım seçimi çalıştırılmaz.
-
-Standart arka vokal temizliği önce kaydedilir. Onarım açıksa A2SB yalnız kısa
-kayıp bölgelerine üretim yapar; yumuşak geçişlerin dışındaki örnekler korunur.
-`_Ghostkiller_2_ArkaSes_Silinmis.flac` ile
-`_Ghostkiller_2_Onarilmis_Mono_Vokal.flac` ayrı kalır. Sonraki yankı/gürültü
-adımları seçiliyse onarılmış dosyadan devam eder. Onarım başarısız olursa daha
-önce tamamlanan standart dosya korunur. Onarılmış çıktı **mono**dur; standart
-dosyanın kanal sayısı korunur. Uzun kayıp cümleler onarılmış sayılmaz.
-
-`ui_separator.py` mevcut native aç/kapat düzenini kullanır. `ui_common.py`
-içindeki `ToggleAccessible`, dinamik ad, basılı/basılı değil, devre dışı/gizli
-durumu, açıklama ve aç/kapat eylemini sunar. Tab ile ana seçenekten görünen
-onarıma, sonra yankı seçeneğine geçilir; gizliyken onarım atlanır. Odak
-onarımdayken gizlenirse ana seçeneğe geri alınır. Canlı NVDA konuşması henüz
-dinlenmedi; erişilebilirlik arayüzü ve klavye odağı kontrollerini bununla karıştırma.
-
-Model Ayarlar listesinde **Kısa vokal kayıplarını onar: A2SB
-(araştırma/değerlendirme)** olarak yer alır. Yaklaşık 2,26 GB ağırlığın sabit
-SHA-256 ve ağ katmanları doğrulanır; bu bilgisayarda model hazırdır. Kapalı
-onarım seçeneği bu modeli istemez/yüklemez. Çıkarım sırasında indirme yapılmaz.
-NVIDIA'nın kod ve model lisansları ayrıdır; `restoration/vendor/` içindeki
-lisans/NOTICE materyallerini paketlerden çıkarma veya ana uygulama lisansı
-yerine geçmiş sayma. Ağırlıkları Git'e ya da installer'a ekleme.
-
-Gerçek `NativeAudioSession` ile kaydın 55–60 saniyesinde üç aralık, ayrıca
-bir saniyelik kısa örnekte bir aralık üretildi. PCM24 FLAC, süre, sonluluk,
-geçiş dışı örnek eşitliği, kaynak hash'leri, ilerleme ve iptalde kısmi dosya
-bırakmama doğrulandı. Kanıtlar yerelde `09_uygulama_onarim_dogrulamasi.json`
-ve `10_uygulama_kisa_kayit_dogrulamasi.json` dosyalarıdır.
-
-Sıradaki kullanıcı kabulü: canlı NVDA ile açık/kapalı okuması ve Tab/Boşluk
-kullanımı; tam kayıtta standart/onarılmış sonuçların ana ses, arka vokal ve
-gürültü açısından karşılaştırılması. Kullanıcıdan kod/komut veya teorik ayar
-seçmesi istenmez. Yeni kurulum istendiğinde güncel kaynakla **CPU ve NVIDIA
-CUDA installer'larının ikisi** üretilip doğrulanır; önceki EXE'ler yeniden
-adlandırılarak güncel sayılmaz. Bu kaynak değişikliği yayın/push talimatı değildir.
-
-15 Ekim eğitim geliştirmeleri: eğitim öncesi inceleme/bölüm seçimi, sınırlı
-ara model arşivi, ortak ve isteğe bağlı ayrı test sesleri, model tercihi/not,
-oturum/ayar karşılaştırması, epoch uzatma, önceki G/D'den yeni oturum, sıralı
-deneyler ve hash doğrulamalı hazırlık tekrar kullanımı eklendi. Güncel kullanım
-[eğitim rehberinde](docs/MODEL_EGITIMI.md), kanıtlar
-[doğrulama raporunda](docs/EGITIM_GELISTIRME_DOGRULAMA_2026-10-15.md).
-Eski teknik eğitim anlatımı `docs/MODEL_EGITIMI_TARIHCE_2026-10-13.md` içindedir.
-`training/experiments.py`, `comparison.py`, `preparation_cache.py` ve
-`ui_training_tools.py` bu yeni akışları yönetir. Eğitim matematiği/precision
-değişmedi; epoch uzatmada yalnız kaydedilmiş checkpoint hash'ine bağlı hedef
-artışı kabul edilir. Fine-tune ayrı oturumdur, tam resume diye sunulmaz.
+Enstrüman işleme dört/altı ayrı stereo PCM24 FLAC üretir; ses seviyesi
+düzenleyen yeniden miksleme ekranı yoktur. Vokal onarımında bir saat sınırı
+yoktur; çalışma dizileri için RAM ön kontrolü vardır. Özellik sınırları
+[enstrüman](docs/ENSTRUMAN_AYIRMA.md), [onarım](docs/VOKAL_ONARIMI.md) ve
+[eğitim](docs/MODEL_EGITIMI.md) rehberlerindedir. A2SB ticari olmayan,
+HTDemucs ağırlıkları bilimsel kullanım koşullarıyla sunulur; indirme/kullanım
+öncesi açıklama ve kabul gerekir. İsteğe bağlı model ağırlıklarını Git'e veya
+installer'a ekleme, üçüncü taraf lisans/NOTICE materyallerini çıkarma.
 
 | Dosya / grup | Görev |
 | --- | --- |
@@ -376,6 +147,7 @@ artışı kabul edilir. Fine-tune ayrı oturumdur, tam resume diye sunulmaz.
 | `app_runtime.py`, `app_settings.py` | Kaynak/model/veri dizinleri, ortak JOB_LOCK, UI dispatch, atomik ayar tercihleri |
 | `audio_service.py`, `audio_worker.py`, `native_process.py` | Kalıcı ayrı audio worker, IPC/heartbeat, Windows Job Object, sınırlı iptal/temizlik |
 | `separator_backend.py`, `separation_audio.py`, `separation_steps.py` | Yerel ayrıştırma cihaz/model adaptörü, adımlar, süre/PCM24/sonluluk kontrolleri |
+| `instruments/` | Sabit SCNet/HTDemucs modelleri, bloklarla stereo ayırma, atomik ayrı kanal çıktıları |
 | `restoration/audio.py`, `restoration/engine.py`, `restoration/vendor/` | İsteğe bağlı kısa kayıp seçimi, ayrı worker'da A2SB üretimi, yerel yumuşak geçiş, mono PCM24 ve üçüncü taraf lisansları |
 | `rvc/infer/`, `rvc/lib/`, `rvc/configs/` | RVC dönüşüm, F0/helper cache, güvenli model/index kontrolü, synth/config'ler |
 | `training/` | Analiz/dataset, FP32 GAN, checkpoint/resume, eval/index/kayıt, native worker |
@@ -540,41 +312,22 @@ Model/ayar/eğitim dosyalarını yükseltmede/uninstall'da topluca silme.
 
 ## 7. Sandbox ve yayın kabul testleri
 
-16 Ekim: yeniden üretilen adaylar için `Setup/acceptance/CPU_2.1.0_Kontrol.wsb`
-ve `CUDA_2.1.0_Kontrol.wsb` güncellendi. Bunlar yeni receipt/hash/boyut denetiminden sonra
-aynı backend 2.1.0 ilk kurulum → 2.1.0 yeniden kurulum → kaldırma kontrolü
-yapar ve okunabilir `SONUC.txt` açar. Sonuçlar `build/windows_sandbox_results_2_1_0_20261016`
-altına yazılır. Ağ ve vGPU kapalıdır; CUDA fiziksel kart kabulü değildir.
-Gerçek eski üretim sürümü → yeni sürüm otomatik güncelleme ve UAC kabul/iptal
-bu yeniden kurulum testinden ayrı kalır. Dosyalar bu görevde başlatılmadı.
-`Setup/Yeni_Ozellikleri_Ac.cmd` normal kurulum yapmadan mevcut kaynak/venv ile
-uygulamayı açar. Yerel `training_presets.json` içine kaynak yolu içermeyen
-“Kısa işleyiş denemesi (3 tekrar)” şablonu eklendi; mevcut şablonlar korunur.
+`Setup/Yeni_Ozellikleri_Ac.cmd` kurulum yapmadan mevcut kaynak/venv ile
+uygulamayı açar. Eski installer adayları ve onlara ait üretilmiş Sandbox
+başlatıcıları temizlendi. Yeni iki paket üretildiğinde sürüm/hash/boyut ve
+host mapping'leriyle yeni Sandbox başlatıcıları hazırlanmalıdır.
 
-Kullanıcı Sandbox'ı kurdu ve gerçek kabul testini sonra yapacak. Yeni talimat
-gelmeden Sandbox veya üretim installer'ını geliştirici hostta başlatma.
-`tools/release/windows_sandbox_acceptance.ps1` yalnız disposable VM'de çalışır.
-`Setup/acceptance/acceptance.wsb` yerel örnektir; Git'e eklenmez. Yeni build'de
-host mapping'lerini ve installer adlarındaki **sürüm numarasını** güncelle.
-Acceptance betiğini `Setup/acceptance/` içine kopyala; sonuç mapping'i
-`build/windows_sandbox_results` gibi özel test dizinine yönelsin.
+Kullanıcı Sandbox'ı kurdu; yeni talimat gelmeden Sandbox'ı veya üretim
+installer'ını geliştirici hostta başlatma. `tools/release/windows_sandbox_acceptance.ps1`
+disposable VM içindir. Yönetici izni istemeyen izole Inno fixture'ları kullanılabilir.
+16 Ekim eski Sandbox ve 17 Ekim eski frozen sonuçlarını yeni paket kabulü sayma.
 
-VM içinden örnek (yollar Sandbox mapping'lerine göre):
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\HostSetup\acceptance\windows_sandbox_acceptance.ps1 -Installer C:\HostSetup\Ghostkiller_V2_Setup_cpu_2.0.0.exe -UpgradeInstaller C:\HostSetup\Ghostkiller_V2_Setup_cpu_2.0.1.exe -OutputDirectory C:\HostResults
-```
-
-Bu örnek eski CPU→yeni CPU geçişidir; aynı şekilde CUDA→CUDA ayrıca sınanmalıdır.
-Mevcut CPU→CUDA template backend geçişi/sentinel testi yapar; bunu otomatik
-güncellemenin aynı backend kabulü diye sunma. vGPU kapalı Sandbox gerçek CUDA
-kernel/driver kabulü değildir; uygun fiziksel NVIDIA kart ayrıca gerekir.
-
-Kabul: Python/FFmpeg kurulu olmayan temiz Windows açılışı ve ayrı workers;
-model/ayar koruma; UAC **kabul ve iptal**; aynı backend eski→yeni geçiş;
-otomatik seçenek açık/kapalı ve elle düğme; sessiz güncelleme sonrası yeniden
-açılma; başarısız/yarım indirme ve tekrar deneme; uninstall; klavye/NVDA/JAWS.
-Sentinel model dosyası gerçek RVC ağırlığı veya ses kalitesi kanıtı değildir.
+Final kabul: Python/FFmpeg önceden kurulu olmayan temiz Windows açılışı ve ayrı
+workers; model/ayar koruma; UAC kabul/iptal; aynı backend eski→yeni yükseltme;
+otomatik güncelleme açık/kapalı ve elle denetleme; yarım indirme sonrası tekrar
+deneme; kaldırma; klavye ve ekran okuyucu. Sandbox'ta vGPU kapalı test gerçek
+NVIDIA GPU kabulü değildir; fiziksel cihaz ayrıca sınanır. Kullanıcının enstrüman
+kanalı açık/kapalı kabulünü tüm uygulamaya genelleme.
 
 ## 8. Kullanıcılara güncelleme yayımlama
 
@@ -679,24 +432,21 @@ Yayımlanmamış/eksik/geçersiz kayıtlarda indirme alanları kapalı kalır;
 GitHub yayınları bağlantısı korunur. Bir sürüm yayımlanınca metadata push'ı
 sayfayı da günceller. Doküman için site metadata'sına hayali installer ekleme.
 
-## 10. Kanıtlar ve sonraki ajanın raporu
+## 10. Kanıtlar ve raporlama
 
-| Kanıt | Kapsam |
-| --- | --- |
-| [İsteğe bağlı vokal onarımı](docs/VOKAL_ONARIMI.md), [model araştırması](docs/VOKAL_ONARIMI_ARASTIRMASI_2026-10-16.md) | Kaynakta yeni seçenek, görünürlük/NVDA arayüzü, ayrı standart/mono çıktı; CPU ve NVIDIA'da 306'şar test, gerçek CUDA kısa kayıt/iptal kontrolü; eski installer'lar bu eki içermez |
-| `build/restoration_checks_20261016/verification.json` | Son kaynak kimliği, test günlükleri, hazır model ve gerçek worker kanıtları; canlı NVDA konuşması, tam kayıt kalite kabulü ve yeni installer derlemesi bekliyor |
-| [Güncelleme doğrulaması](docs/GUNCELLEME_DOGRULAMA_2026-10-14.md) | 277'şer kaynak testi, sessiz helper/native fixture ve mevcut setup'ların rebuild gereği |
-| [Önceki dağıtım doğrulaması](docs/DAGITIM_DOGRULAMA_2026-10-14.md) | 260'şar test dönemindeki bağımsız frozen CPU/CUDA adayları, FFmpeg/runtime, yerel kurulum; son özellikleri içermez |
-| [Dağıtım incelemesi](docs/DAGITIM_INCELEMESI_2026-10-14.md) | Kök codec/sürüm/config/receipt ve ilk diagnostic aşamasındaki bulgular |
-| [Ayrıntılı yayın derlemesi](docs/RELEASE_BUILD.md) | Kilitler, toolchain/runtime/source/notices, paket ve güncelleme kapıları |
-| `build/auto_update_verification.json`, `auto_update_*_tests.log` | Yerel son kaynak/277 test/fixture ve iki eski paketin güncel gate tarafından reddi |
-| `docs/MODEL_EGITIMI.md`, `docs/INFERENCE_RELEASE_FIXES.md`, `docs/TRAINING_RELEASE_FIXES.md` | Eğitim/inference kararları, kalite ve resume sınırları |
-| `docs/NATIVE_AUDIO*_CHECK.json`, `docs/TRAINING_FIXED*.json` | Önceki gerçek cihaz/model/sentetik ses testleri; canlı yayın/kalite genellemesi değildir |
-| [Önceki ajan rehberi arşivi](docs/AJAN_DEVIR_ARSIVI_2026-10-14.md) | Eski ayrıntılı tarihçe; güncel talimat veya son test sonucu değildir |
+Güncel sonuç [Son durum](docs/SON_DURUM.md) içindedir. Yerel özetler:
+`build/training_release_verified.json`, `build/github_sync_20261017/`,
+`build/cleanup_fixes_20261017/candidate_verification.json` ve
+`build/instrument_accessibility_20261017/verification.json`.
+Son paket kanıtı tarihsel adaylara aittir; dosyaları temizlendi, yayın için
+yeniden derleme gerekir. Yerel günlük/kanıt/installer ve kişisel veriler Git'e girmez.
 
-GitHub CI'yi **ilgili commit** için oku; önceki 348a44d/run 38469997537 sonucunu
-yeni commit'in sonucu gibi sunma. Hosted CUDA/XPU CI, fiziksel ekran kartı kabulü
-değildir. En son kullanıcı talimatlarını, canlı HEAD/diff'i ve gerçek artifact
-durumunu doğrula. Son raporda: değişiklikler, test ortamı/sonucu, iki setup/site/
-release'nin gerçek durumu, korunan veriler ve kalan kullanıcı kabulünü açık yaz.
-Kapanmış eski bulguları yeniden eksik sayma; ölçülmemiş kalite/uyumluluğu ilan etme.
+`docs/` altındaki eski JSON ölçümleri belirli cihaz/model/sentetik ses
+denemeleridir; güncel kaynak veya yayın kabulü olarak sunulmaz.
+[RVC](docs/INFERENCE_RELEASE_FIXES.md) ve [eğitim](docs/TRAINING_RELEASE_FIXES.md)
+belgeleri motorun teknik sınırlarını saklar.
+
+GitHub CI sonucunu ilgili commit SHA'sıyla doğrula. Hosted CUDA/XPU kontrolleri
+fiziksel ekran kartı kabulü değildir. Son raporda kaynak commit'i, testlerin
+sonucu, kişisel verilerin korunduğu, setup/site/Release'in gerçek durumu ve
+kalan kullanıcı kabulünü açık yaz. Kapanmış bulguları yeniden eksik sayma.

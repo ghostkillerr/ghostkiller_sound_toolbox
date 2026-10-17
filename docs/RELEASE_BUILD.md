@@ -1,15 +1,9 @@
 # Native Windows yayın derlemesi
 
-14 Ekim 2026. Kullanıcı kurulum hazırlığını yeniden açtı; **CPU ve NVIDIA CUDA
-için ayrı paketler** istiyor. Bu talimat önceki EXE çalışmasını durdurma kararının
-yerine geçer. CPU/CUDA setup adayları Inno Setup 7.1.0 ile üretildi; ayrı
-temiz ortamların her birinde 260 test ve gerçek frozen/yerel kurulum testleri
-geçti. [Önceki doğrulama raporu](DAGITIM_DOGRULAMA_2026-10-14.md) o adayların
-çıktı/hash/kabul sınırlarını gösterir. Daha sonra Ayarlar'dan yönetilen otomatik
-sessiz güncelleme eklendi; [277 testlik kaynak doğrulaması](GUNCELLEME_DOGRULAMA_2026-10-14.md)
-bu değişikliği kapsar. Eski iki setup bu özelliği içermez; güncel kaynakla
-yeniden üretilmelidir. Temiz Windows/UAC/uninstall kabulü kullanıcı tarafından
-sonra yapılacak. Güncel iki-setup ve yayın sırası [oku.md](../oku.md) içindedir.
+CPU ve NVIDIA CUDA ayrı, hash kilitli ortamlardan üretilir. Bu belge derleme
+reçetesidir; güncel test/paket durumu [Son durum](SON_DURUM.md), kullanıcı
+talimatları ve yayın sırası [oku.md](../oku.md) içindedir. Önceki installer
+adayları son kaynak düzeltmesini içermediği için temizlendi; yeniden derleme gerekir.
 
 ## Çalışma ortamları ve kilitler
 
@@ -39,10 +33,10 @@ Kilitler temiz CPU venv'inde gerçekten kuruldu; `pip check`, PyTorch
 forward/backward ve gerçek küçük ONNX MatMul oturumu geçti. Aynı komutların
 CUDA/XPU profillerinde fiziksel GPU testleriyle geçmesi ayrıca gerekir.
 `.github/workflows/native-validation.yml` üç temiz ortamı kurar; hosted
-runner'da CUDA/XPU adımı gerçek GPU kullanımı iddia etmez. Kaynak ortamının
-Python'u 3.12.0'dır; bu sürüm artık frozen build için reddedilir. Yayın
-paketinde güvenlik düzeltmeleri güncel olan bir 3.12 patch sürümü seçilip
-yeniden derlenmelidir.
+runner'da CUDA/XPU adımı gerçek GPU kullanımı iddia etmez. Bu makinedeki iki
+ortam Python 3.12.15 kullanır; Python 3.12.0 frozen build için reddedilir.
+Yeni yayınlarda desteklenen güvenlik patch'i ve eşleşen runtime materyali
+birlikte seçilmelidir.
 
 14 Ekim gerçek frozen test, Python 3.12.0 ile SciPy'de `NameError: obj`
 üretti. Aynı durum küçük `code.replace()`/comprehension örneğinde de
@@ -67,7 +61,7 @@ ortamı değildi. Bu geçici ortam ve eski Python 3.12.0 CPU/XPU ortamları,
 16 Ekim yerel disk temizliğinde kaldırıldı. Güncel bağımsız Python **3.12.15**
 ortamları `build/release_cpu/Scripts/python.exe` ve
 `build/release_cuda/Scripts/python.exe` olarak korunur. Yeni makinede yukarıdaki
-hash-locked kurulum reçetesini kullanın. Tarihsel test kayıtları korunmuştur;
+hash-locked kurulum reçetesini kullanın. Son doğrulama özetleri korunmuştur;
 silinen diagnostic EXE ve eski derleme çalışma klasörleri güncel çıktı sayılmaz.
 
 `tools.release.generate_locks` sadece resmi PyPI/PyTorch metadata'sını okur.
@@ -81,8 +75,8 @@ aynı binary garantisi vermez; yayın kullanılan wheel'leri arşivlemelidir.
 Python 3.12.15 ile **ayrı ve bağımsız** kuruldu. İkisi de bootstrap/backend
 SHA-256 kilitleriyle sıfırdan kurulum, pip check ve hardware-check preflight'tan
 geçti; CUDA gerçek NVIDIA kartta Torch backward ve ONNX CUDA MatMul çalıştırdı.
-Son kaynak haliyle her ortamda **260 test** geçti. Geçici .pth ortamı yayın
-ortamı olarak kullanılmaz.
+Güncel kaynak testlerinin sayısı [Son durum](SON_DURUM.md) içindedir.
+Geçici .pth ortamı yayın ortamı olarak kullanılmaz.
 
 ## FFmpeg, lisanslar ve kaynaklar
 
@@ -245,13 +239,12 @@ Bu artifact `Ghostkiller_Sound_Toolbox_Diagnostic_cpu` adıyla ayrı üretilir,
 
 ## Güncelleme manifesti
 
-Üretilen yerel adaylar kaynak sürümünü (**2.0.0**) korur. Önceki 2.0.0
-kullanıcılarına otomatik güncelleme yayımlamak için yeni sürüm numarası
-belirlenip **EXE ve installer yeniden derlenmelidir**; eski aday dosyasını
-2.1.0 diye yeniden adlandırmak/metadata ile etiketlemek kabul edilmez.
-`build/release_candidate_manifest.json` yalnız gerçek iki adayın hash/receipt
-kontrolünden hazırlanmış yerel metadata'dır; kaynak version.json/packages
-ve GitHub Release değiştirilmedi.
+EXE ve installer kaynak `version.json` sürümünü kullanır. Yayımlanmış bir
+sürüme güncelleme göndermek için daha yüksek sürüm numarası belirlenip
+**EXE ve installer yeniden derlenmelidir**; eski aday dosyasını yeniden
+adlandırmak veya metadata ile etiketlemek kabul edilmez.
+Yerel manifest gerçek iki adayın hash/receipt kontrolünden üretilir;
+paketler yayımlanmadan kök version.json/packages alanına kopyalanmaz.
 
 Eski `releases/latest`/hashsiz metadata'dan EXE kurulmaz. Uygulama yayın
 sayfasını açıklayan güvenli bir mesaj gösterir. Yeni şema her backend için
@@ -300,7 +293,7 @@ yetkisi/işlemi içermez.
 Yanında helper'ın ürettiği aynı adlı `.build.json` olmadan veya uygulama
 sürümü/build-info/installer byte'ları bu kayıtla eşleşmeden manifest üretilmez.
 Bu yerel derleme kaydı Authenticode yayıncı imzası değildir.
-`version.json` bugün 2.0.0 ve unpublished olarak kalır; gerçek yeni kurulum
+`version.json` 2.1.0 ve unpublished olarak kalır; gerçek yeni kurulum
 hazır olmadığı için hash veya yayın tarihi uydurulmaz. SHA-256 trusted GitHub
 manifest/HTTPS kaynağına dayanır; publisher Authenticode imzası ve yayıncı
 sertifikası ayrıca alınmalı/doğrulanmalıdır.
@@ -310,55 +303,14 @@ başlangıç, worker dispatch, sentetik ayrıştırma/cover/eğitim durdur-devam
 Program Files izinleri, UAC iptal/başarı, NVDA/JAWS ve fiziksel donanım matrisi.
 Yerel diagnostic EXE testi temiz VM veya fiziksel AMD/Intel GPU testi değildir.
 
-## 14 Ekim düzeltme sonrası yerel doğrulama
-
-- İlk global CUDA geliştirme ortamı ve ayrı CPU 3.12.0 ortamında 255 test
-  geçti. Python/runtime ve TorchScript kaynak kontrolleri eklendikten sonra
-  Python **3.12.15 / torch 2.11.0+cpu / ORT 1.29.0** ile son **257 test**
-  28.238 saniyede geçti (`build/dagitim_fix_jit_tests.log`).
-- Güncel spec'ten fresh diagnostic_cpu EXE üretildi:
-  `build/dagitim_fix_dist_jit/Ghostkiller_Sound_Toolbox_Diagnostic_cpu`.
-  `--self-test` **31.063 s**, `frozen=true`, `ok=true`: gerçek CPU
-  forward/backward, ORT CPU, hidden native wx, Türkçe isimli FFmpeg/FFprobe
-  dönüşümü, ayrı audio/training worker probe'ları. Kanıt
-  `build/dagitim_fix_frozen_final_smoke.json`.
-- Aynı frozen audio worker ile **4 s** sentetik kayıt işlendi:
-  UVR-DeEcho-DeReverb iki **44100 Hz / 176400 frame / PCM_24 FLAC** çıktısı
-  verdi (16.796 s). Korunan `private_model/latest.pth` ve voice.index ile
-  cover **40000 Hz / 160000 frame WAV** verdi (12.907 s). Helper modeller
-  yalnız test süresince artifact'in owned models dizinine kopyalandı; bu
-  dizin temizlendi. Kaynak helper/voice/index/separator dosyalarının SHA-256
-  değerleri değişmedi. Kanıt `build/dagitim_fix_frozen_real_audio.json`.
-  Bu işlem süreleri tek cold testtir; hız/kalite benchmark'ı değildir.
-- Eski geçersiz codec EXE'leri CWD/PATH'te olan frozen yol benzetiminde,
-  gerçek FFmpeg/FFprobe ile analiz ve 40000 Hz decode geçti; kaynak ses
-  değişmedi (`build/dagitim_fix_codec_upgrade_probe.json`).
-- Inno Setup **7.1.0**, CPU/CUDA .iss için Output=no kontrollerinde geçti.
-  Güncel helper ayrıca küçük sentetik fixture'ı gerçek ISCC ile derledi;
-  `.build.json` ve manifest hash/boyut bağları eşleşti. Fixture installer
-  çalıştırılmadı; oluşturulan geçici installer ve fixture temizlendi.
-  Kanıt `build/dagitim_fix_inno_receipt_probe.json` ve aynı adlı log.
-- Son artifact kaynak kimliği:
-  `35683817e7fdd7237876b771be23f5904b7c9d8ec58e76c355e9b363091f88c0`.
-  Diagnostic/release_eligible=false işareti korunur; gerçek installer veya
-  update asset diye kullanılamaz. FFmpeg complete-source engeli, ayrı CUDA
-  build ve temiz Windows kurulum/yükseltme/UAC kabulü açık kalır.
-
-Değişiklikler yerelde; GitHub'a gönderilmedi. Kullanıcı sesleri, kayıtları,
-ayarları, eğitim oturumları ve korunan model byte'ları değiştirilmedi.
-
 ## Kaynak geliştirme tanısı
 
 ```powershell
 build/release_cpu/Scripts/python.exe main.py --self-test build/source_native_smoke.json
 ```
 
-Bu kaynak komutu EXE üretmez veya çalıştırmaz. Model indirmeden gizli native
-wx kontrollerini, CPU forward/backward, gerçek ORT CPU oturumunu, Unicode ses
-adıyla FFmpeg/FFprobe FLAC dönüşümünü ve ayrı Python audio/training worker
-process'lerini sınar. Yerel denemede **34.312 saniyede geçti**;
-[JSON kanıtı](YAYIN_DUZELTME_KAYNAK_NATIVE_KANITLARI.json) `frozen: false`
-ile kapsamı belirtir. Kişisel model veya kayıt kullanılmadı. Güncelleyici ve
-release ön kontrollerinin 27 regresyonu, eski workflow'ların 37 testi temiz
-CPU venv'inde geçti. UAC/installer launch testleri ikame API'lerle çalışır;
-Windows dosya paylaşım kilidi ve küçük ONNX oturumu gerçekten çalıştırılmıştır.
+Bu kaynak komutu EXE üretmez veya kurulum yapmaz. Model indirmeden gizli
+native wx kontrollerini, CPU forward/backward, gerçek ORT CPU oturumunu,
+Unicode ses adıyla FFmpeg/FFprobe dönüşümünü ve ayrı ses/eğitim worker
+süreçlerini sınar. Kaynak denemesi frozen EXE, UAC veya temiz Windows kabulü
+yerine geçmez. Güncel sonuçlar [Son durum](SON_DURUM.md) içindedir.

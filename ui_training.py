@@ -383,7 +383,9 @@ class TrainingPanel(wx.ScrolledWindow):
                 setup_ffmpeg_paths(app_directory())
                 report = analyze_sources(sources, rate, cancelled.is_set,
                     lambda stage, **values: post_ui(self, self.OnProgress, dict(stage=stage, **values)))
-                report['split_review'] = split_review(report, options)
+                report['split_review'] = split_review(report, options, cancelled.is_set)
+                if cancelled.is_set():
+                    raise InterruptedError('Kayıt incelemesi iptal edildi.')
                 post_ui(self, self.OnAnalyzed, report)
             except Exception as error:
                 post_ui(self, self.OnOperationError, str(error), "Kayıt analizi durdu")
