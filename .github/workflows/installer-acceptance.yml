@@ -28,13 +28,16 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.tag }}
       BACKEND: ${{ matrix.backend }}
-      GH_TOKEN: ${{ github.token }}
       PYTHONUTF8: '1'
       HF_HUB_OFFLINE: '1'
       TRANSFORMERS_OFFLINE: '1'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - name: Download and verify exact draft installer
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
