@@ -7,6 +7,12 @@ on:
         description: Draft release tag containing both installers and build receipts
         required: true
         type: string
+      backend:
+        description: Validate both packages or a package whose upload has finished
+        required: true
+        default: both
+        type: choice
+        options: [both, cpu, cuda]
 
 permissions:
   contents: read
@@ -18,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        backend: [cpu, cuda]
+        backend: ${{ fromJSON(inputs.backend == 'cpu' && '["cpu"]' || inputs.backend == 'cuda' && '["cuda"]' || '["cpu", "cuda"]') }}
     env:
       RELEASE_TAG: ${{ inputs.tag }}
       BACKEND: ${{ matrix.backend }}
