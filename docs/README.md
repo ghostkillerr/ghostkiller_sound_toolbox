@@ -1,8 +1,8 @@
 # Belgeler
 
-Güncel durum ve sıradaki işler için [Son durum](SON_DURUM.md) dosyasını okuyun.
-Eski günlükler ve tekrar eden geliştirme raporları temizlendi; daha önce
-Git'e kaydedilen sürümleri geçmişten bulunabilir.
+Projeye başlayacak ajan ve geliştiriciler önce [oku.md](../oku.md) dosyasını
+okumalıdır. Güncel doğrulama ve sıradaki işler [Son durum](SON_DURUM.md) içindedir.
+Bu dizin kullanım ve teknik kararları içerir; günlük çalışma geçmişi burada tutulmaz.
 
 | İhtiyaç | Belge |
 | --- | --- |

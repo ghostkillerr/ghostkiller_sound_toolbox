@@ -2,6 +2,8 @@
 
 Windows için Türkçe, klavye ve ekran okuyucuyla kullanımı hedefleyen masaüstü ses işleme uygulaması. Geliştirici: Yasin Talha Gençsoy.
 
+Geliştiriciler ve yapay zekâ ajanları için başlangıç: **[oku.md](oku.md)**.
+
 **[Programı tanı ve kurulumları indir](https://ghostkillerr.github.io/ghostkiller_sound_toolbox/)**
 · [GitHub yayınları](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases)
 · [Sürüm notları](CHANGELOG.md)
@@ -11,9 +13,9 @@ sürümü yayımlandığında tanıtım sayfasındaki indirme bağlantıları ot
 GitHub kaynak kodu, hazır installer yayını anlamına gelmez.
 
 - Müzik/vokal ayırma, arka vokal, yankı ve gürültü temizleme.
-- [Enstrüman ayırma](docs/ENSTRUMAN_AYIRMA.md): dört kanallı SCNet ve bilimsel kullanım için deneysel altı kanallı HTDemucs; ayrı stereo FLAC dosyaları.
+- [Enstrüman ayırma](docs/ENSTRUMAN_AYIRMA.md): dört kanallı SCNet ve bilimsel kullanım için deneysel altı kanallı HTDemucs; ayrı ses dosyaları.
 - Arka vokal temizliğinden sonra isteğe bağlı [kısa vokal onarımı](docs/VOKAL_ONARIMI.md);
-  standart ve onarılmış mono çıktılar ayrı saklanır.
+  standart ve onarılmış çıktılar ayrı saklanır.
 - Yerel RVC modelleriyle ses değiştirme; iki motor için ortak işlemci/ekran kartı tercihi.
 - RVC V2 model eğitimi, kayıt analizi, durdur/devam, index ve AI Cover'a model kaydı.
 - Eğitim öncesi kayıt/bölüm inceleme, ara modelleri aynı seslerle karşılaştırma,
@@ -22,12 +24,33 @@ GitHub kaynak kodu, hazır installer yayını anlamına gelmez.
 
 Sesler yerel bilgisayarda işlenir. Eksik modelleri indirmek ve güncelleme kontrolü için internet kullanılabilir. Canlı mikrofon dönüşümü ve TTS içermez.
 
-Kurulu uygulama varsayılan olarak açılışta yeni sürümü denetler, indirir ve kurulum
-sihirbazını göstermeden aynı klasöre uygular; ardından program yeniden açılır.
-**Ayarlar → Açılışta güncellemeleri denetle ve otomatik güncelle** seçeneği
-kapatılabilir. Kapalıyken **Güncellemeleri denetle** düğmesi veya F5 ile elle
-denetlenip onayla indirilebilir. Windows yönetici izni isteyebilir; iptal edilirse
-program açık kalır. Kişisel model/ayarlar güncelleme paketine dahil edilmez.
+**Ayarlar → Ses dosyası biçimi** bölümünden **MP3, WAV, FLAC veya OGG** seçin.
+Vokal temizleme, enstrüman ayırma, AI Cover ve eğitim test sesleri aynı tercihle
+kaydedilir. Tercih kalıcıdır; varsayılan FLAC'tır. Ses sonuçlarının yanına
+`separation.json` dosyası yazılmaz.
+Aynı sekmedeki **Ses kanalı düzeni** bölümünden **Mono (tek kanal)** veya
+**Stereo (iki kanal)** seçebilirsiniz. Bu tercih de bütün ses çıktılarına
+uygulanır. Varsayılan **İşlemin kanal düzenini koru** seçeneğidir.
+
+Ses çıktılarına program adı eklenmez. Aynı ad zaten varsa yeni sonuç
+`sarki_1_Ayrilmis_Vokal (2).mp3`, ardından `(3)` olarak kaydedilir; önceki
+sonuç değiştirilmez. Enstrüman klasörleri de `sarki_Enstrumanlar (2)` gibi
+numaralanır. İşlem sonucu mesajı kapatılınca sonuçların bulunduğu klasör açılır.
+
+İşlem ekranındaki kısa özet seçili dosya biçimini, kanal düzenini ve donanımı
+gösterir. Gereken modeller hazır değilse **Bu işlem için eksik modelleri hazırla**
+düğmesi görünür; yalnız o işlemin eksikleri seçilip hazırlanır. Modeller hazır
+olduğunda düğme gizlenir. Model indirmeleri sunucu destekliyorsa kaldığı yerden
+sürer; tamamlanan dosyalar doğrulanmadan kullanılmaz.
+
+Kurulu uygulama varsayılan olarak açılışta, geliştirici bilgi penceresinden önce
+yeni sürümü denetler. Güncelleme varsa **“Güncellemeyi indirmek ister misiniz?”**
+onayı gösterilir. **Evet** ile indirilip kurulum sihirbazını göstermeden aynı
+klasöre uygulanır; ardından program yeniden açılır. **Hayır** ile normal açılış
+devam eder. **Ayarlar → Açılışta güncellemeleri otomatik denetle** seçeneği
+kapatılabilir. **Güncellemeleri denetle** düğmesi veya F5 ile elle de denetlenip
+onayla indirilebilir. Windows yönetici izni isteyebilir; iptal edilirse program
+açık kalır. Kişisel model/ayarlar güncelleme paketine dahil edilmez.
 
 İlk kullanımda **Ayarlar** sekmesinden **İşlemci** veya **Ekran kartı** seçin. Donanım testi tamamlandıktan sonra seçili modeller için **Eksikleri indir** düğmesine basın. Ses işlemi sırasında model indirilmez; eksik veya değiştirilmiş dosyalar için Ayarlar açılır. **Dosyaları kontrol et** çevrimdışı çalışır; **Seçilenleri onar** eksik/bozuk dosyaları yeniden indirir. Eski yerel önbellekler bu ekranda kontrol edilerek kullanılabilir. Kişisel RVC ses modelleri AI Cover sekmesinden eklenir.
 

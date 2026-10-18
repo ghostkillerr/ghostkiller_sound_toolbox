@@ -10,21 +10,30 @@ Dosya ve çıktı klasörü iki görünümde ortaktır; seçim değiştirmek iş
 1. Mümkünse özgün şarkıyı seçin. Elinizde yalnız enstrümantal dosya varsa onu
    da kullanabilirsiniz; sonuç kalitesi ayrıca dinlenmelidir.
 2. İşlem alanını **Enstrüman işleme** olarak değiştirin.
-3. **Ayrıntılı — 6 kanal**: bas, davul, gitar, piyano, vokal ve diğer
+3. **Ayırma yöntemi** listesinden seçim yapın.
+   **Ayrıntılı (6 kanal)**: bas, davul, gitar, piyano, vokal ve diğer
    enstrümanlar. Bu ağırlıklar yalnız bilimsel amaçlarla sunulur. Gitar ve
    özellikle piyano deneysel çıktılardır.
-   **Dengeli — 4 kanal**: bas, davul, vokal ve diğer enstrümanlar.
+   **Standart (4 kanal)**: bas, davul, vokal ve diğer enstrümanlar.
    Bu model gitarı ve piyanoyu ayrı çıkarmaz.
-4. Kaydetmek istediğiniz kanalları **[AÇIK]**, istemediklerinizi **[KAPALI]**
-   yapın. Tab ile kanala gidip Boşluk tuşuyla durumunu değiştirebilirsiniz.
-   Ardından **Enstrümanları ayırmayı başlat** düğmesine basın.
+4. **3. Yapılacak Ayırma İşlemleri** bölümünde **Bası Ayır**, **Davulu Ayır**
+   gibi seçeneklerden kaydetmek istediklerinizi **[AÇIK]**, istemediklerinizi
+   **[KAPALI]** yapın. Tab ile seçeneğe gidip Boşluk tuşuyla durumunu
+   değiştirebilirsiniz. Ardından **Enstrüman ayırmayı başlat** düğmesine basın.
    Daha az kanal seçmek model hesabını azaltmaz;
    yalnız kaydedilen dosyaları azaltır.
 
-Her çalıştırma çıktı klasöründe adı `_Enstrumanlar_` ile devam eden yeni bir
-klasör oluşturur. Önceki sonuçlar ve giriş dosyası değiştirilmez.
-Kanallar stereo, 44,1 kHz, 24 bit FLAC olarak kaydedilir. `separation.json`
-modeli, çıktı uzunluğunu ve varsa ortak seviye azaltımını kaydeder.
+Her çalıştırma çıktı klasöründe `sarki_Enstrumanlar` adında yeni bir klasör
+oluşturur. Ad kullanılıyorsa `(2)`, `(3)` eklenir. Sonuç mesajı kapatılınca bu
+klasör otomatik açılır. Önceki sonuçlar ve giriş dosyası değiştirilmez.
+Kanallar 44,1 kHz olarak, **Ayarlar → Ses dosyası biçimi** bölümünde
+seçtiğiniz **MP3, WAV, FLAC veya OGG** biçiminde kaydedilir. WAV ve FLAC çıktılar
+24 bittir. Sonuç klasörü yalnız seçtiğiniz ses dosyalarını içerir;
+`separation.json` üretilmez. Aynı biçim tercihi vokal temizleme, AI Cover ve
+eğitim test seslerinde de kullanılır.
+**Ses kanalı düzeni** listesinden Mono veya Stereo seçerek kaydedilecek kanal
+sayısını belirleyebilirsiniz. **İşlemin kanal düzenini koru** seçilirse
+enstrümanlar stereo kaydedilir.
 Ses taşması varsa bütün seçili kanallar aynı oranda kısılır; her kanal ayrı
 normalleştirilmez. Bu bölüm henüz ses seviyesi düzenleyen bir yeniden miksleme
 ekranı değildir; kanalları ayrı dosyalara ayırır.
@@ -41,7 +50,8 @@ Tab ile işlem alanı, dosya/klasör, model, düz yazı açıklama ve kanal seç
 arasında ilerleyebilirsiniz. Kanal düğmeleri vokal işlemedekiyle aynı
 erişilebilirlik mantığını kullanır; adları her değişimde **[AÇIK]** veya
 **[KAPALI]** olarak güncellenir. Seçili görünüm dışındaki kontroller gizlenir.
-Dört kanallı modele geçince gitar/piyano kontrolleri de gizlenir. İşlem
+Dört kanallı modele geçince gitar/piyano kontrolleri gizlenir ve görünür
+seçenekler yeniden numaralanır. Yöntemin açıklaması da seçime göre değişir. İşlem
 sırasında seçimler kilitlenir; İptal et ve Zorla durdur kullanılabilir.
 Kanal düğmelerinin açık/kapalı okuması 17 Ekim kullanıcı denemesinde doğrulandı;
 bu, bütün uygulamanın ekran okuyucu kabulünün tamamlandığı anlamına gelmez.

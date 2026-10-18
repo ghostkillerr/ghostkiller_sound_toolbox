@@ -1,8 +1,10 @@
-"""One persisted CPU/GPU preference shared by audio processing and training."""
+"""Persisted preferences shared by audio processing and training."""
 import json
 import os
 import tempfile
 from app_runtime import data_directory
+from audio_export import (DEFAULT_OUTPUT_FORMAT, OUTPUT_FORMATS, normalize_output_format,
+                          DEFAULT_OUTPUT_CHANNELS, OUTPUT_CHANNELS, normalize_output_channels)
 
 
 def write_json_atomic(path, value):
@@ -28,8 +30,12 @@ class AppSettings:
         self.preference = "cpu"
         self.theme = "light"
         self.auto_update = True
+        self.output_format = DEFAULT_OUTPUT_FORMAT
+        self.output_channels = DEFAULT_OUTPUT_CHANNELS
         self.error = ""
         self.open_settings = lambda: None
+        self.prepare_models = None
+        self.refresh_operations = lambda: None
         try:
             with open(self.path, encoding="utf-8") as stream:
                 value = json.load(stream)
@@ -39,6 +45,10 @@ class AppSettings:
                 self.theme = value['theme']
             if isinstance(value.get('auto_update'), bool):
                 self.auto_update = value['auto_update']
+            if value.get('output_format') in OUTPUT_FORMATS:
+                self.output_format = value['output_format']
+            if value.get('output_channels') in OUTPUT_CHANNELS:
+                self.output_channels = value['output_channels']
         except FileNotFoundError:
             pass
         except (OSError, ValueError, AttributeError) as error:
@@ -73,6 +83,16 @@ class AppSettings:
             raise ValueError('Otomatik güncelleme tercihi açık veya kapalı olmalı.')
         self.save_option('auto_update', enabled)
         self.auto_update = enabled
+
+    def select_output_format(self, output_format):
+        output_format = normalize_output_format(output_format)
+        self.save_option('output_format', output_format)
+        self.output_format = output_format
+
+    def select_output_channels(self, output_channels):
+        output_channels = normalize_output_channels(output_channels)
+        self.save_option('output_channels', output_channels)
+        self.output_channels = output_channels
 
     def device_for(self, preference=None):
         if self.report is None:

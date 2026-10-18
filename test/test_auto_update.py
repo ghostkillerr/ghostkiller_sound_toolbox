@@ -85,30 +85,51 @@ class AutomaticUpdateTests(unittest.TestCase):
             self.assertFalse(AppSettings(str(path), Mock()).auto_update)
 
     def test_disabled_startup_never_accesses_network_and_source_never_auto_updates(self):
+        complete = Mock()
         with patch.object(updater.urllib.request, 'urlopen') as fetch, \
              patch.object(updater.sys, 'frozen', True, create=True):
-            updater.check_startup_updates(self.parent(False))
+            updater.check_startup_updates(self.parent(False), on_complete=complete)
         fetch.assert_not_called()
+        complete.assert_called_once_with()
+        complete.reset_mock()
         with patch.object(updater, 'check_for_updates') as check, \
              patch.object(updater.sys, 'frozen', False, create=True):
-            updater.check_startup_updates(self.parent())
+            updater.check_startup_updates(self.parent(), on_complete=complete)
         check.assert_not_called()
+        complete.assert_called_once_with()
 
-    def test_installed_startup_enables_automatic_apply(self):
+    def test_installed_startup_checks_silently_and_passes_continuation(self):
         parent = self.parent()
+        complete = Mock()
         with patch.object(updater.sys, 'frozen', True, create=True), patch.object(updater, 'check_for_updates') as check:
-            updater.check_startup_updates(parent)
-        check.assert_called_once_with(parent, silent=True, automatic=True)
+            updater.check_startup_updates(parent, on_complete=complete)
+        self.assertEqual(check.call_args.args, (parent,))
+        self.assertTrue(check.call_args.kwargs['silent'])
+        self.assertTrue(check.call_args.kwargs['automatic'])
+        complete.assert_not_called()
+        check.call_args.kwargs['on_complete']()
+        complete.assert_called_once_with()
 
-    def test_native_welcome_is_closed_before_automatic_update_begins(self):
+    def test_startup_waits_for_update_outcome_then_queues_welcome(self):
         import main
         parent = self.parent()
-        with patch.object(main, 'check_startup_updates') as check:
-            def welcome(*args):
-                check.assert_not_called()
-            with patch.object(main.wx, 'MessageBox', side_effect=welcome):
-                main.GhostkillerMainFrame.ShowStartupMessage(parent)
-        check.assert_called_once_with(parent)
+        parent.ShowStartupMessage = Mock()
+        queued = []
+        with patch.object(main, 'check_startup_updates') as check, \
+             patch.object(main.wx, 'CallAfter', side_effect=lambda fn, *args: queued.append((fn, args))):
+            main.GhostkillerMainFrame.BeginStartupSequence(parent)
+            check.assert_called_once()
+            parent.ShowStartupMessage.assert_not_called()
+            self.assertEqual(queued, [])
+            check.call_args.kwargs['on_complete']()
+            parent.ShowStartupMessage.assert_not_called()
+            fn, args = queued.pop()
+            fn(*args)
+        parent.ShowStartupMessage.assert_called_once_with()
+        with patch.object(main, 'check_startup_updates') as check, patch.object(main.wx, 'MessageBox') as message:
+            main.GhostkillerMainFrame.ShowStartupMessage(parent)
+        self.assertIn('Yasin Talha Gençsoy', message.call_args.args[0])
+        check.assert_not_called()
 
     def test_turning_off_during_network_check_prevents_apply(self):
         _, show = self.check(self.parent(), automatic=True, switch_off=True)
@@ -120,41 +141,163 @@ class AutomaticUpdateTests(unittest.TestCase):
         show.assert_called_once()
         self.assertFalse(show.call_args.kwargs['automatic'])
 
-    def test_automatic_download_has_no_yes_no_dialog(self):
+    def test_automatic_check_asks_before_downloading_matching_package(self):
         for backend in ('cpu', 'cuda'):
             data = manifest()
             if backend == 'cuda':
                 data['packages']['cuda'] = data['packages'].pop('cpu')
                 data['packages']['cuda']['download_url'] = data['packages']['cuda']['download_url'].replace('_cpu', '_cuda')
-            with self.subTest(backend=backend), patch.object(updater, 'runtime_backend', return_value=backend), \
-                 patch.object(updater.wx, 'MessageDialog') as dialog, \
-                 patch.object(updater, '_download_and_run_installer') as download:
-                updater._show_update_dialog(self.parent(), data, silent=True, automatic=True)
-            dialog.assert_not_called()
-            download.assert_called_once()
-            self.assertEqual(download.call_args.kwargs['backend'], backend)
+            for answer in (wx.ID_YES, wx.ID_NO):
+                complete = Mock()
+                with self.subTest(backend=backend, answer=answer), \
+                     patch.object(updater.sys, 'frozen', True, create=True), \
+                     patch.object(updater, 'runtime_backend', return_value=backend), \
+                     patch.object(updater.wx, 'MessageDialog') as dialog, \
+                     patch.object(updater, '_download_and_run_installer') as download:
+                    def respond():
+                        download.assert_not_called()
+                        complete.assert_not_called()
+                        return answer
+                    dialog.return_value.ShowModal.side_effect = respond
+                    updater._show_update_dialog(self.parent(), data, silent=True, automatic=True,
+                                                on_complete=complete)
+                dialog.assert_called_once()
+                self.assertIn('Güncellemeyi indirmek ister misiniz?', dialog.call_args.args[1])
+                dialog.return_value.Destroy.assert_called_once()
+                if answer == wx.ID_YES:
+                    download.assert_called_once()
+                    self.assertEqual(download.call_args.kwargs['backend'], backend)
+                    complete.assert_not_called()
+                    download.call_args.kwargs['on_complete']()
+                    complete.assert_called_once_with()
+                else:
+                    download.assert_not_called()
+                    complete.assert_called_once_with()
 
     def test_invalid_automatic_package_cannot_download(self):
+        complete = Mock()
         with patch.object(updater, 'runtime_backend', return_value='cuda'), \
              patch.object(updater.wx, 'MessageBox') as message, \
              patch.object(updater, '_download_and_run_installer') as download:
-            updater._show_update_dialog(self.parent(), manifest(), silent=True, automatic=True)
+            updater._show_update_dialog(self.parent(), manifest(), silent=True, automatic=True,
+                                        on_complete=complete)
         message.assert_not_called()
         download.assert_not_called()
+        complete.assert_called_once_with()
 
     def test_busy_startup_defers_without_interrupting_job_and_opt_out_cancels_retry(self):
         parent = self.parent()
+        complete = Mock()
         JOB_LOCK.acquire()
         with patch.object(updater.wx, 'CallLater') as later, \
              patch.object(updater, '_download_and_run_installer') as download:
-            updater._show_update_dialog(parent, manifest(), silent=True, automatic=True)
+            updater._show_update_dialog(parent, manifest(), silent=True, automatic=True,
+                                        on_complete=complete)
             later.assert_called_once()
+            complete.assert_not_called()
             self.assertTrue(JOB_LOCK.locked())
             JOB_LOCK.release()
             parent.settings.auto_update = False
             _, callback, *args = later.call_args.args
             callback(*args, **later.call_args.kwargs)
         download.assert_not_called()
+        complete.assert_called_once_with()
+
+    def test_startup_without_an_actionable_update_resumes_without_update_messages(self):
+        for scenario in ('current', 'offline', 'invalid', 'failed_before', 'disabled_during_check', 'thread_failure'):
+            with self.subTest(scenario=scenario):
+                parent = self.parent()
+                complete = Mock()
+                data = manifest()
+                if scenario == 'current':
+                    data['version'] = updater.CURRENT_VERSION
+                elif scenario == 'invalid':
+                    data = {'version': 'not a version'}
+                def deliver(fn, *args):
+                    if scenario == 'disabled_during_check':
+                        parent.settings.auto_update = False
+                    fn(*args)
+                with patch.object(updater.sys, 'frozen', True, create=True), \
+                     patch.object(updater.threading, 'Thread', ImmediateThread), \
+                     patch.object(updater.wx, 'CallAfter', side_effect=deliver), \
+                     patch.object(updater.urllib.request, 'urlopen',
+                                  return_value=io.BytesIO(json.dumps(data).encode())) as fetch, \
+                     patch.object(updater, 'last_update_result', return_value={
+                         'state': 'failed', 'version': '2.1.0'} if scenario == 'failed_before' else {}), \
+                     patch.object(updater.wx, 'MessageBox') as message, \
+                     patch.object(updater, '_show_update_dialog') as dialog:
+                    if scenario == 'offline':
+                        fetch.side_effect = OSError('offline')
+                    if scenario == 'thread_failure':
+                        with patch.object(updater.threading, 'Thread', side_effect=RuntimeError('no thread')):
+                            updater.check_startup_updates(parent, on_complete=complete)
+                    else:
+                        updater.check_startup_updates(parent, on_complete=complete)
+                complete.assert_called_once_with()
+                dialog.assert_not_called()
+                message.assert_not_called()
+                self.assertFalse(updater.CHECK_LOCK.locked())
+
+    def test_startup_network_result_prompts_and_only_yes_delegates_to_download(self):
+        for answer in (wx.ID_YES, wx.ID_NO):
+            complete = Mock()
+            with self.subTest(answer=answer), \
+                 patch.object(updater.sys, 'frozen', True, create=True), \
+                 patch.object(updater.threading, 'Thread', ImmediateThread), \
+                 patch.object(updater.wx, 'CallAfter', side_effect=lambda fn, *args: fn(*args)), \
+                 patch.object(updater.urllib.request, 'urlopen', return_value=io.BytesIO(json.dumps(manifest()).encode())), \
+                 patch.object(updater, 'last_update_result', return_value={}), \
+                 patch.object(updater, 'runtime_backend', return_value='cpu'), \
+                 patch.object(updater.wx, 'MessageDialog') as dialog, \
+                 patch.object(updater.wx, 'MessageBox') as message, \
+                 patch.object(updater, '_download_and_run_installer') as download:
+                dialog.return_value.ShowModal.return_value = answer
+                updater.check_startup_updates(self.parent(), on_complete=complete)
+            dialog.assert_called_once()
+            message.assert_not_called()
+            self.assertFalse(updater.CHECK_LOCK.locked())
+            if answer == wx.ID_YES:
+                download.assert_called_once()
+                complete.assert_not_called()
+            else:
+                download.assert_not_called()
+                complete.assert_called_once_with()
+
+    def test_download_outcome_resumes_startup_only_when_update_does_not_take_over(self):
+        for scenario in ('success', 'download_error', 'cancel_download', 'uac_cancel', 'helper_error'):
+            with self.subTest(scenario=scenario), tempfile.TemporaryDirectory(prefix='ghostkiller_update_') as folder:
+                complete = Mock()
+                progress = Mock(IsBeingDeleted=lambda: False)
+                progress.Update.return_value = (scenario != 'cancel_download', False)
+                response = io.BytesIO(PAYLOAD)
+                response.headers = {'Content-Length': str(len(PAYLOAD))}
+                response.geturl = lambda: manifest()['packages']['cpu']['download_url']
+                with patch.object(updater.tempfile, 'mkdtemp', return_value=folder), \
+                     patch.object(updater.threading, 'Thread', ImmediateThread), \
+                     patch.object(updater.wx, 'CallAfter', side_effect=lambda fn, *args: fn(*args)), \
+                     patch.object(updater.wx, 'ProgressDialog', return_value=progress), \
+                     patch.object(updater.urllib.request, 'urlopen', return_value=response) as fetch, \
+                     patch.object(updater, 'run_in_place_update') as handoff, \
+                     patch.object(updater.wx, 'GetApp') as app, \
+                     patch.object(updater.wx, 'MessageBox'):
+                    if scenario == 'download_error':
+                        fetch.side_effect = OSError('offline')
+                    elif scenario == 'uac_cancel':
+                        handoff.side_effect = windows_installer.InstallerLaunchCancelled('cancelled')
+                    elif scenario == 'helper_error':
+                        handoff.side_effect = RuntimeError('helper failed')
+                    updater._download_and_run_installer(self.parent(), manifest(), backend='cpu',
+                                                       on_complete=complete)
+                progress.Destroy.assert_called_once()
+                self.assertFalse(JOB_LOCK.locked())
+                if scenario == 'success':
+                    complete.assert_not_called()
+                    app.return_value.ExitMainLoop.assert_called_once()
+                    self.assertTrue((Path(folder)/'Ghostkiller_V2_Setup.exe').is_file())
+                else:
+                    complete.assert_called_once_with()
+                    app.assert_not_called()
+                    self.assertFalse(Path(folder).exists())
 
     def test_failed_same_version_does_not_create_restart_loop_but_manual_retry_works(self):
         response = lambda *args, **kwargs: io.BytesIO(json.dumps(manifest()).encode('utf-8'))
@@ -186,22 +329,25 @@ class AutomaticUpdateTests(unittest.TestCase):
         app = wx.GetApp() or wx.App(False)
         frame = wx.Frame(None)
         try:
-            with tempfile.TemporaryDirectory() as folder:
+            with tempfile.TemporaryDirectory() as folder, patch.object(wx, 'MessageBox') as message:
                 settings = AppSettings(str(Path(folder)/'settings.json'), ModelManager(folder))
                 frame.settings = settings
                 panel = SettingsPanel(frame, settings, auto_detect=False)
                 self.assertTrue(panel.chk_auto_update.GetValue())
+                self.assertEqual(panel.chk_auto_update.GetLabel(), 'Açılışta güncellemeleri otomatik denetle')
                 panel.chk_auto_update.SetValue(False)
                 panel.OnAutoUpdate(None)
+                message.assert_not_called()
                 self.assertFalse(AppSettings(settings.path, settings.manager).auto_update)
                 self.assertTrue(panel.btn_update.IsEnabled())
                 with patch('ui_settings.check_for_updates') as check:
                     panel.OnCheckUpdates(None)
                 check.assert_called_once_with(frame, silent=False)
-                with patch.object(settings, 'save_option', side_effect=PermissionError('read only')), patch.object(wx, 'MessageBox'):
+                with patch.object(settings, 'save_option', side_effect=PermissionError('read only')):
                     panel.chk_auto_update.SetValue(True)
                     panel.OnAutoUpdate(None)
                 self.assertFalse(panel.chk_auto_update.GetValue())
+                self.assertIn('read only', message.call_args.args[0])
         finally:
             frame.Destroy()
             app.ProcessPendingEvents()

@@ -10,6 +10,7 @@ import uuid
 import time
 from app_runtime import data_directory, app_directory, safe_filename
 from app_settings import write_json_atomic
+from audio_export import selected_output_format, selected_output_channels
 from training.config import TrainingOptions, BACKEND_COMMIT, FORMAT_VERSION, TRAINER_REVISION
 from training.storage import read_manifest, update_manifest,rng_layout
 from registry_store import registry_lock
@@ -29,6 +30,8 @@ def create_job(options, settings, parent_job=None):
         "format_version":FORMAT_VERSION,"backend_commit":BACKEND_COMMIT,
         "trainer_revision":TRAINER_REVISION,
         "options":options.to_dict(),"device":device,"model_root":settings.manager.root,
+        "output_format":selected_output_format(settings),
+        "output_channels":selected_output_channels(settings),
         "rng_layout":rng_layout(device),
         "status":"created","asset_records":{key:settings.manager.records.get(key,{}) for key in
             ("contentvec","rmvpe",f"training_v2_{options.sample_rate//1000}k")},
@@ -74,7 +77,8 @@ def validate_resume(job, settings):
         new_hashes = {k:v["sha256"] for k,v in current.get("files",{}).items()}
         if old_hashes != new_hashes:
             raise ValueError("Model yardımcı dosyaları değişmiş; bu eğitime aynen devam edilemez.")
-    update_manifest(job,device=device,model_root=settings.manager.root)
+    update_manifest(job,device=device,model_root=settings.manager.root,
+                    output_format=selected_output_format(settings),output_channels=selected_output_channels(settings))
     return options
 
 

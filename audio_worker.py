@@ -51,7 +51,9 @@ class AudioEngine:
             from instruments.engine import separate_file
             return separate_file(payload['input_file'],payload['output_dir'],payload['model_root'],
                                  profile=payload['profile'],stems=payload['stems'],device=device,
-                                 cancelled=self.cancelled,progress=self.progress)
+                                 cancelled=self.cancelled,progress=self.progress,
+                                 output_format=payload.get('output_format', 'flac'),
+                                 output_channels=payload.get('output_channels', 'original'))
         if kind == 'cover':
             from rvc.infer.infer import VoiceConverter
             from rvc.infer.quality_policy import InferenceQualityPolicy

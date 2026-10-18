@@ -1,8 +1,28 @@
-# Donanım ve model yönetimi — 10 Ekim 2026
+# Donanım ve model yönetimi — 18 Ekim 2026
 
 Yeni Ayarlar sekmesi, iki ses motorunun aynı işlemci/ekran kartı tercihini kullanmasını sağlar. Kullanıcı teknik backend seçmez; CPU ve GPU ağırlıkları aynıdır. Intel ve AMD işlemciler CPU yoluyla, uyumlu NVIDIA kartları CUDA yoluyla kullanılır. AMD GPU için uygun ROCm/PyTorch ortamı gereklidir; mevcut CUDA ortamında üretilen setup AMD GPU çalışma ortamını içermez.
 
+## Ses dosyası biçimi
+
+Ayarlar'daki **Ses dosyası biçimi** listesinden **MP3, WAV, FLAC veya OGG** seçin.
+Bu tercih vokal temizleme, enstrüman ayırma, AI Cover ve eğitimde üretilen dinleme
+örneklerine uygulanır; yeniden açılışta korunur. Varsayılan FLAC'tır. İşlem
+sürerken biçim değiştirilemez. WAV ve FLAC dosyalar 24 bit kaydedilir;
+MP3 ve OGG sıkıştırılmış ses biçimleridir. MP3'ün desteklemediği 40 kHz gibi
+örnekleme hızları, ses süresi korunarak en yakın desteklenen hıza dönüştürülür.
+
+**Ses kanalı düzeni** listesinde **Mono (tek kanal)** ve **Stereo (iki kanal)**
+seçenekleri vardır. Bu tercih de bütün ses çıktılarına uygulanır ve kalıcıdır.
+Varsayılan **İşlemin kanal düzenini koru** seçeneğidir. Mono seçiminde sol ve sağ
+kanalın ortalaması alınır; mono bir ses stereo kaydedilirse aynı ses iki kanala yazılır.
+
 ## Kullanım
+
+İşlem ekranlarında yalnız gereken modeller hazır değilse **Bu işlem için eksik
+modelleri hazırla** düğmesi görünür. Bu düğme Ayarlar'ı açıp yalnız ilgili
+eksikleri seçer; mevcut sağlam dosyaları kullanır, eksik/bozuk olanları hazırlar.
+İsteğe bağlı modellerin kullanım koşulları yine onaylanır. Hazırlık tamamlanınca
+düğme gizlenir; dosya biçimi, kanal ve donanım özeti görünür kalır.
 
 1. Ayarlar'ı açın. Açılıştaki donanım kontrolünün bitmesini bekleyin veya Donanımı kontrol et düğmesini kullanın.
 2. İşlemci veya Ekran kartı seçin. Kullanılamayan cihaz için açıklama gösterilir; kayıtlı GPU tercihi sessizce değiştirilmez.
@@ -26,6 +46,13 @@ AMD'nin Windows PyTorch desteği belirli cihaz/sürücü/çalışma ortamlarına
 ## Dosya kontrolü ve onarım
 
 - İndirme HTTP süre sınırı ve uzunluk kontrolü kullanır; `.part` dosyası boş/eksik veya iptal edilmişse hedefe geçirilmez.
+- Hazırlama öncesi eksik dosyaların sunucudan alınabilen boyutları gösterilir.
+  İndirilecek dosya için boş disk alanı kontrol edilir. Boyut alınamayan dosyalar
+  ayrıca belirtilir; bu bilgi dosya doğrulamasını değiştirmez.
+- Desteklenen sunucularda ETag/Last-Modified ve Range ile yarım indirme sürer.
+  Sunucu dosyası değişmişse veya Range desteklenmiyorsa dosya baştan indirilir.
+  Kısmi dosyalar özel `.downloads` önbelleğinde tutulur; doğrulanan tamamlanmış
+  dosya hedefe atomik geçirilir. Bozuk parçalar yeniden kullanılmaz.
 - JSON/YAML boş/geçersiz olmamalıdır. Resmî RoFormer YAML tuple alanları desteklenir; Python nesnesi çalıştıran YAML etiketleri kabul edilmez.
 - Checkpoint ZIP arşivlerinin CRC'si ve `torch.load(weights_only=True)` ile ağırlık yapısı kontrol edilir. İlk kayıt öncesindeki bozuk arşivler de yakalanır.
 - Tam dosyanın SHA-256 özeti `models/.integrity.json` içinde tutulur. İlk sağlam kopya başlangıç kaydıdır; bu kayıt upstream imza doğrulaması değildir.

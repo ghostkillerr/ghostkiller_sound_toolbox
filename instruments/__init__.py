@@ -11,12 +11,12 @@ DEMUCS_USAGE_NOTICE = (
 STEM_LABELS = {'bass':'Bas', 'drums':'Davul', 'guitar':'Gitar', 'piano':'Piyano',
                'vocals':'Vokal', 'other':'Diğer enstrümanlar'}
 PROFILES = {
-    'scnet': {'label':'Dengeli — 4 kanal (SCNet)', 'asset':'instruments/scnet_base.th',
+    'scnet': {'label':'Standart (4 kanal)', 'asset':'instruments/scnet_base.th',
               'stems':('drums','bass','other','vocals'),
               'url':'https://drive.usercontent.google.com/download?id=1CdEIIqsoRfHn1SJ7rccPfyYioW3BlXcW&export=download&confirm=t',
               'sha256':'f8aff3bc8dd816aad392800d9d69519add719a2fbd22550af6f8cb2138d25ff5',
               'size':42434545},
-    'demucs6': {'label':'Ayrıntılı — 6 kanal (deneysel; bilimsel kullanım)',
+    'demucs6': {'label':'Ayrıntılı (6 kanal)',
                 'asset':'instruments/htdemucs_6s.th',
                 'stems':('drums','bass','other','vocals','guitar','piano'),
                 'url':'https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/5c90dfd2-34c22ccb.th',

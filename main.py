@@ -86,7 +86,7 @@ class GhostkillerMainFrame(wx.Frame):
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.Centre()
 
-        wx.CallAfter(lambda: post_ui(self, self.ShowStartupMessage))
+        wx.CallAfter(lambda: post_ui(self, self.BeginStartupSequence))
 
     def OnClose(self, event):
         if JOB_LOCK.locked() and event.CanVeto():
@@ -118,6 +118,12 @@ class GhostkillerMainFrame(wx.Frame):
         menubar.Append(tools_menu, "&Araçlar")
         self.SetMenuBar(menubar)
 
+    def BeginStartupSequence(self):
+        """Check for updates before the welcome; resume only if staying open."""
+        check_startup_updates(
+            self, on_complete=lambda: wx.CallAfter(post_ui, self, self.ShowStartupMessage)
+        )
+
     def ShowStartupMessage(self):
         """Uygulama başladığında bilgi mesajı gösterir."""
         wx.MessageBox(
@@ -127,9 +133,6 @@ class GhostkillerMainFrame(wx.Frame):
             "Ghostkiller Sound Toolbox",
             wx.OK | wx.ICON_INFORMATION
         )
-        # Start after the native welcome dialog closes, so it cannot keep the
-        # process alive while the detached updater waits to replace its files.
-        check_startup_updates(self)
 
     def InitUI(self):
         """Arayüz bileşenlerini, Karanlık Modu ve wx.Notebook sekmelerini oluşturur."""
@@ -140,6 +143,8 @@ class GhostkillerMainFrame(wx.Frame):
         from app_settings import AppSettings
         self.settings = AppSettings()
         self.settings.open_settings = self.OpenSettings
+        self.settings.prepare_models = self.PrepareModels
+        self.settings.refresh_operations = self.RefreshOperations
         self.SetBackgroundColour(self.bg_main)
 
         panel = wx.Panel(self)
@@ -169,6 +174,7 @@ class GhostkillerMainFrame(wx.Frame):
         self.notebook.AddPage(self.training_tab, "3. Model Eğitimi")
         self.settings_tab = SettingsPanel(self.notebook, self.settings)
         self.notebook.AddPage(self.settings_tab, "4. Ayarlar")
+        self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
 
         vbox.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 5)
         panel.SetSizer(vbox)
@@ -182,6 +188,20 @@ class GhostkillerMainFrame(wx.Frame):
     def OpenSettings(self):
         self.notebook.SetSelection(self.notebook.FindPage(self.settings_tab))
         self.settings_tab.device_choice.SetFocus()
+
+    def PrepareModels(self, model_ids):
+        self.notebook.SetSelection(self.notebook.FindPage(self.settings_tab))
+        self.settings_tab.PrepareRequiredModels(model_ids)
+
+    def RefreshOperations(self):
+        for name in ('separator_tab', 'cover_tab', 'training_tab'):
+            preparation = getattr(getattr(self, name, None), 'preparation', None)
+            if preparation is not None and not preparation.IsBeingDeleted():
+                preparation.RefreshReadiness()
+
+    def OnPageChanged(self, event):
+        self.RefreshOperations()
+        event.Skip()
 
     def RefreshCoverModels(self):
         from ui_cover import load_models, get_app_dir

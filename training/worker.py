@@ -170,7 +170,9 @@ def _run_worker(job, resume=False):
         # Test actual application inference before any registry write.
         check_cancel(job)
         from training.comparison import test_candidates
-        models, bank = test_candidates(job, dataset, options, device, index, emit)
+        models, bank = test_candidates(job, dataset, options, device, index, emit,
+                                      output_format=manifest.get('output_format', 'wav'),
+                                      output_channels=manifest.get('output_channels', 'original'))
         from app_settings import write_json_atomic
         result = {**summary,"models":models,"comparison_inputs":bank,"index":index,"index_sha256":file_digest(index),"index_vectors":count}
         write_json_atomic(str(job/"result.json"),result)

@@ -18,6 +18,9 @@ ve model yönetim sistemini modüler bir wx.Panel (CoverPanel) olarak sağlar.
 
 import wx
 from ui_common import apply_native_style, add_intro
+from audio_export import (export_audio, selected_output_format, normalize_output_format,
+                          selected_output_channels, normalize_output_channels)
+from ui_operation import OperationPreparation, show_result, operation_error
 import os
 import sys
 import json
@@ -338,7 +341,7 @@ class CoverPanel(wx.ScrolledWindow):
         box_paths.SetFont(font_large)
         sizer_paths = wx.StaticBoxSizer(box_paths, wx.VERTICAL)
 
-        # Girdi Dosyası (.wav)
+        # Girdi ses dosyası
         input_box = wx.BoxSizer(wx.HORIZONTAL)
         self.btn_select_input = wx.Button(self, label="Ses dosyası seç", size=(-1, 40))
         self.btn_select_input.SetFont(font_normal)
@@ -403,6 +406,7 @@ class CoverPanel(wx.ScrolledWindow):
         advanced_grid.Add(lbl_f0, 0, wx.ALIGN_CENTER_VERTICAL)
         self.f0_choice = wx.Choice(self.advanced_options, choices=["rmvpe", "crepe"])
         self.f0_choice.SetSelection(0)
+        self.f0_choice.Bind(wx.EVT_CHOICE, lambda event: self.preparation.RefreshReadiness())
         self.f0_choice.SetFont(font_normal)
         advanced_grid.Add(self.f0_choice, 1, wx.EXPAND)
 
@@ -432,6 +436,8 @@ class CoverPanel(wx.ScrolledWindow):
         vbox.Add(sizer_settings, 0, wx.EXPAND | wx.ALL, 5)
 
         # 4. İŞLEM BUTONLARI (Başlat / İptal)
+        self.preparation = OperationPreparation(self, self.settings, self.RequiredModels)
+        vbox.Add(self.preparation, 0, wx.EXPAND | wx.ALL, 8)
         btn_box = wx.WrapSizer(wx.HORIZONTAL)
         self.btn_start = wx.Button(self, label="Ses değiştirmeyi başlat", size=(-1, 60))
         self.btn_start.SetFont(font_large)
@@ -502,6 +508,9 @@ class CoverPanel(wx.ScrolledWindow):
     def UpdateModelCheckList(self):
         """Kayıtlı modelleri listeye yansıtır."""
         self.model_list.SetModels(list(self.models.keys()))
+
+    def RequiredModels(self):
+        return ['contentvec'] + (['rmvpe'] if self.f0_choice.GetStringSelection() == 'rmvpe' else [])
 
     def OnAddModel(self, event):
         """Yeni model ekleme penceresi ve veritabanı kaydı."""
@@ -582,8 +591,8 @@ class CoverPanel(wx.ScrolledWindow):
             self.LogMessage(f"Silinen modeller: {', '.join(selected_names)}")
 
     def OnSelectInput(self, event):
-        """Kılavuz vokal .wav dosyasını seçtirir."""
-        wildcard = "Ses Dosyaları (*.wav;*.flac;*.mp3)|*.wav;*.flac;*.mp3|Tüm Dosyalar (*.*)|*.*"
+        """Desteklenen biçimlerdeki kılavuz vokal dosyasını seçtirir."""
+        wildcard = "Ses Dosyaları (*.mp3;*.wav;*.flac;*.ogg)|*.mp3;*.wav;*.flac;*.ogg|Tüm Dosyalar (*.*)|*.*"
         dlg = wx.FileDialog(
             self,
             message="Kılavuz Vokal Dosyasını Seçin",
@@ -662,14 +671,14 @@ class CoverPanel(wx.ScrolledWindow):
             wx.MessageBox("Lütfen işlem yapılacak en az bir modeli listeden basarak [AÇIK] duruma getirin.", "Hata", wx.OK | wx.ICON_ERROR)
             return
         if not self.input_audio_path:
-            wx.MessageBox("Lütfen kılavuz vokali (.wav) seçin.", "Hata", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox("Lütfen kılavuz vokal dosyasını seçin.", "Hata", wx.OK | wx.ICON_ERROR)
             return
         if not self.output_folder_path:
             wx.MessageBox("Lütfen çıktı klasörünü seçin.", "Hata", wx.OK | wx.ICON_ERROR)
             return
 
         try:
-            index_rate_val = float(self.index_rate_ctrl.GetValue().strip())
+            index_rate_val = float(self.index_rate_ctrl.GetValue().strip().replace(',', '.'))
         except ValueError:
             index_rate_val = float("nan")
         if not math.isfinite(index_rate_val) or not 0 <= index_rate_val <= 1:
@@ -685,13 +694,15 @@ class CoverPanel(wx.ScrolledWindow):
             "quality_policy": {key:control.GetValue() for key,control in self.quality_controls.items()},
             "input_path": self.input_audio_path,
             "output_directory": self.output_folder_path,
+            "output_format": selected_output_format(self.settings),
+            "output_channels": selected_output_channels(self.settings),
             "models": {name: dict(self.models[name]) for name in selected_model_names}
         }
 
         if not os.path.isfile(self.input_audio_path) or not os.path.isdir(self.output_folder_path):
             wx.MessageBox("Giriş dosyası veya çıktı klasörü bulunamadı.", "Hata", wx.OK | wx.ICON_ERROR)
             return
-        names = [safe_filename(os.path.splitext(os.path.basename(self.input_audio_path))[0]) + "_" + safe_filename(name) + ".wav" for name in selected_model_names]
+        names = [safe_filename(os.path.splitext(os.path.basename(self.input_audio_path))[0]) + "_" + safe_filename(name) + "." + settings['output_format'] for name in selected_model_names]
         if len({name.casefold() for name in names}) != len(names):
             wx.MessageBox("Seçilen model adları aynı çıktı adına dönüşüyor. Model adlarını değiştirin.", "Hata", wx.OK | wx.ICON_ERROR)
             return
@@ -727,7 +738,7 @@ class CoverPanel(wx.ScrolledWindow):
         except Exception as error:
             self.LogMessage(f"[HATA] {error}")
             self.UpdateStatus("İşlem Kuyruğu İptal Edildi" if self.is_cancelled else "İşlem başarısız", 0)
-            post_ui(self, wx.MessageBox, str(error), "İşlem Hatası", wx.OK | wx.ICON_WARNING)
+            post_ui(self, wx.MessageBox, operation_error(error), "İşlem Hatası", wx.OK | wx.ICON_WARNING)
         finally:
             try:
                 if getattr(self, 'audio_session', None) is not None:
@@ -752,10 +763,14 @@ class CoverPanel(wx.ScrolledWindow):
         input_path = settings.get("input_path", self.input_audio_path)
         output_directory = settings.get("output_directory", self.output_folder_path)
         models = settings.get("models", self.models)
+        # Direct legacy callers retain WAV; the GUI captures the shared preference.
+        output_format = normalize_output_format(settings.get('output_format', 'wav'))
+        output_channels = normalize_output_channels(settings.get('output_channels', 'original'))
         input_filename = os.path.basename(input_path)
         base_name, ext = os.path.splitext(input_filename)
         total_models = len(model_names)
         succeeded = 0
+        failures = []
 
         prerequisites_ready = False
         for idx, model_name in enumerate(model_names, 1):
@@ -767,7 +782,7 @@ class CoverPanel(wx.ScrolledWindow):
             self.UpdateStatus(f"[{idx}/{total_models}] İşleniyor -> {model_name}", percent_start)
             self.LogMessage(f"\n--- [{idx}/{total_models}] MODEL İŞLENİYOR: {model_name} ---")
 
-            output_name = f"{safe_filename(base_name)}_{safe_filename(model_name)}.wav"
+            output_name = f"{safe_filename(base_name)}_{safe_filename(model_name)}.{output_format}"
             output_path = os.path.join(output_directory, output_name)
             vc = None
             temporary_path = None
@@ -831,12 +846,14 @@ class CoverPanel(wx.ScrolledWindow):
                 validate_audio_file(temporary_path)
                 if self.is_cancelled:
                     break
-                os.replace(temporary_path, output_path)
+                output_path = export_audio(temporary_path,output_path,output_format,cancelled=lambda:self.is_cancelled,
+                                           output_channels=output_channels)
                 succeeded += 1
-                self.LogMessage(f"[BAŞARILI] {output_name} başarıyla oluşturuldu.")
+                self.LogMessage(f"[BAŞARILI] {os.path.basename(output_path)} başarıyla oluşturuldu.")
 
             except Exception as e:
                 self.LogMessage(f"[KRİTİK HATA] {model_name}: {str(e)}")
+                failures.append(f'{model_name}: {operation_error(e)}')
             finally:
                 # VRAM ve Çöp Toplayıcı Temizliği (OOM Koruması)
                 try:
@@ -858,9 +875,13 @@ class CoverPanel(wx.ScrolledWindow):
         else:
             failed = total_models - succeeded
             summary = f"Başarılı: {succeeded}, başarısız: {failed}."
-            self.UpdateStatus(summary, 100)
+            if failures:
+                summary += '\n' + '\n'.join(failures)
+            self.UpdateStatus(summary, int(succeeded / total_models * 100) if total_models else 0)
             self.LogMessage(summary)
-            post_ui(self, wx.MessageBox, summary, "İşlem Sonucu", wx.OK | (wx.ICON_WARNING if failed else wx.ICON_INFORMATION))
+            post_ui(self, show_result, self, summary, "İşlem Sonucu",
+                    wx.OK | (wx.ICON_WARNING if failed else wx.ICON_INFORMATION),
+                    output_directory if succeeded else None)
 
 if __name__ == '__main__':
     app = wx.App(False)

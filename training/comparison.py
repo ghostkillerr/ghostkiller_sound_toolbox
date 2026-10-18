@@ -1,6 +1,7 @@
 """Fixed held-out listening bank shared by every archived candidate."""
 import json
 from pathlib import Path
+import tempfile
 
 from app_settings import write_json_atomic
 from model_manager import file_digest
@@ -51,9 +52,12 @@ def comparison_bank(job, dataset, options=None):
     return bank
 
 
-def test_candidates(job, dataset, options, device, index, emit):
+def test_candidates(job, dataset, options, device, index, emit, output_format='wav', output_channels='original'):
     from rvc.infer.infer import VoiceConverter
     from app_runtime import validate_audio_file
+    from audio_export import normalize_output_format, normalize_output_channels, export_audio
+    output_format = normalize_output_format(output_format)
+    output_channels = normalize_output_channels(output_channels)
     job = Path(job)
     bank = comparison_bank(job, dataset, options)
     candidates = [{'file':'latest.pth'}, {'file':'best_validation.pth'}]+snapshot_records(job)
@@ -75,11 +79,15 @@ def test_candidates(job, dataset, options, device, index, emit):
                     check_cancel(job)
                     folder = job/'comparison'
                     folder.mkdir(exist_ok=True)
-                    output = folder/f'model_{number}_{clip["id"]}_{int(ratio*100)}.wav'
+                    output = folder/f'model_{number}_{clip["id"]}_{int(ratio*100)}.{output_format}'
                     emit('smoke', message=f'Karşılaştırma: {candidate["file"]}, {clip["label"]}, index {ratio:.2f}')
-                    converter.convert_audio(clip['audio'], str(output), str(path), index if ratio else '',
-                                            f0_method=options.f0_method, index_rate=ratio, clean_audio=False)
-                    validate_audio_file(output)
+                    with tempfile.TemporaryDirectory(prefix='comparison_',dir=folder) as temporary:
+                        raw = str(Path(temporary)/'converted.wav')
+                        converter.convert_audio(clip['audio'], raw, str(path), index if ratio else '',
+                                                f0_method=options.f0_method, index_rate=ratio, clean_audio=False)
+                        validate_audio_file(raw)
+                        output = export_audio(raw,output,output_format,cancelled=lambda:(job/'cancel.request').exists(),
+                                              output_channels=output_channels)
                     record[field] = str(output)
                 tests.append(record)
             models.append({**candidate, 'pth':str(path), 'sha256':digest, 'smoke_passed':True,

@@ -1,91 +1,59 @@
-# İlk deneme: senden beklenenler
+# Kullanıcı denemesi
 
-Güncelleme: **17 Ekim 2026**. Güncel test ve kurulum sonucu için
-[Son durum](SON_DURUM.md) dosyasını esas alın. Eski 16 Ekim kurulumlarının
-307 test/Sandbox kanıtları bugünkü değişikliklerin kabulü sayılmaz.
+Güncelleme: **18 Ekim 2026**. Güncel test ve paket durumu
+[Son durum](SON_DURUM.md) dosyasındadır. Kod yazman, komut çalıştırman veya
+eğitim teorisini bilmen gerekmiyor. Sonucu dinleyip takıldığın yeri anlatman yeterli.
 
-Enstrüman kanal düğmelerinin açık/kapalı okuması düzeltildi ve 17 Ekim'de
-kullanıcı tarafından çalıştığı doğrulandı. Bu kabul yalnız denenen kontrolleri
-kapsar. Sırada gerçek sesleri sırayla dinlemek var. A2SB ve
-altı kanallı HTDemucs seçilirse ilgili modelin kullanım koşulları gösterilir;
-Vazgeç ile çıkmak mümkündür, işlem kendiliğinden başlamaz.
+## 1. Hazırlık ve sonuçları bulma
 
-Kod yazman, komut çalıştırman veya eğitim teorisini bilmen gerekmiyor.
-Yazılım değişiklikleri, hata incelemesi, teknik ayarlar, testler ve kurulum
-hazırlığı geliştirme tarafında yapılır. Senden gereken, kullanılacak sesi
-seçmen ve sonucu günlük dille anlatmandır.
+1. İşlem ekranında dosya biçimi, kanal düzeni ve donanım özetini kontrol et.
+2. Model eksikse görünen **Bu işlem için eksik modelleri hazırla** düğmesini
+   kullan. Yalnız ilgili modeller seçilmeli; hazır olunca düğme kaybolmalı.
+3. Kısa bir kayıtla işlem yap. Sonuç mesajını kapatınca çıktı klasörü açılmalı.
+4. Aynı işlemi tekrar yap. Yeni sonuç `(2)` ile kaydedilmeli; önceki dosya
+   değişmemeli. Ses adlarına program adı veya JSON raporu eklenmemeli.
+5. Ayarlar'da MP3/WAV/FLAC/OGG ve mono/stereo tercihlerini değiştirip yeni
+   sonuçların bu tercihle kaydedildiğini dene.
 
-Yeni onarım seçeneğini denemek için **Arka Vokalleri ve Harmoni Seslerini
-Temizle** düğmesini aç. Altında görünen **kısa vokal kayıplarını onar** düğmesi
-varsayılan kapalıdır. Açarsan standart ve onarılmış mono sonuç ayrı kaydedilir.
-Tab/Boşluk tuşlarını ve NVDA'nın açık/kapalı okumasını dinleyip takıldığın yeri
-söylemen yeterli. [Kullanım ayrıntıları](VOKAL_ONARIMI.md).
+## 2. Ses kalitesi
 
-## Şimdi gereken üç şey
+- **Vokal:** kullandığın temizleme adımlarını ve sesin nasıl değiştiğini anlat.
+  Örneğin “Kelimeler kayboluyor”, “Yankı kaldı” veya “Ses metalik oldu”.
+- **Onarım:** arka vokal temizliğini açınca kısa vokal onarımı seçeneği görünür.
+  Varsayılan kapalıdır. Açıp standart ve onarılmış dosyayı karşılaştır; onarımın
+  iyi/kötü etkilediği bölümü söyle. Uzun kayıp cümleleri tamamlaması beklenmez.
+- **Enstrüman:** dört/altı kanal sonuçlarını ayrı dinle; diğer seslerin hangi
+  kanala sızdığını anlat. Gitar/piyano ayrımı deneyseldir.
+- **Ses değiştirme:** aynı kısa vokalle seçtiğin modeli dinle; anlaşılmayan
+  kelime, benzerlik veya perde sorunu varsa belirt.
 
-1. **Denemek istediğin sesi seç.** Model eğitimi için mümkünse aynı kişiye
-   ait, farklı bölümler içeren iki ayrı kayıt belirle. Müziksiz ve yankısı az
-   kayıtları tercih et. Bu seçim bir ilk denemedir; iyi model için yeterli veri
-   bulunduğu incelemeden önce söylenemez. Kayıtların yoksa önce kayıt hazırlama
-   adımı planlanır. Dosyaları internete yüklemen gerekmez; bilgisayardaki
-   klasörlerini söylemen yeterli.
-2. **Kısa bir işleyiş denemesi yap.** Adımlar aşağıda. Bir mesajı anlamazsan
-   olduğu gibi aktar. Teknik anlamını çözmen beklenmiyor.
-3. **Duyduğunu ve takıldığın yeri anlat.** Örneğin: “Kelimeler bozuluyor”,
-   “Tizlerde metalik oluyor”, “Ses istediğim kişiye benzemiyor” veya
-   “Bu düğmeden sonra ne yapacağımı anlayamadım”. Ölçüm hesaplaman gerekmiyor.
+A2SB ve altı kanallı HTDemucs için koşullar gösterilir; kabul etmezsen işlem
+başlamamalı. Sesleri internete yüklemen gerekmez; dosyalar bilgisayarında işlenir.
 
-## Kısa eğitim denemesi
+## 3. Eğitim
 
-Bu ilk deneme, düğmelerin ve işlemlerin çalışmasını görmek içindir;
-iyi ses modeli elde edildiği anlamına gelmez.
+1. Aynı kişiye ait, mümkünse farklı bölümler içeren temiz kayıtlar ekle.
+2. **Kayıtları eğitim başlatmadan incele** düğmesini kullan; anlaşılmayan uyarıyı aktar.
+3. İlk işleyiş denemesi için kısa eğitim ayarı hazırlanır. Az tekrar,
+   düğmelerin çalışmasını gösterir; iyi ses modeli kanıtı değildir.
+4. Eğitim sonucundaki modelleri aynı test kaydıyla dinle. Önce **index kapalı**
+   seçimi modelin kendi sonucunu duymanı sağlar.
+5. Daha uzun denemede **durdur ve kaydet**, **yarım kalan eğitime devam et** ve
+   modeli ses değiştirme listesine ekleme akışlarını dene.
 
-1. **Model Eğitimi → Ses kayıtları ekle** ile kayıtları seç.
-2. **Kayıtları eğitim başlatmadan incele** düğmesine bas.
-3. Sonuçta anlaşılmayan veya sorun bildirilen bir mesaj varsa onu aktar;
-   sonraki ayarlar kayıt incelemesine göre birlikte belirlenir.
-4. Bu geliştirme bilgisayarında **Kayıtlı ayar şablonunu uygula →
-   Kısa işleyiş denemesi (3 tekrar)** hazırdır. Bu şablon eğitim tekrarını
-   `3`, kaydetme ve değerlendirme aralığını `1` yapar. Kurulum başka bir
-   bilgisayarda kullanılıyorsa şablonun orada bulunduğu varsayılmaz.
-5. Modele bir deneme adı verip **Yeni ses modeli eğit** düğmesine bas.
-6. Bittikten sonra sonuç bölümündeki modelleri aynı test kaydıyla dinle.
-   İlk karşılaştırmada **index kapalı** seçilebilir; bu, modelin kendi
-   sonucunu dinlemek içindir.
+Kayıt incelemesi, ara modeller, oturumlar, şablonlar ve eğitim sırası zaten
+vardır. İyileştirmeler gerçek kullanımda zor gelen adıma ve duyulan sonuca göre seçilir.
 
-Bir hata çıkarsa son yaptığın işlemle birlikte mesajını bildir.
-Günlük dosyasını bulman veya hatayı kendin çözmen beklenmiyor.
-Gerçek kalite denemesi için kullanılacak kayıtlar ve eğitim süresi bu kısa
-denemenin ardından belirlenir; tekrar sayısını artırmak tek başına kalite garantisi değildir.
+## 4. Klavye ve hatalar
 
-## Geliştirmede izlenecek sıra
+Tab/ok/Boşluk ile kontrollerin adını, açık/kapalı durumunu, kısa ayar özetini ve
+sonuçları NVDA/JAWS ile dinle. “Şurada sustu”, “Aynı yazıyı iki kez okudu” veya
+“Buradan sonra ne yapacağımı anlayamadım” demen yeterli.
 
-Kullanıcının önceliği **model eğitimi ve ileri özellikler** olarak korunur.
-Kayıt inceleme, durdur/devam, ara modeller, karşılaştırma, oturumlar ve deney
-kuyruğu zaten vardır; bunlar yeni eklenecek özellikler olarak sayılmamalıdır.
+Hata olursa son yaptığın işlemle birlikte mesajı bildir. Günlük dosyasını bulman
+veya hatayı kendin çözmen beklenmez. Yayın öncesinde yeni installer'ın temiz
+Windows'ta kurulması ve eski sürümden güncellenmesi geliştirme tarafında ayrıca sınanır.
 
-1. **Gerçek bir başlangıç sonucu kaydet:** Kullanılan kayıtlar ve ayarlar,
-   eğitim süresi, dinlenen çıktı ve kullanıcının yorumu yerelde tutulur.
-2. **İlk kullanımı kolaylaştır:** İlk denemede zor gelen adımlara göre
-   yönlendirme, terim açıklamaları ve sonraki işlem önerileri iyileştirilir.
-3. **Duyulan sorunu düzelt:** Aynı test kaydıyla önceki ve yeni sonuç
-   karşılaştırılır. Değişikliğin kaliteyi artırdığı dinlemeden ilan edilmez.
-4. **Uzun çalışmayı doğrula:** Daha uzun eğitim, durdurup devam etme,
-   kaynak kullanımı ve model kaydının gerçek kullanım sonuçları incelenir.
-5. **İleri özellikleri ölçüme göre seç:** Hız veya yeni eğitim yöntemleri,
-   görülen ihtiyaca göre ayrı denemelerle değerlendirilir.
-
-## Daha sonra, dağıtımdan önce
-
-16 Ekim eski adaylar için temiz Windows Sandbox'ta kurulum, aynı sürümü
-yeniden kurma, örnek model/ayarları koruma ve kaldırma kontrolleri tamamlanmıştı.
-17 Ekim yeni adayın temiz Windows kabulü ayrıca yapılmalıdır. Gerçek eski sürümden
-yükseltme ve yönetici izni penceresini kabul/iptal etme ayrıca sınanacak.
-Sandbox denemesi kişisel kayıtlarını kullanmadı. Günlük kullanım ve ses
-kalitesi için aşağıdaki ekran okuyucu/dinleme kabulü hâlâ gerekiyor.
-
-NVDA veya JAWS kullanıyorsan düğme adlarının, sonuçların ve Tab geçişlerinin
-anlaşılır olup olmadığını da dene. “Şurada sustu” veya “Aynı yazıyı iki kez
-okudu” demen yeterlidir.
-
-Ayrıntılı kullanım: [Model eğitimi rehberi](MODEL_EGITIMI.md).
+Ayrıntılar: [enstrüman ayırma](ENSTRUMAN_AYIRMA.md),
+[vokal onarımı](VOKAL_ONARIMI.md), [model eğitimi](MODEL_EGITIMI.md),
+[donanım ve modeller](DONANIM_VE_MODEL_YONETIMI.md).

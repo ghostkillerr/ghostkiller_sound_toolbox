@@ -55,14 +55,10 @@ SHA-256'sı `11ed9f8a6ac64fb1b5a55e40e305a6744a3f77a70863c8f8197a6e4349abc64a`.
 Metadata/URL/hash kaydı `build/dagitim_python_provenance.json` içindedir.
 [uv runtime açıklaması](https://docs.astral.sh/uv/guides/install-python/).
 
-Önceki geçici `build/release_venv_cpu_py31215`, `locked_cpu_dependencies.pth`
-üzerinden eski CPU ortamının bağımlılıklarını paylaşıyordu; bağımsız bir yayın
-ortamı değildi. Bu geçici ortam ve eski Python 3.12.0 CPU/XPU ortamları,
-16 Ekim yerel disk temizliğinde kaldırıldı. Güncel bağımsız Python **3.12.15**
-ortamları `build/release_cpu/Scripts/python.exe` ve
-`build/release_cuda/Scripts/python.exe` olarak korunur. Yeni makinede yukarıdaki
-hash-locked kurulum reçetesini kullanın. Son doğrulama özetleri korunmuştur;
-silinen diagnostic EXE ve eski derleme çalışma klasörleri güncel çıktı sayılmaz.
+Yerel bağımsız Python **3.12.15** ortamları `build/release_cpu/Scripts/python.exe`
+ve `build/release_cuda/Scripts/python.exe` olarak bulunur. Yeni makinede
+hash-locked kurulum reçetesini kullanın. Başka ortamın site-packages'ini `.pth`
+ile paylaşan diagnostic ortam yayın derlemesi sayılmaz.
 
 `tools.release.generate_locks` sadece resmi PyPI/PyTorch metadata'sını okur.
 Sürüm güncellemesi `requirements/versions.json` ve ilgili profil değişikliği
@@ -112,24 +108,14 @@ paketleri bu lisansları, kaynak provenance'ını ve Python DLL hash'ini içerir
 başka runtime/patch için materyal yeniden hazırlanmalıdır. Üç Microsoft CRT
 DLL'si ve runtime lisans/provenance manifesti installer'da zorunludur.
 
-### Eski Gyan full build araştırma kaydı
+### Dağıtım için kaynak eşleşmesi
 
-Mevcut FFmpeg/FFprobe **8.1.1 Gyan full build** EXE'leri resmi
-[8.1.1 yayın arşivi](https://github.com/GyanD/codexffmpeg/releases/tag/8.1.1)
-ile byte/hash olarak eşleştirildi. Yayın kaydının belirttiği FFmpeg commit'i
-`239f2c733de417201d7ad3b3b8b0d9b63285b2b1`dir. İkililer değiştirilmedi.
-`python -m tools.release.fetch_ffmpeg_material` resmi arşivi doğrular ve
-`build/ffmpeg_material/8.1.1` altında EXE kopyaları, orijinal lisans metinleri,
-configure satırı, provenance manifesti ve tam bu FFmpeg commit'inin kaynak
-arşivini hazırlar. Bu dizin Git/paketli kişisel model verisi değildir.
-
-Full build GPLv3 ve çok sayıda bağlı kütüphane içerir. Resmi binary arşivi
-bağlı kütüphanelerin **tam sürüm/patch/build kaynaklarını sağlamıyor**; eldeki
-manifest dürüstçe `source_completeness: ffmpeg-only` yazar. Yalnız FFmpeg
-kaynak bağlantısını bütün kaynak yükümlülüğünün tamamlandığı gibi sunmuyoruz.
-Dağıtılacak full build için bu materyal tamamlanmalı veya soxr ve kullanılan
-WAV/FLAC/MP3/AAC codec'lerini karşılayan, kaynakları ve build reçetesi tam
-başka bir native x64 build hazırlanmalıdır. [FFmpeg dağıtım rehberi](https://www.ffmpeg.org/legal.html).
+Yayın girdisi kaynaklardan üretilen `8.1.1-release` bundle'ıdır. Eski Gyan full
+build'in yalnız FFmpeg kaynağını içeren `ffmpeg-only` manifesti bütün bağlı
+kütüphanelerin kaynaklarını karşıladığı anlamına gelmez. Böyle bir kaydı
+`complete` diye etiketleyerek yayın kapısını geçmeyin. İkili, etkin kütüphaneler,
+tam kaynaklar, lisans ve reçete eşleşmelidir.
+[FFmpeg dağıtım rehberi](https://www.ffmpeg.org/legal.html).
 
 Yayın amaçlı spec otomatik olarak şunları ister:
 
@@ -151,16 +137,30 @@ lisansları dışarıda bırakmaz.
 ## EXE derlemesi ve paket kontrolü
 
 ```powershell
-$env:GHOSTKILLER_BACKEND='cpu'
 $env:GHOSTKILLER_BUILD_PURPOSE='release'
-$env:GHOSTKILLER_FFMPEG_DIR='C:\tam\dogrulanmis\ffmpeg-bundle'
-build/release_cpu/Scripts/python.exe -m PyInstaller --noconfirm --clean --distpath build/release_dist_cpu --workpath build/release_work_cpu Ghostkiller_Sound_Cleaner_V2.spec
-build/release_cpu/Scripts/python.exe -m tools.release.preflight --package-dir build/release_dist_cpu/Ghostkiller_Sound_Cleaner_V2
-# Inno Setup 7/6 kurulu olan makinede; önce paketi doğrulayın:
-build/release_cpu/Scripts/python.exe -m tools.release.build_installer --backend cpu --package-dir build/release_dist_cpu/Ghostkiller_Sound_Cleaner_V2 --check-only
-build/release_cpu/Scripts/python.exe -m tools.release.build_installer --backend cpu --package-dir build/release_dist_cpu/Ghostkiller_Sound_Cleaner_V2
-# Standart yollar dışında kurulmuşsa --compiler ile ISCC.exe'nin tam yolunu verin.
+$env:GHOSTKILLER_FFMPEG_DIR=(Resolve-Path build/ffmpeg_material/8.1.1-release).Path
+foreach ($backend in @('cpu', 'cuda')) {
+    $python = "build/release_$backend/Scripts/python.exe"
+    $package = "build/release_dist_$backend/Ghostkiller_Sound_Cleaner_V2"
+    $env:GHOSTKILLER_BACKEND = $backend
+    $env:PYINSTALLER_CONFIG_DIR = Join-Path (Get-Location).Path "build/pyinstaller_cache_$backend"
+    & $python -m tools.release.preflight --backend $backend --ffmpeg-dir $env:GHOSTKILLER_FFMPEG_DIR
+    if ($LASTEXITCODE -ne 0) { throw "$backend ön kontrol başarısız." }
+    & $python -m PyInstaller --noconfirm --clean --distpath "build/release_dist_$backend" --workpath "build/release_work_$backend" Ghostkiller_Sound_Cleaner_V2.spec
+    if ($LASTEXITCODE -ne 0) { throw "$backend EXE derlemesi başarısız." }
+    $smoke = Join-Path (Get-Location).Path "build/frozen_smoke_$backend.json"
+    $process = Start-Process -FilePath "$package/Ghostkiller_Sound_Cleaner_V2.exe" -ArgumentList @('--self-test', ('"'+$smoke+'"')) -WindowStyle Hidden -Wait -PassThru
+    if ($process.ExitCode -ne 0 -or -not (Get-Content $smoke -Raw | ConvertFrom-Json).ok) { throw "$backend frozen smoke başarısız." }
+    & $python -m tools.release.build_installer --backend $backend --package-dir $package --check-only
+    if ($LASTEXITCODE -ne 0) { throw "$backend installer girdileri geçersiz." }
+    & $python -m tools.release.build_installer --backend $backend --package-dir $package
+    if ($LASTEXITCODE -ne 0) { throw "$backend setup derlemesi başarısız." }
+}
 ```
+
+Önce [oku.md](../oku.md) içindeki TEMP/cache ortamını hazırlayın. İki bağımsız
+venv, eşleşen dağıtım materyali ve Inno Setup 7/6 bulunmalıdır. Standart yollar
+dışındaki compiler için `build_installer` komutlarına `--compiler` ekleyin.
 
 `GHOSTKILLER_BACKEND` zorunludur. EXE'de `build-info.json` gerçek backend,
 uygulama sürümü, Python/PyTorch, lock hash'leri ve FFmpeg bilgilerini taşır. XPU derlemesi
@@ -173,8 +173,9 @@ checkpoint/catalog kaydı açık izin listesindedir.
 Inno Setup normal kullanıcıdan yönetici kurulumu için UAC ister. Ürün adı
 Sound Toolbox'dır; önceki installer'ın AppId ve hedef dizini korunmuştur,
 böylece yükseltme mevcut `models` dizinini kullanır. Backend installer adı
-`Ghostkiller_V2_Setup_cpu_2.0.0.exe` (gerçek paket sürümüne ve backend'e göre)
-olur. CUDA için kendi hash-locked venv'inde aynı akış `--backend cuda` ile yapılır.
+`Ghostkiller_V2_Setup_<cpu|cuda>_<sürüm>.exe` olur. Yukarıdaki akış her backend'i
+kendi hash-locked venv'inde üretir; iki gerçek installer ve aynı adlı `.build.json`
+teslim edilir.
 CPU ve CUDA derlemelerinin dist klasörlerini birbirine karıştırmayın: her
 backend'in doğrulanmış EXE ağacını ayrı yerde saklayıp `--package-dir` ile verin.
 
@@ -253,8 +254,12 @@ sayfasını açıklayan güvenli bir mesaj gösterir. Yeni şema her backend iç
 release-assets yönlendirmesi kabul edilir; başka host reddedilir. İndirme
 boyutu/hash kontrol edilir, son doğrulama GUI thread dışında tekrar yapılır.
 Varsayılan açık `auto_update` tercihi AppSettings'te saklanır. Kurulu uygulama
-açılışta otomatik indirip uygular; Ayarlar'dan kapatılırsa ağ kontrolü yapılmaz.
-Ayarlar düğmesi ve F5, tercihten bağımsız elle denetler ve indirme onayı ister.
+açılışta geliştirici bilgi penceresinden önce denetler ve yalnız yeni sürüm varsa
+indirme onayı ister. **Evet** sonrasında indirip uygular; **Hayır**, ağ hatası
+veya yeni sürüm bulunmaması normal açılışa devam ettirir. İndirme/kurulum devri
+sırasında geliştirici penceresi açılmaz; iptal veya devir hatasında açılış sürer.
+Ayarlar'dan kapatılırsa açılışta ağ kontrolü yapılmaz. Ayarlar düğmesi ve F5,
+tercihten bağımsız elle denetler ve indirme onayı ister.
 Kaynak geliştirme çalışması otomatik güncelleme uygulamaz. Ses/model/donanım işi
 varsa açılış güncellemesi işi kesmeden bekler; beklerken kapatılan tercih korunur.
 
@@ -284,7 +289,9 @@ yalnız kendilerine ait geçici dosyaları temizler; modeller ve ayarlar silinme
 [Inno komut satırı davranışı](https://jrsoftware.org/ishelp/topic_setupcmdline.htm).
 
 ```powershell
-python -m tools.release.make_update_manifest --version 2.1.0 --package cpu Setup/Ghostkiller_V2_Setup_cpu_2.1.0.exe dist/Ghostkiller_Sound_Cleaner_V2/_internal/build-info.json --release-date 2026-10-14 --output build/version-2.1.0.json
+$version = (Get-Content version.json -Raw | ConvertFrom-Json).version
+$date = Get-Date -Format 'yyyy-MM-dd'
+build/release_cpu/Scripts/python.exe -m tools.release.make_update_manifest --version $version --package cpu "Setup/Ghostkiller_V2_Setup_cpu_$version.exe" build/release_dist_cpu/Ghostkiller_Sound_Cleaner_V2/_internal/build-info.json --package cuda "Setup/Ghostkiller_V2_Setup_cuda_$version.exe" build/release_dist_cuda/Ghostkiller_Sound_Cleaner_V2/_internal/build-info.json --release-date $date --changelog 'CHANGELOG.md ile eşleşen gerçek sürüm özeti' --output "build/version-$version.json"
 ```
 
 Komut gerçek installer bytes'ından hash üretir, diagnostic veya derleme

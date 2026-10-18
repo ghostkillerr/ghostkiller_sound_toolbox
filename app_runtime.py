@@ -145,35 +145,10 @@ def copy_model(source, target):
 
 
 def download_model(url, target, cancelled=None, progress=None, validate=None):
-    """Never leave a partial download at the model's final path."""
-    fd, temporary_path = tempfile.mkstemp(dir=os.path.dirname(target), suffix=".part")
-    try:
-        with os.fdopen(fd, "wb") as output:
-            with urllib.request.urlopen(url, timeout=30) as response:
-                expected = int(response.headers.get("Content-Length", 0))
-                downloaded = 0
-                while True:
-                    if cancelled and cancelled():
-                        raise InterruptedError("Model indirmesi iptal edildi.")
-                    chunk = response.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    output.write(chunk)
-                    downloaded += len(chunk)
-                    if progress:
-                        progress(downloaded, expected)
-        if not downloaded or (expected and downloaded != expected):
-            raise RuntimeError("Model indirmesi boş veya eksik.")
-        if cancelled and cancelled():
-            raise InterruptedError("Model indirmesi iptal edildi.")
-        if validate:
-            validate(temporary_path)
-        if cancelled and cancelled():
-            raise InterruptedError("Model indirmesi iptal edildi.")
-        os.replace(temporary_path, target)
-    finally:
-        if os.path.exists(temporary_path):
-            os.remove(temporary_path)
+    """Keep resumable data private; publish only a complete, validated model."""
+    from model_download import download
+    return download(url, target, opener=urllib.request.urlopen, cancelled=cancelled,
+                    progress=progress, validate=validate)
 
 
 def post_ui(window, callback, *args):
@@ -196,6 +171,10 @@ def finish_job(window):
                 window.EnableUI(True)
         finally:
             JOB_LOCK.release()
+        if window and not window.IsBeingDeleted():
+            refresh = getattr(getattr(window, 'settings', None), 'refresh_operations', None)
+            if refresh:
+                refresh()
     wx.CallAfter(finish)
 
 

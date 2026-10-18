@@ -6,6 +6,7 @@ import threading
 from dataclasses import replace
 import wx
 from ui_common import apply_native_style, add_intro, section_title, name_control, explanation_control
+from ui_operation import OperationPreparation, open_result_folder, operation_error
 from app_runtime import JOB_LOCK, post_ui, data_directory, finish_job
 from training.config import TrainingOptions
 from training.service import create_job, validate_resume, TrainingProcess, register_model
@@ -75,6 +76,7 @@ class TrainingPanel(wx.ScrolledWindow):
         self.model_name = field(self,layout,"Model adı",lambda:wx.TextCtrl(self),"Yeni ses modeline vereceğiniz adı yazın.",False)
         self.sample_rate = field(self,layout,"Ses örnekleme hızı (kHz)",lambda:wx.Choice(self,choices=["32 kHz","40 kHz","48 kHz"]),"Emin değilseniz 40 kHz seçili kalsın.",False)
         self.sample_rate.SetSelection(1)
+        self.sample_rate.Bind(wx.EVT_CHOICE, self.OnProfile)
         self.epochs = field(self,layout,"Eğitim tekrar sayısı (epoch)",lambda:wx.SpinCtrl(self,min=1,max=10000,initial=200),"200 epoch, kayıtların eğitim sırasında 200 kez işlenmesi demektir. Daha fazla tekrar daha uzun sürer. Gereğinden fazla tekrar sonucu kötüleştirebilir.")
         self.advanced_toggle = wx.ToggleButton(self,label="Gelişmiş eğitim ayarları [KAPALI]")
         self.advanced_toggle.Bind(wx.EVT_TOGGLEBUTTON,self.OnAdvanced)
@@ -91,6 +93,7 @@ class TrainingPanel(wx.ScrolledWindow):
         self.threads = field_advanced("Kullanılacak işlemci iş parçacığı sayısı",lambda:wx.SpinCtrl(self.advanced,min=1,max=64,initial=4),"4 seçilirse en fazla dört işlemci iş parçacığı kullanılır. Artırmak bazı işleri hızlandırabilir; her bilgisayarda daha hızlı olmaz ve bilgisayarı daha fazla meşgul edebilir.")
         self.f0 = field_advanced("Nota algılama yöntemi",lambda:wx.Choice(self.advanced,choices=["RMVPE","CREPE","CREPE Tiny"]),"Sesin notasını bulur. Emin değilseniz RMVPE seçili kalsın.",False)
         self.f0.SetSelection(0)
+        self.f0.Bind(wx.EVT_CHOICE, lambda event: self.preparation.RefreshReadiness())
         self.checkpointing = wx.CheckBox(self.advanced,label="Bellek tasarrufu kullan; eğitim daha yavaş olabilir")
         self.checkpointing.SetValue(True)
         advanced_layout.Add(self.checkpointing,0,wx.ALL,8)
@@ -127,6 +130,8 @@ class TrainingPanel(wx.ScrolledWindow):
         layout.Add(self.advanced,0,wx.EXPAND | wx.ALL,8)
         self.advanced.Hide()
 
+        self.preparation = OperationPreparation(self, settings, self.RequiredModels)
+        layout.Add(self.preparation, 0, wx.EXPAND | wx.ALL, 8)
         self.btn_start = wx.Button(self,label="Yeni ses modeli eğit")
         self.btn_start.Bind(wx.EVT_BUTTON,self.OnStart)
         layout.Add(self.btn_start,0,wx.ALL,8)
@@ -277,7 +282,11 @@ class TrainingPanel(wx.ScrolledWindow):
         self.source_list.SetFocus()
 
     def OnProfile(self,event):
-        pass  # Sample rate is read directly by Options; no technical filler field.
+        self.preparation.RefreshReadiness()
+
+    def RequiredModels(self):
+        return (['contentvec'] + (['rmvpe'] if self.f0.GetSelection() == 0 else [])
+                + [f'training_v2_{(32, 40, 48)[self.sample_rate.GetSelection()]}k'])
 
     def Options(self, require_name=True, check_sources=True):
         def decimal(control, label):
@@ -432,7 +441,7 @@ class TrainingPanel(wx.ScrolledWindow):
         (focus or self.txt_status).SetFocus()
 
     def OnOperationError(self,message,title):
-        self.NotifyResult(message or "İşlem açıklamasız bir hatayla durdu; günlüğü kontrol edin.",title,error=True)
+        self.NotifyResult(operation_error(message),title,error=True)
 
     def OnOpenFolder(self, event):
         if self.job and Path(self.job).is_dir():
@@ -455,7 +464,6 @@ class TrainingPanel(wx.ScrolledWindow):
         self.RefreshSources()
         self.model_name.SetValue(options.name)
         self.sample_rate.SetSelection((32000,40000,48000).index(options.sample_rate))
-        self.OnProfile(None)
         for control, value in ((self.epochs,options.epochs),(self.batch,options.batch_size),
                                (self.interval,options.save_every),(self.segment,options.segment_seconds),
                                (self.overlap,options.overlap_seconds),(self.holdout,round(options.holdout_fraction*100)),
@@ -470,6 +478,7 @@ class TrainingPanel(wx.ScrolledWindow):
         self.seed.SetValue(str(options.seed))
         self.comparison_sources=options.comparison_sources
         self.UpdateComparisonLabel()
+        self.OnProfile(None)
 
     def OnLoad(self, event, job_path=None):
         if self.busy:
@@ -550,14 +559,14 @@ class TrainingPanel(wx.ScrolledWindow):
                 self.queue.update(self.queue_item['id'],status='failed',error=str(error))
                 self.queue_running = False
                 self.queue_item = None
-            wx.MessageBox(str(error), "Eğitim başlatılamadı", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(operation_error(error), "Eğitim başlatılamadı", wx.OK | wx.ICON_ERROR)
 
     def Run(self, resume):
         try:
             result = self.runner.run(self.job, lambda value: post_ui(self, self.OnProgress, value), resume)
             post_ui(self, self.OnFinished, result, "Eğitim tamamlandı. Test sesleri oturum klasöründedir; dinleyip adayı AI Cover'a ekleyin.")
         except Exception as error:
-            post_ui(self, self.OnFinished, None, str(error))
+            post_ui(self, self.OnFinished, None, operation_error(error))
         finally:
             finish_job(self)
             if self.queue_running:
@@ -619,6 +628,8 @@ class TrainingPanel(wx.ScrolledWindow):
                 self.queue_running = False
         if not queued or not result:
             self.NotifyResult(message,"Eğitim tamamlandı" if result else "Eğitim durdu",error=not result)
+        if result:
+            open_result_folder(self, self.job)
 
     def OnCancel(self, event):
         self.queue_running = False

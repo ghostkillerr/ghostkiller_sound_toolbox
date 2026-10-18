@@ -7,9 +7,11 @@ from app_runtime import JOB_LOCK, post_ui, append_log, finish_job
 from hardware import detect_hardware
 from model_manager import model_catalog, default_model_selection
 from ui_cover import ModelToggleList
-from ui_common import apply_native_style, DetailsDialog, add_intro, section_title
+from ui_common import apply_native_style, DetailsDialog, add_intro, section_title, name_control
+from audio_export import OUTPUT_FORMATS, selected_output_format, OUTPUT_CHANNELS, selected_output_channels
 from updater import check_for_updates, last_update_result
 from ui_model_terms import confirm_restoration_terms, confirm_demucs_terms
+from ui_operation import operation_error
 from restoration import MODEL_ID as RESTORATION_MODEL
 
 
@@ -30,12 +32,28 @@ class SettingsPanel(wx.ScrolledWindow):
         self.theme_choice.SetSelection(0 if settings.theme == 'light' else 1)
         self.theme_choice.Bind(wx.EVT_RADIOBOX,self.OnTheme)
         layout.Add(self.theme_choice,0,wx.EXPAND | wx.ALL,8)
+        section_title(self, layout, 'Ses dosyası biçimi')
+        self.output_format_choice = name_control(wx.Choice(self,
+            choices=[value.upper() for value in OUTPUT_FORMATS]), 'Ses dosyası biçimi')
+        self.output_format_choice.SetSelection(OUTPUT_FORMATS.index(selected_output_format(settings)))
+        self.output_format_choice.Bind(wx.EVT_CHOICE, self.OnOutputFormat)
+        layout.Add(self.output_format_choice, 0, wx.EXPAND | wx.ALL, 8)
+        layout.Add(wx.StaticText(self, label='Vokal temizleme, enstrüman ayırma, ses değiştirme ve eğitim test sesleri seçtiğiniz biçimde kaydedilir.'),
+                   0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
+        section_title(self, layout, 'Ses kanalı düzeni')
+        self.output_channels_choice = name_control(wx.Choice(self,
+            choices=['İşlemin kanal düzenini koru', 'Mono (tek kanal)', 'Stereo (iki kanal)']), 'Ses kanalı düzeni')
+        self.output_channels_choice.SetSelection(OUTPUT_CHANNELS.index(selected_output_channels(settings)))
+        self.output_channels_choice.Bind(wx.EVT_CHOICE, self.OnOutputChannels)
+        layout.Add(self.output_channels_choice, 0, wx.EXPAND | wx.ALL, 8)
+        layout.Add(wx.StaticText(self, label='Mono veya stereo seçimi kaydedilen tüm ses dosyalarına uygulanır.'),
+                   0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         section_title(self, layout, "Program güncellemeleri")
-        self.chk_auto_update = wx.CheckBox(self, label="Açılışta güncellemeleri denetle ve otomatik güncelle")
+        self.chk_auto_update = wx.CheckBox(self, label="Açılışta güncellemeleri otomatik denetle")
         self.chk_auto_update.SetValue(settings.auto_update)
         self.chk_auto_update.Bind(wx.EVT_CHECKBOX, self.OnAutoUpdate)
         layout.Add(self.chk_auto_update, 0, wx.EXPAND | wx.ALL, 8)
-        layout.Add(wx.StaticText(self, label="Yeni sürüm indirilip uygulanınca program yeniden açılır.\nBu seçeneği kapatırsanız aşağıdaki düğmeyle güncelleyebilirsiniz."),
+        layout.Add(wx.StaticText(self, label="Yeni sürüm varsa indirmeden önce onayınız istenir.\nGüncelleme tamamlanınca program yeniden açılır."),
                    0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.btn_update = wx.Button(self, label="Güncellemeleri denetle")
         self.btn_update.Bind(wx.EVT_BUTTON, self.OnCheckUpdates)
@@ -135,6 +153,28 @@ class SettingsPanel(wx.ScrolledWindow):
             self.chk_auto_update.SetValue(self.settings.auto_update)
             wx.MessageBox(str(error), 'Güncelleme tercihi kaydedilemedi', wx.OK | wx.ICON_ERROR, parent=self)
 
+    def OnOutputFormat(self, event):
+        previous = selected_output_format(self.settings)
+        try:
+            if JOB_LOCK.locked():
+                raise RuntimeError('Ses dosyası biçimini değiştirmek için işlemin bitmesini bekleyin.')
+            self.settings.select_output_format(OUTPUT_FORMATS[self.output_format_choice.GetSelection()])
+            self.settings.refresh_operations()
+        except Exception as error:
+            self.output_format_choice.SetSelection(OUTPUT_FORMATS.index(previous))
+            wx.MessageBox(str(error), 'Ses dosyası biçimi kaydedilemedi', wx.OK | wx.ICON_ERROR, parent=self)
+
+    def OnOutputChannels(self, event):
+        previous = selected_output_channels(self.settings)
+        try:
+            if JOB_LOCK.locked():
+                raise RuntimeError('Ses kanalı düzenini değiştirmek için işlemin bitmesini bekleyin.')
+            self.settings.select_output_channels(OUTPUT_CHANNELS[self.output_channels_choice.GetSelection()])
+            self.settings.refresh_operations()
+        except Exception as error:
+            self.output_channels_choice.SetSelection(OUTPUT_CHANNELS.index(previous))
+            wx.MessageBox(str(error), 'Ses kanalı düzeni kaydedilemedi', wx.OK | wx.ICON_ERROR, parent=self)
+
     def OnCheckUpdates(self, event):
         check_for_updates(wx.GetTopLevelParent(self), silent=False)
 
@@ -143,7 +183,7 @@ class SettingsPanel(wx.ScrolledWindow):
 
     def EnableUI(self, enable):
         self.busy = not enable
-        for control in (self.device_choice, self.model_list, self.btn_hardware, self.btn_install, self.btn_verify, self.btn_repair):
+        for control in (self.device_choice, self.output_format_choice, self.output_channels_choice, self.model_list, self.btn_hardware, self.btn_install, self.btn_verify, self.btn_repair):
             control.Enable(enable)
         self.btn_cancel.Enable(not enable)
 
@@ -154,6 +194,7 @@ class SettingsPanel(wx.ScrolledWindow):
                 raise RuntimeError("İşlem sürerken donanım değiştirilemez. İşlemin bitmesini bekleyin.")
             preference = "cpu" if self.device_choice.GetSelection() == 0 else "gpu"
             self.settings.select(preference)
+            self.settings.refresh_operations()
             self.txt_hardware.SetValue(self.settings.report.summary(preference))
             self.txt_status.SetValue("Donanım tercihi kaydedildi; ses işlemleri ve model eğitiminde kullanılacak.")
         except Exception as error:
@@ -194,6 +235,14 @@ class SettingsPanel(wx.ScrolledWindow):
             return
         self.StartJob(action, selected)
 
+    def PrepareRequiredModels(self, model_ids):
+        missing = [key for key in model_ids if self.settings.manager.status(key) != 'Hazır']
+        self.model_list.SetModels(self.model_ids, checked_models=missing,
+            labels={key: f'{model_catalog()[key]} — {self.settings.manager.status(key)}' for key in self.model_ids})
+        if missing:
+            self.OnModels('repair')
+        self.model_list.SetFocus()
+
     def StartJob(self, action, selected):
         if not JOB_LOCK.acquire(blocking=False):
             self.txt_status.SetValue("Başka bir işlem sürüyor. Bitmesini bekleyip tekrar deneyin.")
@@ -205,6 +254,7 @@ class SettingsPanel(wx.ScrolledWindow):
             self.txt_status.SetValue("Donanım kontrol ediliyor..." if action == "hardware" else "Model işlemi başladı...")
             worker = threading.Thread(target=self.RunJob, args=(action, tuple(selected)), daemon=True)
             worker.start()
+            self.settings.refresh_operations()
         except Exception:
             JOB_LOCK.release()
             self.EnableUI(True)
@@ -244,22 +294,33 @@ class SettingsPanel(wx.ScrolledWindow):
                 post_ui(self, self.txt_status.SetValue, message)
                 self.LogMessage(report.summary(self.settings.preference))
             else:
+                if action != 'verify':
+                    self.LogMessage('İndirme boyutları kontrol ediliyor. Mevcut sağlam dosyalar korunacak.')
+                    total, unknown = self.settings.manager.download_estimate(selected,
+                        cancelled=lambda: self.is_cancelled,
+                        log=lambda text: post_ui(self, self.txt_status.SetValue, text))
+                    estimate = (f'Eksik dosyaların bilinen toplam boyutu: {total / 1024**2:.0f} MB.'
+                                if total else 'Mevcut dosyalar kontrol edilecek; eksik veya bozuk olanlar indirilecek.')
+                    if unknown:
+                        estimate += f' {unknown} dosyanın boyutu sunucudan alınamadı; toplam daha büyük olabilir.'
+                    self.LogMessage(estimate)
+                    post_ui(self, self.txt_status.SetValue, estimate)
                 failures = self.settings.manager.process(selected, action, cancelled=lambda: self.is_cancelled,
                                                          progress=self.Progress, log=self.LogMessage)
                 summary = f"{len(selected)} modelden {len(selected) - len(failures)} tanesi hazır."
                 if failures:
                     names = model_catalog()
                     summary += " Hazırlanamayan modeller: " + "; ".join(
-                        f"{names.get(key,key)}: {reason}" for key,reason in failures.items())
-                    summary += "\nBu modelleri seçip Seçilenleri onar düğmesini kullanın. Sorun tekrarlanırsa bu hata bilgisini paylaşın."
+                        f"{names.get(key,key)}: {operation_error(reason)}" for key,reason in failures.items())
+                    summary += "\nBu modelleri seçip Seçilenleri onar düğmesini kullanın. Yarım indirmeler sunucu destekliyorsa kaldığı yerden sürer."
                 post_ui(self, self.ShowModelResult, summary, bool(failures))
                 post_ui(self, self.gauge.SetValue, 0 if failures else 100)
                 self.LogMessage(summary)
         except InterruptedError:
-            post_ui(self, self.txt_status.SetValue, "İşlem iptal edildi. Tamamlanmış dosyalar korundu.")
+            post_ui(self, self.txt_status.SetValue, "İşlem iptal edildi. Tamamlanan dosyalar korundu; desteklenen yarım indirmeler sonraki denemede sürer.")
         except Exception as error:
             self.LogMessage(f"HATA: {error}")
-            post_ui(self, self.txt_status.SetValue, f"İşlem başarısız: {error}")
+            post_ui(self, self.txt_status.SetValue, f"İşlem başarısız: {operation_error(error)}")
         finally:
             post_ui(self, self.RefreshModels)
             finish_job(self)

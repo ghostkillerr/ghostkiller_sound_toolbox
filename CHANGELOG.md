@@ -11,11 +11,21 @@ Kurulum kabul testleri tamamlandığında gerçek yayın tarihi ve indirmeler ek
 
 ### Ses araçları ve model eğitimi
 
+- **Sonuçları koruma:** ses adlarındaki Ghostkiller eki kaldırıldı. Aynı ad
+  varsa yeni dosya/klasör numaralanır; eski sonucun üzerine yazılmaz. İşlem
+  sonucu mesajı kapatılınca sonuç klasörü açılır.
+- **Daha kolay hazırlık:** eksik model düğmesi yalnız gerektiğinde görünür ve
+  seçili işlemin modellerini hazırlar. Biçim/kanal/donanım özeti, çözüm öneren
+  hata mesajları, Türkçe ondalık girişi, indirme boyutu ve yarım indirme desteği eklendi.
+- **Ortak ses dosyası biçimi:** Ayarlar'dan seçilen MP3, WAV, FLAC veya OGG;
+  vokal temizleme, enstrüman ayırma, AI Cover ve eğitim test seslerine uygulanır.
+  Aynı yerden mono veya stereo kayıt seçilebilir. Enstrüman sonuçlarının yanına
+  JSON raporu yazılmaz.
 - **Enstrümanları ayrı kaydetme:** dört kanallı SCNet ve bilimsel kullanım
-  koşullarına tabi deneysel altı kanallı HTDemucs ile stereo PCM24 FLAC
+  koşullarına tabi deneysel altı kanallı HTDemucs ile ayrı stereo ses
   çıktıları. Gitar/piyano kalitesi deneyseldir; ses seviyesi düzenleme ekranı içermez.
 - **İsteğe bağlı kısa vokal onarımı:** arka vokal temizliğinde kaybolan kısa
-  bölümler A2SB ile ayrıca onarılabilir. Standart ve onarılmış mono sonuçlar
+  bölümler A2SB ile ayrıca onarılabilir. Standart ve onarılmış sonuçlar
   ayrı kaydedilir. Özellik varsayılan kapalıdır; model araştırma/değerlendirme
   içindir. [Kullanım ve sınırlar](docs/VOKAL_ONARIMI.md).
 - **Eğitim verisini önceden inceleme:** kayıtları dinleyin, kullanılacak bölümü
@@ -59,7 +69,9 @@ Kurulum kabul testleri tamamlandığında gerçek yayın tarihi ve indirmeler ek
 - **İki Windows x64 paketi:** CPU ve NVIDIA CUDA ayrı hazırlanır. Python,
   FFmpeg, uygulama ikonu, kullanım sözleşmesi ve bağımlılık lisansları paketlenir.
 - **Program içinden güncelleme:** kurulu uygulama açılışta varsayılan olarak
-  denetler ve doğrulanmış güncellemeyi aynı klasöre uygular. Otomatik denetim
+  geliştirici bilgi penceresinden önce denetler; yeni sürüm varsa indirme onayı
+  ister. Evet denildiğinde doğrulanmış güncellemeyi aynı klasöre uygular.
+  Hayır veya iptal ile normal açılış devam eder. Otomatik denetim
   Ayarlar'dan kapatılabilir; elle denetleme düğmesi ve F5 kullanılabilir.
   Güncelleme kişisel model ve ayarları korur; Windows yönetici izni isteyebilir.
 - **Tanıtım ve indirme sayfası:** programın özellikleri, paket seçimi ve ilk

@@ -392,6 +392,8 @@ class SettingsTests(unittest.TestCase):
                 source.touch()
                 settings = AppSettings(str(root / 'settings.json'), ModelManager(folder))
                 settings.prepare_job = Mock(return_value='cuda:1')
+                settings.select_output_format('mp3')
+                settings.select_output_channels('mono')
                 cover = ui_cover.CoverPanel(frame, settings)
                 separator = ui_separator.SeparatorPanel(frame, settings)
                 cover.models = {'voice': {'pth': 'voice.pth', 'index': ''}}
@@ -405,6 +407,9 @@ class SettingsTests(unittest.TestCase):
                         args = thread.call_args.kwargs['args']
                         device = args[1]['device'] if panel is cover else args[-1]
                         self.assertEqual(device, 'cuda:1')
+                        options = args[1] if panel is cover else thread.call_args.kwargs['kwargs']
+                        self.assertEqual(options['output_format'], 'mp3')
+                        self.assertEqual(options['output_channels'], 'mono')
                     app_runtime.JOB_LOCK.release()
                 self.assertEqual(settings.prepare_job.call_count, 2)
         finally:

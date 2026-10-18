@@ -55,7 +55,7 @@ class Workflows(unittest.TestCase):
             with self.subTest(tab=tab), tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
                 root = Path(folder)
                 job = Harness(root)
-                suffix = '_voice.wav' if tab == 'cover' else '_Ghostkiller_1_Ayrilmis_Vokal.flac'
+                suffix = '_voice.wav' if tab == 'cover' else '_1_Ayrilmis_Vokal.flac'
                 old = root / ('input' + suffix)
                 old.write_bytes(b'previous result')
                 def validate_and_cancel(path):
@@ -226,7 +226,7 @@ class Workflows(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder, patch.object(ui_separator, 'post_ui'):
             root = Path(folder)
             job = Harness(root)
-            destination = root / 'input_Ghostkiller_1_Ayrilmis_Vokal.flac'
+            destination = root / 'input_1_Ayrilmis_Vokal.flac'
             destination.write_bytes(b'previous')
             def separate(source, model, label, directory):
                 bad = Path(directory) / 'input_(Vocals).flac'
@@ -253,7 +253,7 @@ class Workflows(unittest.TestCase):
             JOB_LOCK.acquire()
             ui_separator.SeparatorPanel.ProcessChain(job, (True, True, True, False, False))
             self.assertEqual(sources[:2], [job.current_input_file] * 2)
-            self.assertTrue(sources[2].endswith('input_Ghostkiller_1_Ayrilmis_Vokal.flac'))
+            self.assertTrue(sources[2].endswith('input_1_Ayrilmis_Vokal.flac'))
 
     def test_nan_audio_and_reserved_filenames(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
@@ -334,14 +334,14 @@ class Workflows(unittest.TestCase):
             job.RunSeparatorCommand = separate
             JOB_LOCK.acquire()
             ui_separator.SeparatorPanel.ProcessChain(job, (False, True, False, False, False))
-            result, _ = sf.read(root / 'song_(Vocals)_Ghostkiller_1_Ayrilmis_Vokal.flac')
+            result, _ = sf.read(root / 'song_(Vocals)_1_Ayrilmis_Vokal.flac')
             np.testing.assert_allclose(result, .2, atol=1e-4)
 
     def test_output_hardlink_to_input_is_rejected(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder, patch.object(ui_separator, 'post_ui'):
             root = Path(folder)
             job = Harness(root)
-            destination = root / 'input_Ghostkiller_1_Ayrilmis_Vokal.flac'
+            destination = root / 'input_1_Ayrilmis_Vokal.flac'
             destination.write_bytes(b'original')
             # Windows sandbox denies creating hard links; simulate the filesystem identity query.
             def separate(source, model, label, directory):
@@ -416,7 +416,7 @@ class Workflows(unittest.TestCase):
                 self.assertFalse(JOB_LOCK.locked())
             self.assertEqual(unrelated.read_text(), 'keep')
             self.assertTrue((root / 'concurrent.txt').exists())
-            audio, rate = sf.read(root / 'input_Ghostkiller_1_Ayrilmis_Vokal.flac')
+            audio, rate = sf.read(root / 'input_1_Ayrilmis_Vokal.flac')
             self.assertEqual(rate, 16000)
             np.testing.assert_allclose(audio, .2, atol=1e-4)
             self.assertEqual(list(root.glob('ghostkiller_*')), [])
@@ -435,7 +435,7 @@ class Workflows(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder, patch.object(ui_separator, 'post_ui'):
             root = Path(folder)
             job = Harness(root)
-            old = root / 'input_Ghostkiller_1_Ayrilmis_Vokal.flac'
+            old = root / 'input_1_Ayrilmis_Vokal.flac'
             old.write_bytes(b'old')
             def separate(*args):
                 job.is_cancelled = True

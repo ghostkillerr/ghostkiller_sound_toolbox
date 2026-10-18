@@ -12,13 +12,16 @@ RATE = 44100
 
 
 def separate_file(input_file, output_dir, model_root, profile='scnet', stems=None,
-                  device='cpu', cancelled=None, progress=None, model_factory=None):
+                  device='cpu', cancelled=None, progress=None, model_factory=None, output_format='flac', output_channels='original'):
     import numpy as np
     import soundfile as sf
     import torch
     from app_runtime import ffmpeg_executable, same_path
     from training.analysis import _command
     from .models import load_model
+    from audio_export import normalize_output_format, normalize_output_channels, export_audio
+    output_format = normalize_output_format(output_format)
+    output_channels = normalize_output_channels(output_channels)
     spec = profile_for(profile)
     selected = tuple(spec['stems'] if stems is None else stems)
     if not selected or len(set(selected)) != len(selected) or any(s not in spec['stems'] for s in selected):
@@ -119,15 +122,8 @@ def separate_file(input_file, output_dir, model_root, profile='scnet', stems=Non
             gain = min(1.,.999/peak) if peak else 1.
             for stem,path in raw_paths.items():
                 check()
-                with sf.SoundFile(path) as source, sf.SoundFile(export/(stem+'.flac'),'w',
-                        samplerate=RATE,channels=2,format='FLAC',subtype='PCM_24') as output:
-                    for block in source.blocks(blocksize=65536,dtype='float32',always_2d=True):
-                        check()
-                        output.write(block*gain)
-            from app_settings import write_json_atomic
-            write_json_atomic(str(export/'separation.json'),{'profile':profile,'sample_rate':RATE,
-                              'frames':info.frames,'channels':2,'stems':selected,'shared_gain':gain,
-                              'model_sha256':spec['sha256']})
+                export_audio(path, export/(stem+'.'+output_format), output_format,
+                             cancelled=cancelled, gain=gain, output_channels=output_channels)
             check()
             os.rename(export,target)
         finally:
@@ -135,5 +131,5 @@ def separate_file(input_file, output_dir, model_root, profile='scnet', stems=Non
             from compute_backend import clear_cache
             clear_cache(device)
     notice('Enstrüman ayırma tamamlandı: %100')
-    return {'directory':str(target),'files':{s:str(target/(s+'.flac')) for s in selected},
+    return {'directory':str(target),'files':{s:str(target/(s+'.'+output_format)) for s in selected},
             'shared_gain':gain,'frames':info.frames,'sample_rate':RATE}

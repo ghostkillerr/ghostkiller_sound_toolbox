@@ -297,8 +297,11 @@ class RestorationWorkflow(unittest.TestCase):
                 root=Path(folder)
                 job=Harness(root)
                 seen=[]
+                next_inputs=[]
                 def separate(source,model,label,stage):
                     seen.append(source)
+                    if len(seen)>1:
+                        next_inputs.append(sf.read(source)[0])
                     keyword='(No Reverb)' if 'DeReverb' in model else '(Vocals)'
                     path=Path(stage)/f'input_{keyword}.flac'
                     sf.write(path,np.full(160,.1),16000)
@@ -313,12 +316,13 @@ class RestorationWorkflow(unittest.TestCase):
                 job.RunVocalRestoration=Mock(side_effect=restore)
                 JOB_LOCK.acquire()
                 ui_separator.SeparatorPanel.ProcessChain(job,(False,False,True,True,False),restore_vocal=enabled)
-                standard=root/'input_Ghostkiller_2_ArkaSes_Silinmis.flac'
-                repaired=root/'input_Ghostkiller_2_Onarilmis_Mono_Vokal.flac'
+                standard=root/'input_2_ArkaSes_Silinmis.flac'
+                repaired=root/'input_2_Onarilmis_Vokal.flac'
                 self.assertTrue(standard.is_file())
                 self.assertEqual(repaired.is_file(),enabled)
                 self.assertEqual(job.RunVocalRestoration.call_count,int(enabled))
-                self.assertEqual(seen[1],str(repaired if enabled else standard))
+                self.assertEqual(Path(seen[1]).name,(repaired if enabled else standard).name)
+                np.testing.assert_array_equal(next_inputs[0],sf.read(repaired if enabled else standard)[0])
                 self.assertFalse(JOB_LOCK.locked())
 
 

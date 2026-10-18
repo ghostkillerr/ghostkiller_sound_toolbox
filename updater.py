@@ -4,8 +4,8 @@ Ghostkiller Sound Cleaner - Otomatik Güncelleme Modülü (updater.py)
 
 Bu modül, programın açılışında veya kullanıcının menüden çağırmasıyla
 GitHub üzerindeki version.json dosyasını kontrol eder.
-Kurulu uygulama varsayılan olarak yeni sürümü indirip sihirbaz göstermeden
-uygular. Ayarlardan kapatılabilir; elle denetlemede kullanıcıya sorulur.
+Kurulu uygulama varsayılan olarak açılışta yeni sürümü denetler. İndirme ve
+sihirbaz göstermeden uygulama, yalnız kullanıcının onayından sonra başlar.
 """
 
 import wx
@@ -75,23 +75,47 @@ def last_update_result():
         return {}
 
 
-def check_startup_updates(parent_window):
+def _completion_once(callback):
+    """Resume startup at most once, including synchronous launch failures."""
+    completed = False
+
+    def complete():
+        nonlocal completed
+        if not completed:
+            completed = True
+            if callback:
+                callback()
+
+    return complete
+
+
+def check_startup_updates(parent_window, *, on_complete=None):
+    complete = _completion_once(on_complete)
     # Source checkouts must never replace themselves with a Windows installation.
     if not getattr(sys, 'frozen', False) or not parent_window.settings.auto_update:
+        complete()
         return
-    check_for_updates(parent_window, silent=True, automatic=True)
+    try:
+        check_for_updates(parent_window, silent=True, automatic=True, on_complete=complete)
+    except Exception:
+        # A failed background check must not prevent normal startup.
+        complete()
 
 
-def check_for_updates(parent_window, silent=False, *, automatic=False):
+def check_for_updates(parent_window, silent=False, *, automatic=False, on_complete=None):
     """
     Güncelleme kontrolü yapar.
-    automatic=True açılış tercihini tekrar kontrol eder ve soru sormadan günceller.
+    automatic=True açılış tercihini tekrar kontrol eder; indirmeden önce onay ister.
     silent=False hata/güncel bilgisini de gösterir (Ayarlar düğmesi ve F5).
+    on_complete uygulama açık kalacaksa çağrılır; başarılı kurulum devrinde çağrılmaz.
     """
+    complete = _completion_once(on_complete)
     if not CHECK_LOCK.acquire(blocking=False):
+        complete()
         return
 
     def deliver(data=None, error=None):
+        delegated = False
         try:
             if not parent_window or parent_window.IsBeingDeleted():
                 return
@@ -104,11 +128,15 @@ def check_for_updates(parent_window, silent=False, *, automatic=False):
                 previous = last_update_result() if automatic else {}
                 if automatic and previous.get('version') == data['version'] and previous.get('state') in {'failed', 'restart_required'}:
                     return  # A failed restart must not cause an endless startup loop.
-                _show_update_dialog(parent_window, data, silent=silent, automatic=automatic)
+                _show_update_dialog(parent_window, data, silent=silent, automatic=automatic,
+                                    on_complete=complete)
+                delegated = True
             elif not silent:
                 wx.MessageBox(f"Programınız güncel (v{CURRENT_VERSION}).", "Güncelleme Kontrolü", wx.OK | wx.ICON_INFORMATION)
         finally:
             CHECK_LOCK.release()
+            if not delegated:
+                complete()
 
     def _do_check():
         try:
@@ -133,77 +161,83 @@ def check_for_updates(parent_window, silent=False, *, automatic=False):
         threading.Thread(target=_do_check, daemon=True).start()
     except Exception:
         CHECK_LOCK.release()
+        complete()
         raise
 
 
-def _show_update_dialog(parent_window, data, silent=False, *, automatic=False):
+def _show_update_dialog(parent_window, data, silent=False, *, automatic=False, on_complete=None):
     """Yeni sürüm bulunduğunda kullanıcıya sorar ve indirmeyi başlatır."""
-    if not parent_window or parent_window.IsBeingDeleted():
-        return
-    if automatic and not parent_window.settings.auto_update:
-        return
-    if JOB_LOCK.locked():
-        if automatic:
-            wx.CallLater(1000, _show_update_dialog, parent_window, data, silent=True, automatic=True)
-        elif not silent:
-            wx.MessageBox(f"v{data['version']} güncellemesi mevcut. Çalışan işlem bittikten sonra tekrar kontrol edin.", "Güncelleme Mevcut", wx.OK | wx.ICON_INFORMATION)
-        return
-    remote_ver = data.get("version", "Bilinmeyen Sürüm")
-    changelog = data.get("changelog", "Yeni geliştirmeler ve hata düzeltmeleri eklendi.")
+    complete = _completion_once(on_complete)
+    delegated = False
     try:
-        package = validate_package(data, runtime_backend())
-    except (ValueError, OSError) as error:
-        if silent:
+        if not parent_window or parent_window.IsBeingDeleted():
             return
-        wx.MessageBox(
-            f"v{remote_ver} sürümü bildirildi; doğrulanmış kurulum bilgisi alınamadı:\n{error}\n\n"
-            f"Yayınları incelemek için: {RELEASE_PAGE}",
-            "Güncelleme Doğrulanamadı", wx.OK | wx.ICON_WARNING
+        if automatic and not parent_window.settings.auto_update:
+            return
+        if JOB_LOCK.locked():
+            if automatic:
+                wx.CallLater(1000, _show_update_dialog, parent_window, data, silent=True,
+                             automatic=True, on_complete=complete)
+                delegated = True
+            elif not silent:
+                wx.MessageBox(f"v{data['version']} güncellemesi mevcut. Çalışan işlem bittikten sonra tekrar kontrol edin.", "Güncelleme Mevcut", wx.OK | wx.ICON_INFORMATION)
+            return
+        remote_ver = data.get("version", "Bilinmeyen Sürüm")
+        changelog = data.get("changelog", "Yeni geliştirmeler ve hata düzeltmeleri eklendi.")
+        try:
+            package = validate_package(data, runtime_backend())
+        except (ValueError, OSError) as error:
+            if not silent:
+                wx.MessageBox(
+                    f"v{remote_ver} sürümü bildirildi; doğrulanmış kurulum bilgisi alınamadı:\n{error}\n\n"
+                    f"Yayınları incelemek için: {RELEASE_PAGE}",
+                    "Güncelleme Doğrulanamadı", wx.OK | wx.ICON_WARNING
+                )
+            return
+
+        if not getattr(sys, 'frozen', False):
+            wx.MessageBox('Yeni sürüm mevcut. Yerinde güncelleme kurulu uygulamada kullanılabilir.',
+                          'Güncelleme Mevcut', wx.OK | wx.ICON_INFORMATION)
+            return
+
+        msg = (
+            "Yeni bir güncelleme var.\n\n"
+            f"Mevcut Sürüm: v{CURRENT_VERSION}\n"
+            f"Yeni Sürüm: v{remote_ver}\n\n"
+            f"Yenilikler:\n{changelog}\n\n"
+            "Güncellemeyi indirmek ister misiniz?\n"
+            "Onayınızla güncelleme indirilip kurulacak ve program yeniden açılacaktır."
         )
-        return
+        dlg = wx.MessageDialog(parent_window, msg, f"Güncelleme Mevcut: v{remote_ver}",
+                               wx.YES_NO | wx.ICON_QUESTION)
+        try:
+            dlg.SetYesNoLabels("Evet (İndir ve Güncelle)", "Hayır (Sonra)")
+            res = dlg.ShowModal()
+        finally:
+            dlg.Destroy()
 
-    if automatic:
-        _download_and_run_installer(parent_window, data, backend=package.backend)
-        return
-
-    if not getattr(sys, 'frozen', False):
-        wx.MessageBox('Yeni sürüm mevcut. Yerinde güncelleme kurulu uygulamada kullanılabilir.',
-                      'Güncelleme Mevcut', wx.OK | wx.ICON_INFORMATION)
-        return
-
-    msg = (
-        f"Yeni bir güncelleme mevcut!\n\n"
-        f"Mevcut Sürüm: v{CURRENT_VERSION}\n"
-        f"Yeni Sürüm: v{remote_ver}\n\n"
-        f"Yenilikler:\n{changelog}\n\n"
-        "Güncellemeyi şimdi indirip uygulamak ister misiniz?\n"
-        "Program güncelleme tamamlanınca yeniden açılacaktır."
-    )
-
-    dlg = wx.MessageDialog(
-        parent_window,
-        msg,
-        f"Güncelleme Mevcut: v{remote_ver}",
-        wx.YES_NO | wx.ICON_QUESTION
-    )
-    dlg.SetYesNoLabels("Evet (İndir ve Güncelle)", "Hayır (Sonra)")
-    res = dlg.ShowModal()
-    dlg.Destroy()
-
-    if res == wx.ID_YES:
-        _download_and_run_installer(parent_window, data, backend=package.backend)
+        if res == wx.ID_YES and (not automatic or parent_window.settings.auto_update):
+            _download_and_run_installer(parent_window, data, backend=package.backend,
+                                        on_complete=complete)
+            delegated = True
+    finally:
+        if not delegated:
+            complete()
 
 
-def _download_and_run_installer(parent_window, manifest, *, backend=None):
+def _download_and_run_installer(parent_window, manifest, *, backend=None, on_complete=None):
     """Yeni sürüm Setup dosyasını indirir ve başlatır."""
     import shutil
+    complete = _completion_once(on_complete)
     try:
         package = validate_package(manifest, backend or runtime_backend())
     except (ValueError, OSError) as error:
         wx.MessageBox(f"Güncelleme doğrulanamadı:\n{error}", "Güncelleme Hatası", wx.OK | wx.ICON_ERROR)
+        complete()
         return
     if not JOB_LOCK.acquire(blocking=False):
         wx.MessageBox("Başka bir işlem çalışıyor. Bitmesini bekleyin.", "İşlem Sürüyor", wx.OK | wx.ICON_INFORMATION)
+        complete()
         return
     temp_dir = None
     progress = None
@@ -217,6 +251,7 @@ def _download_and_run_installer(parent_window, manifest, *, backend=None):
         JOB_LOCK.release()
         if temp_dir:
             shutil.rmtree(temp_dir, ignore_errors=True)
+        complete()
         raise
     setup_path = os.path.join(temp_dir, "Ghostkiller_V2_Setup.exe")
     cancelled = threading.Event()
@@ -247,9 +282,14 @@ def _download_and_run_installer(parent_window, manifest, *, backend=None):
             shutil.rmtree(temp_dir, ignore_errors=True)
             if error and not cancelled.is_set() and parent_window and not parent_window.IsBeingDeleted():
                 wx.MessageBox(f"Güncelleme dosyası indirilemedi:\n{error}", "İndirme Hatası", wx.OK | wx.ICON_ERROR)
+            complete()
             return
-        if not _launch_setup_and_exit(setup_path, package, on_failure=lambda: shutil.rmtree(temp_dir, ignore_errors=True)):
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        if not _launch_setup_and_exit(setup_path, package, on_failure=launch_failed):
+            launch_failed()
+
+    def launch_failed():
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        complete()
 
     def _download():
         try:

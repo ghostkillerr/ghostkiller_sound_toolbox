@@ -14,14 +14,21 @@ kapatılınca bu seçenek de kapanır ve gizlenir.
 
 Normal sonucu almak için onarımı kapalı bırak. İkisini karşılaştırmak için
 onarımı açıp ses temizlemeyi başlat. Standart temizlenmiş dosya ile
-`Onarilmis_Mono_Vokal.flac` son ekli dosya ayrı kaydedilir. Sonraki yankı/gürültü
-adımları da seçiliyse onarılmış sonuçtan devam eder. Onarım başarısız olursa
+`Onarilmis_Vokal` adını taşıyan dosya ayrı kaydedilir. Dosya uzantısı
+**Ayarlar → Ses dosyası biçimi** bölümünde seçilen MP3, WAV, FLAC veya OGG olur.
+Sonraki yankı/gürültü adımları da seçiliyse onarılmış kayıpsız geçici sesten
+devam eder; sıkıştırılmış çıktı yeniden işlenmez. Onarım başarısız olursa
 tamamlanan standart sonuç korunur.
+
+Çıktı adlarına program adı eklenmez. Aynı ad varsa `(2)`, `(3)` eklenerek önceki
+sonuç korunur. İşlem sonucu mesajı kapatılınca çıktı klasörü açılır.
 
 Bu deneysel yöntem kısa kayıp aralıklarını A2SB ile üretir. Üretilen ses kayıp
 yerin çevresine yumuşak geçişle yerleştirilir. Temizleme öncesi vokal sonuçla
-karıştırılmaz. Model tek kanallı olduğu için onarılmış çıktı **mono** olur;
-standart sonuç kendi kanal sayısını korur. Uzun kayıp cümleler bu yöntemle
+karıştırılmaz. Model tek kanallı ses üretir. **Ayarlar → Ses kanalı düzeni**
+seçeneğiyle kaydı mono veya stereo yapabilirsiniz; mono ses stereo kaydedilirse
+aynı ses iki kanala yazılır. **İşlemin kanal düzenini koru** seçilirse onarım
+mono kalır; standart sonuç kendi kanal sayısını korur. Uzun kayıp cümleler bu yöntemle
 tamamlanmaz. Doğru söz, nota ve ana sesin korunması dinleyerek değerlendirilir.
 
 Model gerekirse Ayarlar'daki **Kısa vokal kayıplarını onar: A2SB

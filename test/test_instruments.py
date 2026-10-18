@@ -82,7 +82,6 @@ class InstrumentTests(unittest.TestCase):
                 def execute(self,kind,payload,**kwargs):
                     path = Path(payload['output_dir']);path.mkdir()
                     (path/'bass.flac').write_bytes(b'completed fixture')
-                    (path/'separation.json').write_text('{}')
                     return {'directory':str(path),'files':{'bass':str(path/'bass.flac')}}
                 def close(self): self.closed=True
             session = Session()
@@ -92,8 +91,9 @@ class InstrumentTests(unittest.TestCase):
                 SeparatorPanel.ProcessInstruments(panel,str(source),str(output),'scnet',('bass',),'cpu')
             result = list(output.iterdir())
             self.assertEqual(len(result),1)
-            self.assertIn('_Enstrumanlar_',result[0].name)
+            self.assertEqual('source_Enstrumanlar',result[0].name)
             self.assertEqual((result[0]/'bass.flac').read_bytes(),b'completed fixture')
+            self.assertEqual([p.name for p in result[0].iterdir()], ['bass.flac'])
             self.assertTrue(session.closed)
             self.assertIn(str(result[0]),panel.UpdateStatus.call_args.args[0])
 

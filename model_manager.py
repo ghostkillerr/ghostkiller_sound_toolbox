@@ -415,6 +415,52 @@ class ModelManager:
         if problems:
             raise RuntimeError("Ayarlar sekmesinden modelleri indirin, kontrol edin veya onarın.\n" + "\n".join(problems))
 
+    def download_estimate(self, model_ids, cancelled=None, log=None):
+        """Discover missing assets without loading weights; HEAD sizes are optional."""
+        import time
+        import urllib.request
+        assets = {}
+        def collect(url, path):
+            if not os.path.isfile(path) or not os.path.getsize(path):
+                assets[path] = url
+        fixed = {**RVC_ASSETS, **RESTORATION_ASSETS, **INSTRUMENT_ASSETS}
+        for key in model_ids:
+            if cancelled and cancelled():
+                raise InterruptedError('Model hazırlama iptal edildi.')
+            if key in fixed:
+                for relative, url in fixed[key][1]:
+                    collect(url, self.path(relative))
+            else:
+                from separation_steps import SEPARATION_STEPS
+                if key not in {step[0] for step in SEPARATION_STEPS}:
+                    raise ValueError('Bilinmeyen model seçildi.')
+                prefix = 'https://github.com/TRvlvr/model_repo/releases/download/all_public_uvr_models/'
+                collect(prefix + key, self.path(key))
+                if key in ROFORMER_CONFIGS:
+                    config = ROFORMER_CONFIGS[key]
+                    collect(prefix + 'mdx_model_data/mdx_c_configs/' + config, self.path(config))
+        total, unknown = 0, 0
+        deadline = time.monotonic() + 15
+        for path, url in assets.items():
+            if cancelled and cancelled():
+                raise InterruptedError('Model hazırlama iptal edildi.')
+            if time.monotonic() >= deadline:
+                unknown += 1
+                continue
+            if log:
+                log('İndirme boyutu kontrol ediliyor: ' + os.path.basename(path))
+            try:
+                request = urllib.request.Request(url, method='HEAD', headers={'Accept-Encoding': 'identity'})
+                with urllib.request.urlopen(request, timeout=3) as response:
+                    size = int(response.headers.get('Content-Length', 0))
+                if size > 0:
+                    total += size
+                else:
+                    unknown += 1
+            except (OSError, ValueError):
+                unknown += 1
+        return total, unknown
+
     def save(self, model_id=None):
         from registry_store import registry_lock
         from app_settings import write_json_atomic

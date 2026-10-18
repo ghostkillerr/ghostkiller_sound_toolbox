@@ -3,7 +3,7 @@
     "app_name": "Ghostkiller Sound Toolbox",
     "release_date": null,
     "distribution_status": "unpublished",
-    "changelog": "Eğitim öncesi kayıt inceleme, ara model karşılaştırma, eğitim oturumları, deney sırası ve kontrollü ek eğitim. CPU/CUDA kurulumları kullanıcı kabulünden sonra yayımlanır.",
+    "changelog": "Ortak ses biçimi ve mono/stereo seçimi, önceki sonuçları koruyan numaralı çıktılar, kolay model hazırlama ve onaylı güncelleme denetimi. Enstrüman ayırma, vokal onarımı ve RVC model eğitimi. CPU/CUDA kurulumları kabul testlerinden sonra yayımlanır.",
     "packages": {},
     "release_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases"
 }
