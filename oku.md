@@ -1,6 +1,6 @@
 # Ghostkiller Sound Toolbox — ajan ve geliştirici rehberi
 
-Son doğrulama: **18 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
+Son doğrulama: **19 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
 görev geçmişi değildir. Kullanıcının güncel talimatı burada yazanlardan önceliklidir.
 
 ## 1. Proje ve güncel durum
@@ -13,16 +13,16 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 | --- | --- |
 | Uygulama sürümü | `version.json`: **2.1.0**, `published`, CPU ve CUDA hash/boyut/URL kayıtları |
 | Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları yayımlandı |
-| Kaynak doğrulaması | CPU ve CUDA ortamlarında ayrı ayrı **363 test** geçti; ayrıntı: [Son durum](docs/SON_DURUM.md) |
+| Kaynak doğrulaması | 19 Ekim yenileme kaynağında CPU/CUDA ortamlarında ayrı ayrı **436 test** geçti. 2.1.0 kurulumlarının yeniden derleme/doğrulaması sürüyor. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
-| Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması kabul edildi; bütün uygulamanın ses kalitesi ve NVDA/JAWS kabulü tamamlanmadı |
+| Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması ve 10 saniyelik otomatik mikrofon ölçümünün çalışması doğrulandı. Son eşik/pencere değişikliği, genel ses kalitesi ve NVDA/JAWS kabulü sürüyor |
 
 GitHub'a kaynak göndermek kurulu programları güncellemez. Test geçmişi, eski
 setup veya eski frozen sonuçlar bugünkü kaynak için yayın kabulü sayılmaz.
 Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu güncelle.
 
-## 2. Kullanıcının gördüğü dört alan
+## 2. Kullanıcının gördüğü beş alan
 
 - **Müzik ve Ses Temizleme:** enstrümantal çıkarma ve seçilen vokal temizleme
   adımları; aynı sekmede SCNet dört kanal veya deneysel HTDemucs altı kanal
@@ -31,7 +31,10 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
   ile ses dönüşümü; seçilen modeller sırayla çalışır.
 - **Model Eğitimi:** kayıt inceleme, bölüm seçme, RVC V2 eğitimi, durdur/devam,
   ara model karşılaştırma, oturumlar, deney sırası ve eğitilen modeli kaydetme.
-- **Ayarlar:** donanım kontrolü, CPU/GPU tercihi, model hazırlama/onarım,
+- **Canlı AI Cover (4. sekme):** mikrofonu kayıtlı RVC modeliyle dönüştürüp
+  seçilen kulaklık/çıkış aygıtından dinleme. Deneysel kaynak geliştirmesidir;
+  gerçek mikrofon, donanım gecikmesi ve ses kalitesi kabulü sürer.
+- **Ayarlar (5. sekme):** donanım kontrolü, CPU/GPU tercihi, model hazırlama/onarım,
   ses dosyası biçimi, kanal düzeni, tema ve güncelleme denetimi.
 
 ### Korunacak ürün davranışları
@@ -40,7 +43,30 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
   **mevcut düzeni koru/mono/stereo**, varsayılan mevcut düzen. Tercihler kalıcıdır
   ve vokal/enstrüman/cover/eğitim dinleme çıktılarına uygulanır.
 - İşlem zincirindeki geçici sesler kayıpsızdır; MP3/OGG çıktısı sonraki temizleme
-  adımına girdi yapılmaz. WAV/FLAC 24 bit kaydedilir.
+  adımına girdi yapılmaz. RVC ara WAV'ı float saklanır; kullanıcı WAV/FLAC
+  dosyaları 24 bit kaydedilir.
+- Canlı dinleme yalnız kullanıcı başlatınca mikrofonu açar; ses kaydetmez,
+  otomatik model indirmez. Model ve yardımcılar oturum boyunca tutulur. Giriş/
+  çıkış kuyrukları sınırlıdır; yetişemeyen işlemde eski ses atlanır ve bildirilir.
+  Canlı dinleme de ortak `JOB_LOCK` kullanır; durdurma aygıtları serbest bırakır.
+- Canlı ses eşiği varsayılan -45 dB'dir; dinleme sırasında değişebilir.
+  Eşik altındaki tam parçalarda model çağrısı atlanır; ham mikrofon geçirilmez.
+  Eşik yüzde değil **dB** değeridir; -80 dB alt sınırı yoktur. **-100** ve
+  **-120,5** gibi 0 dB veya altında sonlu sayılar doğrudan yazılabilir. Yazım
+  sırasında boş/eksik/geçersiz giriş son geçerli canlı ayarı değiştirmez.
+- **Otomatik ayarla (10 saniye sessizlik)** yalnız seçili mikrofonu ölçer;
+  model veya çıkış açmaz. Kullanıcı konuşmadan bekler; geri sayım durum alanında
+  görünür. Mikrofon ve worker kapandıktan sonra ölçülen gate uygulanır ve
+  **Dinleme tamamlandı** penceresinde **Ayarlandı**, ortam seviyesi ve eşikler
+  gösterilir. Canlı dinleme ayrıca başlatılır; ölçüm arka planda sürmez.
+  İptal/geçersiz ölçüm önceki eşiği korur; ölçüm sesi kaydedilmez.
+- Gate 10 ms RMS, 6 dB açılma/kapanma farkı, 5 ms açılma, 150 ms bekleme ve
+  120 ms yumuşak kapanma kullanır. Otomatik profil bu açılış için tutulur;
+  mikrofon değişince yeniden ölçülür. Çok düşük eşikler sayısal alt-taşma
+  yüzünden tam sessizlikte gate'i açmamalıdır.
+- Seçilen canlı giriş/çıkışın kimliği ve adı açılışta doğrulanır; başka aygıta
+  geçilmez. Gerçek açılan ses yolu arayüzde gösterilir. Canlı oturum günlüğüne
+  yalnız **Mikrofon açıldı.** bir kez yazılır; ilerleme durum alanındadır.
 - Ses çıktılarına Ghostkiller eki veya `separation.json` eklenmez. Ad çakışırsa
   `(2)`, `(3)` ile yeni dosya/klasör oluşturulur; önceki sonuç korunur. Sonuç
   mesajı kapatılınca çıktı klasörü açılır.
@@ -61,13 +87,16 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
 
 | Dosya / dizin | Sorumluluk |
 | --- | --- |
-| `main.py` | Dört sekme, ortak ayarlar, açılış sırası, tek uygulama örneği, worker dispatch |
+| `main.py` | Beş sekme, ortak ayarlar, açılış sırası, tek uygulama örneği, worker dispatch |
 | `ui_separator.py`, `separation_steps.py` | Vokal/enstrüman seçimleri, temizleme zinciri ve çıktı adları |
 | `ui_cover.py` | Kişisel RVC model listesi ve sıralı dönüşüm |
+| `ui_live_cover.py`, `live_cover.py`, `live_audio.py` | Canlı dinleme arayüzü, bellekte RVC akışı ve doğrulanmış Windows ses aygıtları |
+| `live_gate.py` | Gate, sınırsız alt eşik girişi, 10 saniyelik gürültü ölçümü ve mikrofonun kapanışı |
 | `ui_training.py`, `ui_training_tools.py` | Eğitim, oturum, karşılaştırma ve deney sırası arayüzü |
 | `ui_settings.py`, `ui_operation.py` | Tercihler, model hazırlama, koşullu düğme, sonuç klasörü ve hata yönlendirmesi |
 | `ui_common.py`, `ui_model_terms.py` | Native tema, erişilebilir kontrol/açıklamalar ve model koşulları |
 | `app_runtime.py`, `app_settings.py`, `registry_store.py` | Dizinler, `JOB_LOCK`, UI dispatch, atomik ayarlar/kayıt kilitleri |
+| `source_runtime.py` | Doğrudan kaynak açılışını kayıtlı GPU tercihine uygun hazır yerel ortama yönlendirme |
 | `audio_export.py` | Akışla kodlama, kanal dönüşümü, doğrulama ve çakışmasız çıktı yayını |
 | `audio_service.py`, `audio_worker.py`, `native_process.py` | Ayrı ses motoru süreci, IPC/heartbeat, Windows Job Object ve iptal |
 | `separator_backend.py`, `separation_audio.py` | Yerel ayrıştırma modeli/cihaz adaptörü ve ses bütünlüğü |
@@ -120,8 +149,9 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
 6. RVC hop/F0/helper cache ve varsayılan kalite seçeneklerini sessiz değiştirme.
    Küçük sentetik test veya az epoch, gerçek ses kalitesi kanıtı değildir.
 7. A2SB ticari olmayan, HTDemucs ağırlıkları bilimsel kullanım koşullarıyla
-   sunulur; indirme/kullanım onayını koru. Yeniden miksleme ekranı, TTS ve canlı
-   mikrofon dönüşümü mevcut ürün kapsamında değildir.
+   sunulur; indirme/kullanım onayını koru. Yeniden miksleme ekranı ve TTS mevcut
+   ürün kapsamında değildir. Canlı mikrofon dönüşümü deneysel kaynak özelliğidir;
+   yayımlanmış 2.1.0 installer'larında bulunduğunu iddia etme.
 
 ## 5. Çalıştırma ve doğrulama
 
@@ -129,6 +159,9 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
 kontrol etmeden yeniden kurma. Kaynak açılışı için uygun ortamın
 `Scripts/python.exe main.py` komutu veya yerel `Setup/Yeni_Ozellikleri_Ac.cmd`
 kullanılır. Kullanıcı programı kullanırken ikinci arayüz açma veya UI girişi gönderme.
+Doğrudan `main.py` açılışı da hazır yerel ortamı seçer; kayıtlı GPU tercihi
+CPU Python'uyla açılırsa hazır CUDA ortamına yönlendirilir. Worker/self-test
+ve frozen uygulama yönlendirilmez. Kişisel ayarlar/ortamlar yeniden yazılmaz.
 
 PowerShell'de test geçici dosyalarını yazılabilir proje dizinine yönlendir;
 sandbox'ın varsayılan TEMP yolu izin hatası çıkarabilir:
@@ -145,6 +178,17 @@ $env:TRANSFORMERS_OFFLINE = '1'
 foreach ($backend in @('cpu', 'cuda')) {
     & "build/release_$backend/Scripts/python.exe" -m unittest discover -s test -v
     if ($LASTEXITCODE -ne 0) { throw "$backend testleri başarısız." }
+}
+```
+
+Canlı ses/gate değişikliğinin ilgili regresyonları aynı ortam değişkenleriyle
+her iki hazır ortamda şöyle çalıştırılır. Yayın öncesinde yukarıdaki tam matris
+de çalıştırılır; 19 Ekim yenileme kaynağında iki ortamda 436 test geçti:
+
+```powershell
+foreach ($backend in @('cpu', 'cuda')) {
+    & "build/release_$backend/Scripts/python.exe" -m unittest test.test_live_gate test.test_live_cover test.test_live_cover_ui test.test_audio_service -v
+    if ($LASTEXITCODE -ne 0) { throw "$backend canlı ses testleri başarısız." }
 }
 ```
 
@@ -194,8 +238,15 @@ kanıtları Son durum belgesindedir. Gerçek sesle uzun işlem/eğitim, NVDA/JAW
 ve etkileşimli UAC/güncelleme kullanıcı kabulü sürer. Kullanıcıdan kod/hash/
 derleme komutu beklenmez; ses ve kullanım geri bildirimi alınır.
 
+Kaynaktaki canlı AI Cover geliştirmesinde otomatik 10 saniyelik ölçüm kullanıcı
+tarafından çalışır bulundu. Alt sınırı kaldırılmış eşik girişi ve sonuç
+penceresinin son kullanıcı kabulü; gerçek modelle ses kalitesi, Line 2'de
+akustik dinleme/gecikme ve ekran okuyucu anonsları hâlâ doğrulanmalıdır.
+Yeni kaynak davranışlarını yayımlanmış 2.1.0 installer'larına mal etme.
+
 - Güncel kanıt ve açık işler: [SON_DURUM.md](docs/SON_DURUM.md)
 - Kullanıcı denemeleri: [KULLANICI_KABULU.md](docs/KULLANICI_KABULU.md)
+- Deneysel canlı dinleme: [CANLI_AI_COVER.md](docs/CANLI_AI_COVER.md)
 - Derleme ve yayın ayrıntıları: [RELEASE_BUILD.md](docs/RELEASE_BUILD.md)
 - Kullanıcıya sunulacak sürüm notları: [CHANGELOG.md](CHANGELOG.md)
 - Kullanım ve teknik konu dizini: [docs/README.md](docs/README.md)

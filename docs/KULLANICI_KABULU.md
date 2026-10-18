@@ -1,6 +1,6 @@
 # Kullanıcı denemesi
 
-Güncelleme: **18 Ekim 2026**. Güncel test ve paket durumu
+Güncelleme: **19 Ekim 2026**. Güncel test ve paket durumu
 [Son durum](SON_DURUM.md) dosyasındadır. Kod yazman, komut çalıştırman veya
 eğitim teorisini bilmen gerekmiyor. Sonucu dinleyip takıldığın yeri anlatman yeterli.
 
@@ -53,6 +53,44 @@ sonuçları NVDA/JAWS ile dinle. “Şurada sustu”, “Aynı yazıyı iki kez 
 Hata olursa son yaptığın işlemle birlikte mesajı bildir. Günlük dosyasını bulman
 veya hatayı kendin çözmen beklenmez. Yayın öncesinde yeni installer'ın temiz
 Windows'ta kurulması ve eski sürümden güncellenmesi geliştirme tarafında ayrıca sınanır.
+
+## 5. Canlı AI Cover — yalnız geliştirilmekte olan kaynakta
+
+Yayımlanmış 2.1.0 kurulumunda bu sekme yoktur. Kaynaktaki yeni sürümde
+**4. Canlı AI Cover**, ardından **5. Ayarlar** görünmelidir.
+
+1. Kulaklık tak; AI Cover'a eklediğin modeli, mikrofonu ve dinleme aygıtını seç.
+2. **Canlı dinlemeyi başlat** düğmesine basıp kısa cümleler söyle. Hangi sesi
+   duyduğunu, konuşmanın anlaşılırlığını, kesinti veya rahatsız eden gecikmeyi anlat.
+3. 250/500/1000 ms parça sürelerini ayrı dene. Bu seçenekler toplam gecikme
+   değildir; duyduğun gecikmeyi ve atlanan parça sayısını birlikte değerlendir.
+   **Ses eşiği** -45 dB'den başlar; dip sesi devam ederse dinlerken -35 dB gibi
+   daha yüksek bir eşik dene. Konuşma durunca model beklemeli ve dip sesi
+   kesilmeli; konuşunca tekrar açılmalıdır. Eşiği fazla yükseltmek zayıf heceleri kesebilir.
+4. **Canlı dinlemeyi durdur** sonrasında mikrofon göstergesi kapanmalı,
+   kulaklıktan ses kesilmeli ve diğer işlemler yeniden başlayabilmeli.
+5. Mikrofon çıkarılırsa anlaşılır hata beklenir. Tekrar bağlayıp listeyi
+   yenilemek ve yeniden başlatmak mümkün olmalı.
+6. Çıkış olarak Line 2 seçildiğinde **Doğrulanmış ses yolu** Line 2'yi
+   göstermeli. Çıkış kaybolursa varsayılana geçilmemeli. Günlüğe sürekli
+   satır eklenmemeli; yalnız **Mikrofon açıldı.** bir kez görünmelidir.
+7. Dinleme kapalıyken **Otomatik ayarla (10 saniye sessizlik)** düğmesine bas.
+   Konuşmadan 10 saniye bekle; geri sayım durum alanında görünmeli. Sonunda
+   **Dinleme tamamlandı** penceresinde **Ayarlandı. Mikrofon kapatıldı.** yazmalı ve Windows mikrofon göstergesi
+   kapanmalıdır. Kulaklığa/Line 2'ye ölçüm sesi gönderilmemelidir. Model seçili
+   veya hazır olmasa da yalnız mikrofon seçimiyle bu ölçüm yapılabilmelidir.
+8. Ölçümü **Ölçümü iptal et** ile yarıda kes: önceki eşik korunmalı, mikrofon
+   kapanmalıdır. Geçersiz/yüksek/değişken ölçümde de önceki ayar korunmalıdır.
+   Başka mikrofon seçince yeniden ölçüm istenmeli. Başarılı ölçümden sonra
+   canlı dinlemeyi başlat; sessizken gürültü kesilmeli, kelime sonları ve kısa
+   heceler korunmalıdır. Ölçüm günlüğü de yalnız bir açılış satırı içermelidir.
+9. Ses eşiğine **-100** veya **-120,5** yaz: değer -80'e geri çekilmemeli.
+   Dinleme sürerken geçerli değer motora aktarılmalı; sayıyı yazarken geçici
+   boş/eksik giriş, son geçerli canlı eşiği değiştirmemelidir. Otomatik ölçüm
+   sonucundaki pencere kapanana kadar mikrofon tekrar açılmamalıdır.
+
+Canlı dinleme ses dosyası üretmez. Ayrıntılı kullanım ve teknik sınırlar
+[Canlı AI Cover](CANLI_AI_COVER.md) belgesindedir.
 
 Ayrıntılar: [enstrüman ayırma](ENSTRUMAN_AYIRMA.md),
 [vokal onarımı](VOKAL_ONARIMI.md), [model eğitimi](MODEL_EGITIMI.md),

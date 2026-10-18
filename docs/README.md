@@ -10,6 +10,7 @@ Bu dizin kullanım ve teknik kararları içerir; günlük çalışma geçmişi b
 | İlk denemeyi yapmak | [Kullanıcı kabulü](KULLANICI_KABULU.md) |
 | Enstrümanları ayrı kaydetmek | [Enstrüman ayırma](ENSTRUMAN_AYIRMA.md) |
 | Kısa vokal kayıplarını onarmak | [Vokal onarımı](VOKAL_ONARIMI.md) |
+| Mikrofonu ses modeliyle dinlemek (deneysel kaynak) | [Canlı AI Cover](CANLI_AI_COVER.md) |
 | Ses modeli eğitmek | [Model eğitimi](MODEL_EGITIMI.md) |
 | Donanım ve modelleri hazırlamak | [Donanım ve model yönetimi](DONANIM_VE_MODEL_YONETIMI.md) |
 | CPU/CUDA kurulumlarını üretmek | [Yayın derlemesi](RELEASE_BUILD.md) |

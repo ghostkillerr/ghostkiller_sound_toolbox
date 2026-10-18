@@ -23,7 +23,18 @@ Kurulum dosyaları henüz dijital yayıncı sertifikasıyla imzalanmamıştır.
   oturum ve deney sırası, kayıtlı ayarlar, ek epoch ve önceki eğitimden yeni model.
 - Ayarlar sekmesinde donanım testi, model indirme, çevrimdışı bütünlük kontrolü ve bozuk dosya onarımı.
 
-Sesler yerel bilgisayarda işlenir. Eksik modelleri indirmek ve güncelleme kontrolü için internet kullanılabilir. Canlı mikrofon dönüşümü ve TTS içermez.
+Sesler yerel bilgisayarda işlenir. Eksik modelleri indirmek ve güncelleme kontrolü için internet kullanılabilir. TTS içermez.
+
+**Yayımlanmamış kaynak geliştirmesi:** 4. sekmeye deneysel
+[Canlı AI Cover](docs/CANLI_AI_COVER.md) eklendi; Ayarlar 5. sekmeye taşındı.
+Mikrofon sesini kayıtlı RVC modeliyle dönüştürüp seçilen kulaklıkta dinleme,
+aygıt seçimi ve başlat/durdur akışı geliştiriliyor. Bu özellik yayımlanmış
+2.1.0 kurulumlarında bulunmaz; gerçek ses ve gecikme kabulü henüz tamamlanmadı.
+Canlı ses eşiği dinlerken ayarlanabilir; eşik altında dönüştürme bekler.
+**Otomatik ayarla (10 saniye sessizlik)** ile ortam gürültüsü ölçülür;
+eşik ayarlanınca mikrofon kapanır. Dinlemeyi ayrıca başlatın.
+Günlükte yalnız mikrofon açılışı bir kez yazılır. Doğrudan `main.py` açılışı,
+kayıtlı ekran kartı tercihi için hazır yerel CUDA ortamını kullanır.
 
 **Ayarlar → Ses dosyası biçimi** bölümünden **MP3, WAV, FLAC veya OGG** seçin.
 Vokal temizleme, enstrüman ayırma, AI Cover ve eğitim test sesleri aynı tercihle

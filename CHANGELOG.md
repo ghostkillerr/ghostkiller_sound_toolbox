@@ -3,6 +3,31 @@
 Ghostkiller Sound Toolbox'ın kullanıcıya yansıyan önemli değişiklikleri burada
 toplanır. Küçük teknik düzeltmeler ilgili özelliğin altında birleştirilir.
 
+## Yayımlanmamış kaynak değişiklikleri
+
+- **RVC çıktı hassasiyeti:** ara WAV sesi artık float saklanır; AI Cover ve
+  eğitim dinleme örnekleri kullanıcıya WAV/FLAC kaydedilirken önce 16 bite düşmez.
+- **Canlı AI Cover:** deneysel 4. sekmede kayıtlı ses modeli, mikrofon ve kulaklık
+  seçimi, perde/benzerlik/dinleme düzeyi, parça süresi ve başlat/durdur kontrolleri.
+  Bellekte dönüşüm, sınırlı ses kuyruğu ve tahmini gecikme bildirimi eklendi.
+  Gerçek mikrofon ve donanımla ses/gecikme kabulü henüz tamamlanmadı.
+- **Sekme sırası:** Ayarlar 5. sekmeye taşındı.
+- **Canlı ses eşiği:** varsayılan -45 dB; dinlerken ayarlanabilir. Eşik altındaki
+  parçalarda model çalışmaz; çıkış sessiz kalır. Günlükte tekrarlayan ilerleme
+  satırları kaldırıldı; yalnız mikrofon açılışı bir kez bildirilir.
+- **Otomatik gate ayarı:** seçili mikrofonu konuşmadan 10 saniye ölçüp açılma ve
+  kapanma eşiklerini ortam gürültüsüne göre ayarlar. Ölçüm sonunda mikrofon kapanır
+  ve **Ayarlandı** görünür; dinleme ayrıca başlatılır. Ayrı eşikler, 5 ms açılma,
+  150 ms bekleme ve 120 ms yumuşak kapanma konuşma sonlarının kesilmesini azaltır.
+  İptal, değişken/yüksek gürültü veya sessizdeki mikrofonda önceki eşik korunur.
+- **Gate eşik girişi ve sonuç:** -80 dB alt sınırı kaldırıldı; daha düşük ve
+  ondalıklı değerler doğrudan yazılabilir. Başarılı otomatik ölçümde mikrofon
+  kapandıktan sonra **Dinleme tamamlandı** sonuç penceresi açılır.
+- **Canlı aygıt seçimi:** seçilen öğe aygıt kimliğini taşır; açılan giriş/çıkış
+  adı ve numarası doğrulanır. Eksik aygıtta varsayılana geçilmez; doğrulanmış yol
+  ekranda gösterilir. Sistem Python'uyla açılan kaynak, kayıtlı GPU tercihini
+  hazır yerel CUDA ortamıyla karşılar.
+
 ## 2.1.0 — 18 Ekim 2026
 
 Windows x64 için CPU ve NVIDIA CUDA kurulumları [GitHub Release'te](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0)
