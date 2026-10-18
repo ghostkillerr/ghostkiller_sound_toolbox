@@ -124,7 +124,8 @@ class VoiceConverter:
         """
         if output_format.upper() != "WAV":
             audio, sample_rate = sf.read(input_path)
-            sf.write(output_path, audio, sample_rate, format=output_format.upper())
+            encoding = {"subtype": "PCM_24"} if output_format.upper() == "FLAC" else {}
+            sf.write(output_path, audio, sample_rate, format=output_format.upper(), **encoding)
             return output_path
         return input_path
 
@@ -379,7 +380,8 @@ class VoiceConverter:
         if len(audio_opt) < expected_frames:
             raise ValueError("Dönüşüm kaynak sesin zaman çizelgesinden kısa çıktı üretti; çıktı kaydedilmedi.")
         audio_opt = audio_opt[:expected_frames]
-        sf.write(audio_output_path, audio_opt, output_sr, format="WAV")
+        # Keep neural output intact until the shared user-export boundary.
+        sf.write(audio_output_path, audio_opt, output_sr, format="WAV", subtype="FLOAT")
         output_path_format = os.path.splitext(audio_output_path)[0] + f".{export_format.lower()}"
         audio_output_path = self.convert_audio_format(
             audio_output_path, output_path_format, export_format

@@ -53,6 +53,44 @@ def check_audio_exports(directory):
     return {'roundtrips': results, 'numbered_output_preserved': True}
 
 
+def check_live_gate():
+    """Validate packaged live modules without opening a real microphone/output."""
+    import numpy as np
+    from live_audio import AudioDevice, RATE
+    from live_cover import LiveWindow
+    from live_gate import CalibrationOptions, NoiseGate, calibrate_gate
+    from ui_live_cover import LiveCoverPanel
+
+    gate = NoiseGate(True, -1000)
+    if gate.process(np.zeros(RATE//100, dtype='float32'))[1]:
+        raise RuntimeError('Very low gate threshold opened on digital silence.')
+    closed, reads = [], []
+
+    class SyntheticInput:
+        actual_device = AudioDevice(0, 'Synthetic calibration input')
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            closed.append(True)
+        def read(self, stopped):
+            if stopped():
+                raise InterruptedError()
+            reads.append(1)
+            return np.full(RATE//50, .0001, dtype='float32')
+
+    result = calibrate_gate(CalibrationOptions(0, SyntheticInput.actual_device.name),
+                            input_factory=lambda device: SyntheticInput())
+    if (closed != [True] or len(reads) != 500 or result['seconds'] != 10
+            or result['threshold_db'] != -70 or result['close_db'] != -76):
+        raise RuntimeError('Packaged microphone calibration or cleanup failed.')
+    window = LiveWindow(RATE//4)
+    converted = window.process(np.full(RATE//4, .1, dtype='float32'), lambda audio: audio*.5)
+    if len(converted) != RATE//4-window.overlap or not np.isfinite(converted).all():
+        raise RuntimeError('Packaged live audio window failed.')
+    return {'calibration_seconds': 10, 'input_closed': True, 'microphone_opened': False,
+            'output_opened': False, 'low_threshold_silence': True, 'ui_module': LiveCoverPanel.__name__}
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 1:
@@ -149,6 +187,7 @@ def main(argv=None):
                 raise RuntimeError('Bundled FFprobe failed.')
             result['ffmpeg_flac_roundtrip_unicode'] = True
             result['audio_exports'] = check_audio_exports(folder)
+            result['live_gate'] = check_live_gate()
             with NativeAudioSession(directory=output.parent / 'native_smoke_cache') as session:
                 ping = session.execute('ping', {'device': worker_device})
                 if ping.get('pid') == os.getpid() or ping.get('device') != worker_device:

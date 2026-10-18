@@ -36,9 +36,10 @@ def show_result(window, message, title, style, folder=None):
 
 
 class OperationPreparation(wx.Panel):
-    def __init__(self, owner, settings, required):
+    def __init__(self, owner, settings, required, summary=None):
         super().__init__(owner)
         self.owner, self.settings, self.required = owner, settings, required
+        self.custom_summary = summary
         layout = wx.BoxSizer(wx.VERTICAL)
         self.summary = explanation_control(self, 'Çıktı ayarları', '')
         layout.Add(self.summary, 0, wx.EXPAND | wx.BOTTOM, 4)
@@ -58,6 +59,8 @@ class OperationPreparation(wx.Panel):
         channels = {'original': 'Kanal düzeni korunur', 'mono': 'Mono', 'stereo': 'Stereo'}
         device = 'Ekran kartı' if getattr(self.settings, 'preference', 'cpu') == 'gpu' else 'İşlemci'
         text = f"Çıktı: {selected_output_format(self.settings).upper()} · {channels[selected_output_channels(self.settings)]} · {device}"
+        if self.custom_summary:
+            text = self.custom_summary()
         self.summary.SetLabel(text)
         self.summary.SetName(text)
         self.summary.GetAccessible().name = text

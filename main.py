@@ -10,6 +10,7 @@ Bu modül, uygulamanın giriş noktası (entry point) olup şu görevleri üstle
    - "Ses Ayrıştırma" -> ui_separator.SeparatorPanel
    - "AI Cover"       -> ui_cover.CoverPanel
    - "Model Eğitimi"  -> ui_training.TrainingPanel
+   - "Canlı AI Cover" -> ui_live_cover.LiveCoverPanel
    - "Ayarlar"        -> ui_settings.SettingsPanel
 4. Ekran okuyucuların (NVDA / JAWS) rahatça gezebileceği standart sekmeli arayüz.
 """
@@ -36,6 +37,9 @@ if __name__ == '__main__':
             diagnostic_directory = worker_args[0]
     install(quiet='--self-test' in sys.argv or worker_flag is not None,
             directory=diagnostic_directory,worker=worker_flag is not None)
+    from source_runtime import relaunch_source
+    if relaunch_source():
+        sys.exit(0)
 
 configure_ffmpeg_environment()
 configure_runtime_cache()
@@ -90,7 +94,7 @@ class GhostkillerMainFrame(wx.Frame):
 
     def OnClose(self, event):
         if JOB_LOCK.locked() and event.CanVeto():
-            wx.MessageBox("Bir ses işlemi, model/donanım kontrolü veya güncelleme sürüyor. İptal edin ve işlemin durmasını bekleyin.", "İşlem Sürüyor", wx.OK | wx.ICON_INFORMATION)
+            wx.MessageBox("Bir ses işlemi, canlı dinleme, model/donanım kontrolü veya güncelleme sürüyor. Durdurun veya iptal edin ve işlemin bitmesini bekleyin.", "İşlem Sürüyor", wx.OK | wx.ICON_INFORMATION)
             event.Veto()
             return
         event.Skip()
@@ -139,10 +143,12 @@ class GhostkillerMainFrame(wx.Frame):
         from ui_separator import SeparatorPanel
         from ui_cover import CoverPanel
         from ui_training import TrainingPanel
+        from ui_live_cover import LiveCoverPanel
         from ui_settings import SettingsPanel
         from app_settings import AppSettings
         self.settings = AppSettings()
         self.settings.open_settings = self.OpenSettings
+        self.settings.open_cover = self.OpenCover
         self.settings.prepare_models = self.PrepareModels
         self.settings.refresh_operations = self.RefreshOperations
         self.SetBackgroundColour(self.bg_main)
@@ -172,8 +178,10 @@ class GhostkillerMainFrame(wx.Frame):
         self.notebook.AddPage(self.cover_tab, "2. Ses Değiştirme (AI Cover)")
         self.training_tab = TrainingPanel(self.notebook, self.settings)
         self.notebook.AddPage(self.training_tab, "3. Model Eğitimi")
+        self.live_cover_tab = LiveCoverPanel(self.notebook, self.settings, models=self.cover_tab.models)
+        self.notebook.AddPage(self.live_cover_tab, "4. Canlı AI Cover")
         self.settings_tab = SettingsPanel(self.notebook, self.settings)
-        self.notebook.AddPage(self.settings_tab, "4. Ayarlar")
+        self.notebook.AddPage(self.settings_tab, "5. Ayarlar")
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
 
         vbox.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 5)
@@ -189,24 +197,34 @@ class GhostkillerMainFrame(wx.Frame):
         self.notebook.SetSelection(self.notebook.FindPage(self.settings_tab))
         self.settings_tab.device_choice.SetFocus()
 
+    def OpenCover(self):
+        self.notebook.SetSelection(self.notebook.FindPage(self.cover_tab))
+        self.cover_tab.btn_add_model.SetFocus()
+
     def PrepareModels(self, model_ids):
         self.notebook.SetSelection(self.notebook.FindPage(self.settings_tab))
         self.settings_tab.PrepareRequiredModels(model_ids)
 
     def RefreshOperations(self):
-        for name in ('separator_tab', 'cover_tab', 'training_tab'):
+        for name in ('separator_tab', 'cover_tab', 'training_tab', 'live_cover_tab'):
             preparation = getattr(getattr(self, name, None), 'preparation', None)
             if preparation is not None and not preparation.IsBeingDeleted():
                 preparation.RefreshReadiness()
 
     def OnPageChanged(self, event):
         self.RefreshOperations()
+        live = getattr(self, 'live_cover_tab', None)
+        if live is not None and self.notebook.GetCurrentPage() is live and not live.busy:
+            self.RefreshCoverModels()
         event.Skip()
 
     def RefreshCoverModels(self):
         from ui_cover import load_models, get_app_dir
         self.cover_tab.models = load_models(get_app_dir())
         self.cover_tab.UpdateModelCheckList()
+        live = getattr(self, 'live_cover_tab', None)
+        if live is not None:
+            live.RefreshModels(self.cover_tab.models)
 
 
 def global_exception_handler(exc_type, exc_value, exc_tb):

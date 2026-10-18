@@ -34,7 +34,7 @@ class StartupReleaseTests(unittest.TestCase):
 
     def test_gui_modules_do_not_import_torch_or_audio_engine(self):
         result = subprocess.run([sys.executable,'-c',
-            "import sys; import main,ui_cover,ui_separator,ui_training,ui_settings; "
+            "import sys; import main,ui_cover,ui_separator,ui_training,ui_settings,ui_live_cover; "
             "assert 'torch' not in sys.modules; assert 'audio_separator.separator' not in sys.modules; "
             "print('GUI imports are independent of motor DLLs')"],cwd=ROOT,
             capture_output=True,text=True,timeout=30,

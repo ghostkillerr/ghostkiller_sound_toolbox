@@ -35,18 +35,31 @@ def check_audio_memory(path):
 
 
 class AudioEngine:
-    def __init__(self, progress=None, cancelled=None):
+    def __init__(self, progress=None, cancelled=None, live_controls=None):
         self.converter = None
         self.device = None
         self.progress, self.cancelled = progress, cancelled
+        self.live_controls = live_controls
 
     def execute(self, kind, payload):
+        if kind == 'calibrate_gate':
+            from live_gate import CalibrationOptions, calibrate_gate
+            return calibrate_gate(CalibrationOptions(**payload),
+                                  cancelled=self.cancelled or (lambda: False),
+                                  progress=self.progress or (lambda message: None))
         from hardware import configure_runtime
         device = payload.get('device', 'cpu')
         configure_runtime(device)
         if kind == 'ping':
             return {'pid':os.getpid(), 'device':device,
                     'helper_cache_entries':len(self.converter.helper_cache) if self.converter is not None else 0}
+        if kind == 'live_cover':
+            from live_cover import LiveOptions, run_live
+            options = LiveOptions(**payload['options']).validate()
+            if options.device != device:
+                raise ValueError('Canlı ses cihazı işlem ayarıyla eşleşmiyor.')
+            return run_live(options, cancelled=self.cancelled or (lambda: False),
+                            progress=self.progress or (lambda message: None), controls=self.live_controls)
         if kind == 'instruments':
             from instruments.engine import separate_file
             return separate_file(payload['input_file'],payload['output_dir'],payload['model_root'],
@@ -143,7 +156,21 @@ def main(argv=None):
     beat = threading.Thread(target=heartbeat,daemon=True)
     beat.start()
     sequence = 1
-    engine = AudioEngine(progress=lambda text:write_message(root/f'progress_{sequence}.json',{'message':text}),
+    def report(text):
+        write_message(root/f'progress_{sequence}.json', {'message': text})
+        if text.startswith('Mikrofon açıldı.'):
+            write_message(root/f'live_started_{sequence}.json', {'message': text})
+
+    def live_controls():
+        path = root/'live_controls.json'
+        if not path.exists():
+            return None
+        if path.stat().st_size > 4096:
+            raise ValueError('Canlı ses ayarı boyut sınırını aşıyor.')
+        return json.loads(path.read_text(encoding='utf-8'))
+
+    engine = AudioEngine(progress=report,
+                         live_controls=live_controls,
                          cancelled=lambda:(root/f'cancel_{sequence}').exists() or (root/'stop').exists())
     try:
         while not (root/'stop').exists():

@@ -452,12 +452,13 @@ class SettingsTests(unittest.TestCase):
         with patch.object(wx, 'CallAfter'), patch.object(ui_cover, 'load_models', return_value={}):
             frame = main.GhostkillerMainFrame()
             try:
-                self.assertEqual(frame.notebook.GetPageCount(), 4)
+                self.assertEqual(frame.notebook.GetPageCount(), 5)
                 self.assertIs(frame.separator_tab.settings, frame.cover_tab.settings)
                 self.assertIs(frame.settings_tab.settings, frame.settings)
                 self.assertIs(frame.training_tab.settings, frame.settings)
+                self.assertIs(frame.live_cover_tab.settings, frame.settings)
                 frame.OpenSettings()
-                self.assertEqual(frame.notebook.GetSelection(), 3)
+                self.assertEqual(frame.notebook.GetSelection(), 4)
             finally:
                 frame.Destroy()
         app.ProcessPendingEvents()

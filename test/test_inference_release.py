@@ -242,6 +242,30 @@ class BoundedPitchTests(unittest.TestCase):
 
 
 class TimelineTests(unittest.TestCase):
+    def test_rvc_writer_preserves_float_until_pcm24_user_export(self):
+        from audio_export import export_audio
+        with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
+            root = Path(folder)
+            source, model, output = [root/name for name in ('source.wav', 'model.pth', 'raw.wav')]
+            samples = (.2*np.sin(np.arange(3200, dtype='float32')*.031)).astype('float32')
+            sf.write(source, samples, 16000, subtype='FLOAT')
+            model.touch()
+            converter = VoiceConverter('cpu', quality_policy=InferenceQualityPolicy(False, False, False))
+            converter.tgt_sr, converter.n_spk, converter.use_f0 = 16000, 1, 0
+            converter.get_vc = lambda *args: None
+            converter.hubert_model, converter.last_embedder_model = object(), ('contentvec', None)
+            converter.vc = SimpleNamespace(pipeline=lambda **kwargs: samples.copy())
+            converter.convert_audio(str(source), str(output), str(model), '')
+            self.assertEqual(sf.info(output).subtype, 'FLOAT')
+            np.testing.assert_array_equal(sf.read(output, dtype='float32')[0], samples)
+            for format_ in ('wav', 'flac'):
+                path = export_audio(output, root/('result.'+format_), format_)
+                self.assertEqual(sf.info(path).subtype, 'PCM_24')
+                np.testing.assert_allclose(sf.read(path)[0], samples, rtol=0, atol=2**-23)
+            flac = converter.convert_audio_format(output, root/'direct.flac', 'FLAC')
+            self.assertEqual(sf.info(flac).subtype, 'PCM_24')
+            np.testing.assert_allclose(sf.read(flac)[0], samples, rtol=0, atol=2**-23)
+
     def test_resampled_source_timeline_uses_original_file_duration(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:
             source, model, output = [Path(folder) / name for name in ("source.wav", "model.pth", "output.wav")]

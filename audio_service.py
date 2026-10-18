@@ -33,6 +33,7 @@ class NativeAudioSession:
         self._log = None
         self._sequence = 0
         self._force = threading.Event()
+        self._control_lock = threading.Lock()
         self._closed = False
 
     def _start(self):
@@ -60,6 +61,14 @@ class NativeAudioSession:
     def request_force_stop(self):
         self._force.set()
 
+    def set_live_gate(self, enabled, threshold_db):
+        from live_cover import validate_gate
+        validate_gate(enabled, threshold_db)
+        with self._control_lock:
+            if self._closed:
+                raise RuntimeError('Canlı dinleme oturumu kapalı.')
+            write_message(self.directory/'live_controls.json', {'enabled': enabled, 'threshold_db': threshold_db})
+
     def execute(self, kind, payload, cancelled=None, progress=None):
         self._start()
         self._sequence += 1
@@ -71,10 +80,21 @@ class NativeAudioSession:
             self.close()
             raise
         last_notice = time.monotonic()
+        live_cancel_started = None
+        microphone_announced = False
         while True:
             try:
-                if kind in ('restore_vocal','instruments') and cancelled and cancelled():
+                if kind in ('restore_vocal','instruments','live_cover','calibrate_gate') and cancelled and cancelled():
                     (self.directory/f'cancel_{sequence}').touch(exist_ok=True)
+                    if kind in ('live_cover', 'calibrate_gate'):
+                        if live_cancel_started is None:
+                            live_cancel_started = time.monotonic()
+                        elif time.monotonic()-live_cancel_started >= 1.5:
+                            # Monitoring has no checkpoint/output to save. A long GPU
+                            # kernel must not keep the microphone/playback open.
+                            self._group.terminate(timeout=3.)
+                            self.close()
+                            raise InterruptedError('Otomatik eşik ayarı iptal edildi.' if kind == 'calibrate_gate' else 'Canlı dinleme durduruldu.')
             except BaseException:
                 self.close()
                 raise
@@ -82,6 +102,14 @@ class NativeAudioSession:
                 self._group.terminate(timeout=3.)
                 self.close()
                 raise InterruptedError('Ses worker kullanıcı isteğiyle zorla durduruldu; bu adımın çıktısı kaydedilmedi.')
+            opened_path = self.directory/f'live_started_{sequence}.json'
+            if kind in ('live_cover', 'calibrate_gate') and progress and not microphone_announced and opened_path.is_file():
+                try:
+                    progress(json.loads(opened_path.read_text(encoding='utf-8'))['message'])
+                    microphone_announced = True
+                except BaseException:
+                    self.close()
+                    raise
             if response_path.exists():
                 result = json.loads(response_path.read_text(encoding='utf-8'))
                 if not result.get('ok'):
@@ -107,7 +135,7 @@ class NativeAudioSession:
                 detail = '\n'.join(details).strip()
                 self.close()
                 raise RuntimeError(f'Native ses worker beklenmeden sonlandı (çıkış kodu {code}).\n{detail or "Motor günlüğü boş."}')
-            if progress and time.monotonic()-last_notice >= 5.:
+            if progress and time.monotonic()-last_notice >= (1. if kind in ('live_cover', 'calibrate_gate') else 5.):
                 heartbeat = self.directory/'heartbeat'
                 age = time.time()-heartbeat.stat().st_mtime if heartbeat.exists() else None
                 try:

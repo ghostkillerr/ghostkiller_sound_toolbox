@@ -26,7 +26,10 @@ while not (root/'stop').exists():
     if request['kind']=='crash':
         print('native failure evidence',flush=True)
         os._exit(7)
-    if request['kind']=='hang':
+    if request['kind']=='live_cover' and request['payload'].get('notice'):
+        (root/f'live_started_{seq}.json').write_text(json.dumps({'message':'Mikrofon açıldı. Line 2'}),encoding='utf-8')
+        (root/f'progress_{seq}.json').write_text(json.dumps({'message':'new status replaced the opening message'}),encoding='utf-8')
+    if request['kind'] in ('hang','live_cover','calibrate_gate'):
         while True:time.sleep(.02)
     result={'pid':os.getpid()}
     if request['kind']=='tree':
@@ -42,6 +45,27 @@ while not (root/'stop').exists():
 
 
 class AudioServiceTests(unittest.TestCase):
+    def test_gate_control_updates_are_atomic_and_validated_without_starting_worker(self):
+        import json
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+            with NativeAudioSession(directory=folder) as session:
+                session.set_live_gate(True, -35)
+                self.assertIsNone(session.process)
+                self.assertEqual(json.loads((session.directory/'live_controls.json').read_text()), {'enabled':True, 'threshold_db':-35})
+                with self.assertRaises(ValueError): session.set_live_gate(True, float('nan'))
+                self.assertEqual(json.loads((session.directory/'live_controls.json').read_text())['threshold_db'], -35)
+
+    def test_opening_event_is_delivered_even_when_periodic_status_overwrites_it(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder, self.session(folder) as session:
+            cancelled = threading.Event()
+            messages = []
+            def progress(message):
+                messages.append(message)
+                if message.startswith('Mikrofon açıldı.'):
+                    cancelled.set()
+            with self.assertRaises(InterruptedError):
+                session.execute('live_cover', {'notice':True}, cancelled=cancelled.is_set, progress=progress)
+            self.assertTrue(messages[0].startswith('Mikrofon açıldı.'))
     @unittest.skipUnless(os.name=='nt','Windows owned process tree contract')
     def test_force_stop_kills_real_worker_and_descendant_even_with_venv_shim(self):
         import ctypes
@@ -126,6 +150,21 @@ class AudioServiceTests(unittest.TestCase):
             self.assertLess(time.monotonic()-start,5.)
             self.assertIsNotNone(session.process.poll())
 
+    def test_live_stop_interrupts_a_stuck_kernel_without_leaving_devices_owned(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder, self.session(folder) as session:
+            cancelled = threading.Event()
+            timer = threading.Timer(.3, cancelled.set)
+            started = time.monotonic()
+            timer.start()
+            try:
+                with self.assertRaisesRegex(InterruptedError, 'Canlı dinleme durduruldu'):
+                    session.execute('live_cover', {}, cancelled=cancelled.is_set)
+            finally:
+                timer.cancel()
+                timer.join()
+            self.assertLess(time.monotonic()-started, 6.)
+            self.assertIsNotNone(session.process.poll())
+
     def test_normal_cancel_discards_result_without_killing_worker(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder, self.session(folder) as session:
             initial_pid = session.execute('ping',{})['pid']
@@ -133,6 +172,32 @@ class AudioServiceTests(unittest.TestCase):
                 session.execute('ping',{},cancelled=lambda:True)
             self.assertIsNone(session.process.poll())
             self.assertEqual(session.execute('ping',{})['pid'],initial_pid)
+
+    def test_cancel_terminates_a_stalled_calibration_worker(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder, self.session(folder) as session:
+            cancelled = threading.Event()
+            timer = threading.Timer(.2, cancelled.set)
+            timer.start()
+            try:
+                with self.assertRaisesRegex(InterruptedError, 'eşik ayarı iptal'):
+                    session.execute('calibrate_gate', {}, cancelled=cancelled.is_set)
+            finally:
+                timer.cancel()
+                timer.join()
+            self.assertIsNotNone(session.process.poll())
+
+    def test_calibration_dispatch_does_not_initialize_gpu_or_load_model(self):
+        progress, cancelled = Mock(), Mock(return_value=False)
+        engine = AudioEngine(progress=progress, cancelled=cancelled)
+        with patch('live_gate.calibrate_gate', return_value={'threshold_db':-50}) as calibrate, \
+             patch('hardware.configure_runtime') as configure, \
+             patch('rvc.infer.infer.VoiceConverter') as converter:
+            result = engine.execute('calibrate_gate', {'input_device':2, 'input_name':'Test microphone'})
+        self.assertEqual(result['threshold_db'], -50)
+        configure.assert_not_called()
+        converter.assert_not_called()
+        self.assertIs(calibrate.call_args.kwargs['cancelled'], cancelled)
+        self.assertIs(calibrate.call_args.kwargs['progress'], progress)
 
     def test_worker_reuses_helpers_and_cleans_voice_network_after_each_model(self):
         fake = Mock()

@@ -478,6 +478,7 @@ class Pipeline:
         f0_autotune_strength,
         proposed_pitch,
         proposed_pitch_threshold,
+        retrieval_index=None,
     ):
         """
         The main pipeline function for performing voice conversion.
@@ -500,7 +501,12 @@ class Pipeline:
             hop_length: Hop length for F0 estimation methods.
             f0_autotune: Whether to apply autotune to the F0 contour.
         """
-        if file_index != "" and os.path.exists(file_index) and index_rate > 0:
+        if retrieval_index is not None and index_rate > 0:
+            # Live sessions load the bounded, validated index once per session.
+            index, big_npy = retrieval_index, None
+            if index.d != (768 if version == "v2" else 256) or index.metric_type != faiss.METRIC_L2:
+                raise ValueError("FAISS indeksi seçilen ses modeliyle uyumlu değil.")
+        elif file_index != "" and os.path.exists(file_index) and index_rate > 0:
             try:
                 index = load_index(file_index, 768 if version == "v2" else 256)
                 big_npy = None
