@@ -1,0 +1,72 @@
+name: Windows installer acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Draft release tag containing both installers and build receipts
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  install-upgrade-uninstall:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [cpu, cuda]
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      BACKEND: ${{ matrix.backend }}
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUTF8: '1'
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Download and verify exact draft installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') { throw 'Invalid release tag' }
+          $version = $env:RELEASE_TAG.Substring(1)
+          $stem = "Ghostkiller_V2_Setup_$($env:BACKEND)_$version"
+          New-Item -ItemType Directory -Path acceptance-input -Force | Out-Null
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --dir acceptance-input --pattern "$stem.exe" --pattern "$stem.build.json"
+          if ($LASTEXITCODE -ne 0) { throw 'Release download failed' }
+          $installer = Get-Item "acceptance-input/$stem.exe"
+          $receipt = Get-Content "acceptance-input/$stem.build.json" -Raw | ConvertFrom-Json
+          if ($receipt.backend -ne $env:BACKEND -or $receipt.application_version -ne $version -or
+              $receipt.purpose -ne 'release' -or $receipt.release_eligible -ne $true -or
+              $receipt.installer.filename -ne $installer.Name -or $receipt.installer.size -ne $installer.Length -or
+              $receipt.installer.sha256 -ne (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) {
+            throw 'Installer build receipt does not match download'
+          }
+          "INSTALLER=$($installer.FullName)" >> $env:GITHUB_ENV
+      - name: Install, preserve user data during reinstall, and uninstall
+        shell: pwsh
+        run: |
+          & tools/release/windows_sandbox_acceptance.ps1 -Installer $env:INSTALLER -UpgradeInstaller $env:INSTALLER -OutputDirectory "$env:GITHUB_WORKSPACE/acceptance-results"
+          $result = Get-Content acceptance-results/result.json -Raw | ConvertFrom-Json
+          if ($result.ok -ne $true) { throw 'Installer acceptance failed' }
+          foreach ($index in @(0, 1)) {
+            $smoke = Get-Content "acceptance-results/smoke-$index.json" -Raw | ConvertFrom-Json
+            if ($smoke.ok -ne $true -or $smoke.frozen -ne $true -or $smoke.build.backend -ne $env:BACKEND -or
+                $smoke.audio_exports.roundtrips.Count -ne 24 -or $smoke.audio_exports.numbered_output_preserved -ne $true) {
+              throw 'Installed frozen runtime or audio codec coverage failed'
+            }
+          }
+          # The hosted runner has no NVIDIA GPU. CUDA kernel checks run on the
+          # publisher's real hardware; this job verifies CPU fallback at install.
+      - name: Preserve acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: installer-acceptance-${{ matrix.backend }}
+          path: acceptance-results/
+          if-no-files-found: warn
+          retention-days: 14

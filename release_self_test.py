@@ -9,6 +9,50 @@ import time
 import traceback
 
 
+def check_audio_exports(directory):
+    """Exercise the installed codecs and channel conversion without user audio."""
+    import numpy as np
+    import soundfile as sf
+    from audio_export import OUTPUT_FORMATS, OUTPUT_CHANNELS, export_audio
+
+    results = []
+    with tempfile.TemporaryDirectory(prefix='audio_formats_', dir=directory) as folder:
+        folder = Path(folder)
+        rate = 40000  # Also exercises the MP3 resampler used by RVC outputs.
+        signal = .15 * np.sin(np.arange(4000, dtype='float32') * .07)
+        for source_channels in (1, 2):
+            data = signal if source_channels == 1 else np.column_stack((signal, signal * .5))
+            source = folder / f'Kaynak {source_channels}.wav'
+            sf.write(source, data, rate, subtype='FLOAT')
+            for output_format in OUTPUT_FORMATS:
+                for mode in OUTPUT_CHANNELS:
+                    target = folder / f'Çıktı {source_channels} {mode}.{output_format}'
+                    saved = Path(export_audio(source, target, output_format, output_channels=mode))
+                    decoded, actual_rate = sf.read(saved, dtype='float32', always_2d=True)
+                    info = sf.info(saved)
+                    channels = source_channels if mode == 'original' else 1 if mode == 'mono' else 2
+                    expected_frames = round(len(signal) * actual_rate / rate)
+                    if (info.format != output_format.upper() or decoded.shape[1] != channels
+                            or abs(len(decoded) - expected_frames) > 1
+                            or not np.isfinite(decoded).all() or float(np.max(np.abs(decoded))) < .01):
+                        raise RuntimeError(f'Audio export roundtrip failed: {output_format}/{mode}/{source_channels}')
+                    if output_format in ('wav', 'flac'):
+                        expected = data[:, None] if source_channels == 1 else data
+                        if mode == 'mono':
+                            expected = expected.mean(axis=1, keepdims=True)
+                        elif mode == 'stereo' and source_channels == 1:
+                            expected = expected.repeat(2, axis=1)
+                        if info.subtype != 'PCM_24' or not np.allclose(decoded, expected, atol=2**-23, rtol=0):
+                            raise RuntimeError('Lossless export precision or channel conversion failed.')
+                    results.append({'format': output_format, 'source_channels': source_channels,
+                                    'mode': mode, 'channels': channels, 'sample_rate': actual_rate})
+        previous = saved.read_bytes()
+        numbered = Path(export_audio(source, target, output_format, output_channels=mode))
+        if numbered.name != target.stem + ' (2)' + target.suffix or saved.read_bytes() != previous:
+            raise RuntimeError('Numbered export replaced a previous result.')
+    return {'roundtrips': results, 'numbered_output_preserved': True}
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 1:
@@ -34,6 +78,8 @@ def main(argv=None):
         from separator_backend import LocalSeparator
         from instruments.models import load_model
         from restoration.engine import restore_file
+        import model_download
+        import ui_operation
         from ui_model_terms import RestorationTermsDialog, DemucsTermsDialog
         resources = Path(resource_directory())
         info_path = resources / 'build-info.json'
@@ -102,6 +148,7 @@ def main(argv=None):
             if json.loads(probe.stdout)['streams'][0]['codec_name'] != 'flac':
                 raise RuntimeError('Bundled FFprobe failed.')
             result['ffmpeg_flac_roundtrip_unicode'] = True
+            result['audio_exports'] = check_audio_exports(folder)
             with NativeAudioSession(directory=output.parent / 'native_smoke_cache') as session:
                 ping = session.execute('ping', {'device': worker_device})
                 if ping.get('pid') == os.getpid() or ping.get('device') != worker_device:

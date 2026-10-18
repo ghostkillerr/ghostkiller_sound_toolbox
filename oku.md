@@ -13,7 +13,7 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 | --- | --- |
 | Uygulama sürümü | `version.json`: **2.1.0**, `unpublished`, `packages: {}` |
 | Dağıtım | Güncel kaynak için CPU ve NVIDIA CUDA installer'ları yeniden üretilecek; indirilebilir yeni Release henüz yok |
-| Kaynak doğrulaması | CPU ve CUDA ortamlarında ayrı ayrı **361 test** geçti; ayrıntı: [Son durum](docs/SON_DURUM.md) |
+| Kaynak doğrulaması | CPU ve CUDA ortamlarında ayrı ayrı **363 test** geçti; ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
 | Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması kabul edildi; bütün uygulamanın ses kalitesi ve NVDA/JAWS kabulü tamamlanmadı |

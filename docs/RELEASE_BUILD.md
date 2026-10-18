@@ -162,6 +162,15 @@ foreach ($backend in @('cpu', 'cuda')) {
 venv, eşleşen dağıtım materyali ve Inno Setup 7/6 bulunmalıdır. Standart yollar
 dışındaki compiler için `build_installer` komutlarına `--compiler` ekleyin.
 
+Spec, ortak çıktı kodlayıcısını (`audio_export`), model indirmeyi
+(`model_download`) ve işlem arayüzünü (`ui_operation`) açıkça toplar. Ortak
+biçim/kanal tercihleri ve güncelleme akışı mevcut Python kaynaklarıyla paketlenir.
+`--self-test`, gerçek kodlayıcılarla dört biçim × üç kanal tercihi × iki girdi
+kanal düzeni için **24 dönüşümü**, kayıpsız hassasiyeti ve çakışmada eski çıktının
+korunmasını sınar. Başarısız bir biçim paketin smoke sonucunu başarısız yapar;
+deneme sesleri başarıda ve hatada temizlenir. Yeni kaynak eklemek eski setup'ı
+değiştirmez; kaynak kimliği eski EXE ile installer oluşturulmasını reddeder.
+
 `GHOSTKILLER_BACKEND` zorunludur. EXE'de `build-info.json` gerçek backend,
 uygulama sürümü, Python/PyTorch, lock hash'leri ve FFmpeg bilgilerini taşır. XPU derlemesi
 oneAPI wheel'lerinin native DLL/resource düzenini ve erken DLL search path
@@ -318,6 +327,6 @@ build/release_cpu/Scripts/python.exe main.py --self-test build/source_native_smo
 
 Bu kaynak komutu EXE üretmez veya kurulum yapmaz. Model indirmeden gizli
 native wx kontrollerini, CPU forward/backward, gerçek ORT CPU oturumunu,
-Unicode ses adıyla FFmpeg/FFprobe dönüşümünü ve ayrı ses/eğitim worker
-süreçlerini sınar. Kaynak denemesi frozen EXE, UAC veya temiz Windows kabulü
+Unicode ses adıyla FFmpeg/FFprobe ve MP3/WAV/FLAC/OGG kanal dönüşümlerini,
+ayrı ses/eğitim worker süreçlerini sınar. Kaynak denemesi frozen EXE, UAC veya temiz Windows kabulü
 yerine geçmez. Güncel sonuçlar [Son durum](SON_DURUM.md) içindedir.

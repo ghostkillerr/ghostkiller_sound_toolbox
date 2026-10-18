@@ -3,7 +3,8 @@
 | Konu | Doğrulanmış durum |
 | --- | --- |
 | Kaynak sürümü | `version.json`: **2.1.0**, `unpublished`, `packages: {}` |
-| Kaynak testleri | CPU ve NVIDIA CUDA ortamlarının her birinde **361 test geçti** |
+| Kaynak testleri | CPU ve NVIDIA CUDA ortamlarının her birinde **363 test geçti** |
+| Setup girdileri | Her iki ortamın preflight/pip check ve lisans/kaynak hazırlığı geçti; Inno Setup 7 mevcut |
 | Yayın paketi | Güncel kaynakla iki yeni installer üretilecek; hazır Release yok |
 | Sonraki adım | Gerçek ses/kullanım kabulü ve CPU/CUDA installer doğrulaması |
 
@@ -31,11 +32,18 @@ derleme adımları [RELEASE_BUILD.md](RELEASE_BUILD.md) içindedir.
 
 ## Doğrulama ve yerel dosyalar
 
-Son tam kaynak testleri: `build/usability_20261018/cpu_verified.log` ve
-`cuda_final.log`. Son eğitim ayarı/preset değişikliği CPU'da ayrıca **29 testle**
-doğrulandı: `training_preferences.log`. Testler gerçek ses codec'lerini,
+Son tam kaynak testleri: `build/setup_audit_20261018/tests_cpu.log` ve
+`tests_cuda.log`. Testler gerçek ses codec'lerini,
 numaralandırmada yarış durumunu, eski sonuçların korunmasını, koşullu model
 hazırlığını, güncelleme/iptal akışlarını ve kısmi indirme doğrulamasını kapsar.
+
+İki ortamda kaynak native smoke da geçti: `source_smoke_cpu.json` ve
+`source_smoke_cuda.json`. Yeni paket testi MP3/WAV/FLAC/OGG × mevcut/mono/stereo
+× mono/stereo girdi için 24 gerçek dönüşümü, kayıpsız hassasiyeti ve önceki
+çıktının korunmasını sınar. Test sesleri hata durumunda da temizlenir.
+Spec yeni çıktı/model indirme/işlem arayüzü modüllerini içerir; iki backend'in
+196 veri girdisi ve iki FFmpeg ikilisi doğrulandı. Bu kontroller yeni EXE veya
+installer üretildiği anlamına gelmez; frozen ve kurulum kabulü hâlâ açıktır.
 
 Test günlükleri ve temizlik denetimleri Git dışındaki `build/` altında tutulur.
 Eski geçici test raporları ve yeniden üretilebilir önbellekler temizlenir;
