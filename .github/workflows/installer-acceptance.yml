@@ -50,6 +50,12 @@ jobs:
       - name: Install, preserve user data during reinstall, and uninstall
         shell: pwsh
         run: |
+          # Installed binaries must work without the runner's Python, CUDA or
+          # codec tools helping DLL or command discovery.
+          $env:PATH = "$env:SystemRoot/System32;$env:SystemRoot"
+          foreach ($name in @('PYTHONHOME', 'PYTHONPATH', 'CUDA_PATH', 'CUDA_PATH_V12_8')) {
+            Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+          }
           & tools/release/windows_sandbox_acceptance.ps1 -Installer $env:INSTALLER -UpgradeInstaller $env:INSTALLER -OutputDirectory "$env:GITHUB_WORKSPACE/acceptance-results"
           $result = Get-Content acceptance-results/result.json -Raw | ConvertFrom-Json
           if ($result.ok -ne $true) { throw 'Installer acceptance failed' }
