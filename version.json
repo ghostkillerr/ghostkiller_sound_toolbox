@@ -1,9 +1,20 @@
 {
-    "version": "2.1.0",
-    "app_name": "Ghostkiller Sound Toolbox",
-    "release_date": null,
-    "distribution_status": "unpublished",
-    "changelog": "Ortak ses biçimi ve mono/stereo seçimi, önceki sonuçları koruyan numaralı çıktılar, kolay model hazırlama ve onaylı güncelleme denetimi. Enstrüman ayırma, vokal onarımı ve RVC model eğitimi. CPU/CUDA kurulumları kabul testlerinden sonra yayımlanır.",
-    "packages": {},
-    "release_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases"
+  "version": "2.1.0",
+  "app_name": "Ghostkiller Sound Toolbox",
+  "changelog": "Vokal ve enstrüman ayırma, RVC ses değiştirme ve model eğitimi. Ortak MP3/WAV/FLAC/OGG ve mono/stereo tercihleri, numaralı çıktılar, kolay model hazırlama ve onaylı güncelleme denetimi.",
+  "release_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0",
+  "packages": {
+    "cpu": {
+      "download_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller_V2_Setup_cpu_2.1.0.exe",
+      "sha256": "1a9655694be55ee2ecd55169930103817f44e192511febc9b0db93c16a86ac60",
+      "size": 373825544
+    },
+    "cuda": {
+      "download_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller_V2_Setup_cuda_2.1.0.exe",
+      "sha256": "38b9c11d13ad5a512daeb90b84b849665267f026b485ea273b66383eba6092a1",
+      "size": 2136828435
+    }
+  },
+  "release_date": "2026-10-18",
+  "distribution_status": "published"
 }

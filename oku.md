@@ -11,8 +11,8 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 
 | Konu | Durum / kaynak |
 | --- | --- |
-| Uygulama sürümü | `version.json`: **2.1.0**, `unpublished`, `packages: {}` |
-| Dağıtım | Güncel kaynak için CPU ve NVIDIA CUDA installer'ları yeniden üretilecek; indirilebilir yeni Release henüz yok |
+| Uygulama sürümü | `version.json`: **2.1.0**, `published`, CPU ve CUDA hash/boyut/URL kayıtları |
+| Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları yayımlandı |
 | Kaynak doğrulaması | CPU ve CUDA ortamlarında ayrı ayrı **363 test** geçti; ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
@@ -173,9 +173,14 @@ Göndermeden önce stage edilmiş ağaçta `python tools/check_public_tree.py` v
   Yerel aktif FFmpeg bundle'ı `build/ffmpeg_material/8.1.1-release` içindedir.
 - Kaynak push'u, setup üretimi ve Release yayını ayrı işlemlerdir. Hazır olmayan
   installer için yayın tarihi/hash/link uydurma; daha yüksek sürümü erken duyurma.
-- Yayın sırası: yerel sürüm → iki gerçek setup → kabul testleri → eşleşen
-  receipt'lerden manifest → sabit tag ve iki asset'li Release → yayımlanmış
-  dosyalar doğrulandıktan sonra `master/version.json` duyurusu.
+- Yayın sırası: yerel sürüm → iki gerçek setup ve receipt → yerel frozen kabulü
+  → sabit tag ile test edildiği açıkça belirtilen GitHub ön sürümü → salt okunur
+  Windows kurulum kabulü → manifest ve normal Release → dosyalar doğrulandıktan
+  sonra `master/version.json` ve site duyurusu. Ön sürüm güncelleme diye duyurulmaz.
+- Tag paketlenen kaynak anını, master'daki manifest sonraki yayın duyurusunu
+  gösterir. Duyuru `version.json`'u değiştirdiği için eski paketin kaynak
+  kimliğini incelerken kendi yayın tag'iyle karşılaştır; master ile farklılık
+  tek başına yeni bir uygulama düzeltmesi değildir.
 - Setup'lar Git ağacına zorla eklenmez; Release asset olarak yüklenir. Legacy
   `AppId` ve kurulum dizini korunur. Güncelleme aynı backend'i seçer, UAC'yi
   atlatmaz; helper sonucu doğrulayıp yeniden açar ve kendi geçici setup'ını temizler.
@@ -184,9 +189,10 @@ Göndermeden önce stage edilmiş ağaçta `python tools/check_public_tree.py` v
 
 ## 7. Sıradaki iş ve belge seçimi
 
-Güncel kaynak doğrulandı; yayın için **iki yeni installer**, gerçek sesle uzun
-işlem/eğitim, NVDA/JAWS ve eski kurulumdan yükseltme kabulü tamamlanmalıdır.
-Kullanıcıdan kod/hash/derleme komutu beklenmez; ses ve kullanım geri bildirimi alınır.
+**2.1.0 CPU/CUDA yayını tamamlandı.** Kaynak, frozen ve Windows kurulum
+kanıtları Son durum belgesindedir. Gerçek sesle uzun işlem/eğitim, NVDA/JAWS
+ve etkileşimli UAC/güncelleme kullanıcı kabulü sürer. Kullanıcıdan kod/hash/
+derleme komutu beklenmez; ses ve kullanım geri bildirimi alınır.
 
 - Güncel kanıt ve açık işler: [SON_DURUM.md](docs/SON_DURUM.md)
 - Kullanıcı denemeleri: [KULLANICI_KABULU.md](docs/KULLANICI_KABULU.md)

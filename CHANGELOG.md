@@ -3,11 +3,11 @@
 Ghostkiller Sound Toolbox'ın kullanıcıya yansıyan önemli değişiklikleri burada
 toplanır. Küçük teknik düzeltmeler ilgili özelliğin altında birleştirilir.
 
-## 2.1.0 — Yayın hazırlığında
+## 2.1.0 — 18 Ekim 2026
 
-CPU ve NVIDIA CUDA kurulumları için hazırlanan sürüm. GitHub'da henüz indirilebilir
-bir Release yayımlanmadı; aşağıdaki yenilikler mevcut kaynak kodunun kapsamıdır.
-Kurulum kabul testleri tamamlandığında gerçek yayın tarihi ve indirmeler eklenecek.
+Windows x64 için CPU ve NVIDIA CUDA kurulumları [GitHub Release'te](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0)
+yayımlandı. Her iki kurulumun SHA-256 değerleri, boyutları ve derleme kayıtları
+yayında bulunur. Kurulum dosyaları henüz dijital yayıncı sertifikasıyla imzalanmamıştır.
 
 ### Ses araçları ve model eğitimi
 
@@ -76,10 +76,12 @@ Kurulum kabul testleri tamamlandığında gerçek yayın tarihi ve indirmeler ek
   Güncelleme kişisel model ve ayarları korur; Windows yönetici izni isteyebilir.
 - **Tanıtım ve indirme sayfası:** programın özellikleri, paket seçimi ve ilk
   kullanım bilgileri [proje sitesinde](https://ghostkillerr.github.io/ghostkiller_sound_toolbox/)
-  yer alır. İndirmeler doğrulanmış Release yayımlandığında açılır.
+  yer alır. CPU ve CUDA indirme bağlantıları açıktır.
 
-Yayın öncesi temiz Windows, gerçek donanım, NVDA/JAWS ve eski kurulumdan güncelleme
-kabulü tamamlanmalıdır. Kaynak testleri bu kabulün yerine geçmez.
+İki ortamda 363 kaynak testi, yerel frozen testleri ve GitHub Windows üzerinde
+kurulum/yeniden kurulum/kaldırma testleri geçti. CUDA paketi gerçek NVIDIA
+kartında da sınandı. Gerçek ses kalitesi, uzun eğitim, canlı NVDA/JAWS ve
+etkileşimli UAC/güncelleme kabulü ayrı kullanıcı denemeleriyle sürmektedir.
 
 ## Önemli geliştirme aşamaları
 

@@ -8,9 +8,10 @@ Geliştiriciler ve yapay zekâ ajanları için başlangıç: **[oku.md](oku.md)*
 · [GitHub yayınları](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases)
 · [Sürüm notları](CHANGELOG.md)
 
-Kurulumlar şu anda kabul testi/yayın hazırlığındadır. Doğrulanmış CPU ve CUDA
-sürümü yayımlandığında tanıtım sayfasındaki indirme bağlantıları otomatik açılır.
-GitHub kaynak kodu, hazır installer yayını anlamına gelmez.
+**2.1.0 yayımlandı.** Windows x64 için [CPU ve NVIDIA CUDA kurulumlarını](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0)
+indirebilirsiniz. CPU paketi yaklaşık **374 MB**, CUDA paketi **2,14 GB**.
+Python ve FFmpeg paketlerin içindedir; ilk kullanımda gerekli modelleri programdan hazırlayın.
+Kurulum dosyaları henüz dijital yayıncı sertifikasıyla imzalanmamıştır.
 
 - Müzik/vokal ayırma, arka vokal, yankı ve gürültü temizleme.
 - [Enstrüman ayırma](docs/ENSTRUMAN_AYIRMA.md): dört kanallı SCNet ve bilimsel kullanım için deneysel altı kanallı HTDemucs; ayrı ses dosyaları.

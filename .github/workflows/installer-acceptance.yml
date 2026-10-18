@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Draft release tag containing both installers and build receipts
+        description: Public prerelease/release tag containing installers and build receipts
         required: true
         type: string
       backend:
@@ -15,6 +15,7 @@ on:
         options: [both, cpu, cuda]
 
 permissions:
+  # Public prereleases keep acceptance read-only; promote after validation.
   contents: read
 
 jobs:
@@ -35,7 +36,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Download and verify exact draft installer
+      - name: Download and verify exact installer
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh

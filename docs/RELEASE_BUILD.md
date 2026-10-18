@@ -2,8 +2,9 @@
 
 CPU ve NVIDIA CUDA ayrı, hash kilitli ortamlardan üretilir. Bu belge derleme
 reçetesidir; güncel test/paket durumu [Son durum](SON_DURUM.md), kullanıcı
-talimatları ve yayın sırası [oku.md](../oku.md) içindedir. Önceki installer
-adayları son kaynak düzeltmesini içermediği için temizlendi; yeniden derleme gerekir.
+talimatları ve yayın sırası [oku.md](../oku.md) içindedir. **2.1.0 CPU/CUDA
+kurulumları yayımlandı**; gerçek boyut/hash kayıtları `version.json` ve Release
+asset'lerindedir. Yeni sürüm için aşağıdaki derleme ve kabul adımları tekrarlanır.
 
 ## Çalışma ortamları ve kilitler
 
@@ -204,9 +205,8 @@ hatası da bulundu. Spec `rvc` ve `training` modüllerini **pyz+py** olarak
 toplar; TorchScript gerçek `.py` dosyalarını okuyabilir. Decorator/eğitim
 matematiği kaldırılmadı veya değiştirilmedi. Installer input, kritik
 `commons.py`/`synthesizers.py` kaynaklarının bulunmasını ve kaynak repo
-SHA-256'larıyla eşleşmesini ister. Kaynak dosyaları eklenen önceki diagnostic
-paketle repair probe 25.0 saniyede geçti; bu ara deneme yeni spec'ten fresh
-build kabulünün yerine geçmez.
+SHA-256'larıyla eşleşmesini ister. Güncel CPU/CUDA EXE'leri bu spec'ten yeniden
+üretildi ve hem yerel frozen hem Windows kurulum testlerinden geçti.
 [PyInstaller source collection açıklaması](https://pyinstaller.org/en/stable/hooks.html).
 
 `app_version.py` runtime'da paketli `version.json` dosyasını okur; ayrı elle
@@ -229,17 +229,11 @@ aittir. `.gitattributes` bu dizinde Windows CRLF dönüşümünü kapatır. Yere
 LF'ye dönünce zaten kayıtlı hash'lerle birebir eşleşen altı lisans dosyası
 orijinal byte biçimine getirildi; hash kontrolü gevşetilmedi.
 
-14 Ekim ilk hazırlık doğrulamasında 240 regresyon testi geçmişti; eski
-diagnostic_cpu klasörü installer helper tarafından beklendiği gibi reddedildi.
-Sonraki düzeltmede Inno Setup **7.1.0** kullanıcı tarafından kuruldu ve
-standart yolda bulundu. Güncel .iss CPU/CUDA parametreleri ve sentetik paket
-fixture'ı ile gerçek ISCC'de **Output=no** kullanılarak iki kez başarıyla
-derlendi. Bu kontrol installer dosyası üretmez veya kurulum yapmaz.
-O ilk aşamada FFmpeg full build'in `source_completeness: ffmpeg-only` engeli
-ve temiz CUDA ortamı eksikti. Kalan sorunlar çalışması bunları yeni tam
-kaynaklı LGPL bundle ve bağımsız CPU/CUDA ortamlarıyla kapattı. Eski Gyan
-manifestini complete diye değiştirerek geçmeyin. Güncel EXE'ler
-`build/release_dist_cpu` ve `build/release_dist_cuda` altında ayrı tutulur.
+CPU ve CUDA setup'ları Inno Setup **7.1.0** ile gerçek EXE ağacından üretildi.
+Güncel yerel paketler `build/release_dist_cpu` ve `build/release_dist_cuda`,
+kurulumlar ve receipt'leri `Setup/` altında tutulur. Derleme ara dizinleri
+ve PyInstaller cache yeniden üretilebilir; setup, lisans materyali ve kabul
+kanıtları korunur. Eski Gyan `ffmpeg-only` manifesti yayın bundle'ı değildir.
 
 Kaynak materyali eksikken **yalnız yerel inceleme için**
 `GHOSTKILLER_BUILD_PURPOSE=diagnostic` ve recovered FFmpeg dizini seçilebilir.
@@ -309,15 +303,58 @@ yetkisi/işlemi içermez.
 Yanında helper'ın ürettiği aynı adlı `.build.json` olmadan veya uygulama
 sürümü/build-info/installer byte'ları bu kayıtla eşleşmeden manifest üretilmez.
 Bu yerel derleme kaydı Authenticode yayıncı imzası değildir.
-`version.json` 2.1.0 ve unpublished olarak kalır; gerçek yeni kurulum
-hazır olmadığı için hash veya yayın tarihi uydurulmaz. SHA-256 trusted GitHub
-manifest/HTTPS kaynağına dayanır; publisher Authenticode imzası ve yayıncı
-sertifikası ayrıca alınmalı/doğrulanmalıdır.
+`version.json` 2.1.0 için `published` ve gerçek CPU/CUDA hash/boyut/URL
+kayıtlarını taşır. SHA-256 trusted GitHub manifest/HTTPS kaynağına dayanır.
+Mevcut setup'lar Authenticode imzalı değildir; yayıncı sertifikasıyla imzalama
+ve doğrulama sonraki yayınlar için ayrıca hazırlanmalıdır.
+
+Yayın tag'i paketlenen kaynak anını gösterir. Sonraki `master/version.json`
+duyurusu kaynak kimliğine dahil olan metadata'yı değiştirir; eski paketi
+kaynakla karşılaştırırken kendi tag'ini kullanın. Yeni uygulama sürümü için
+yeni sürüm numarasıyla iki EXE ve setup yeniden üretilir.
 
 Son kabul: temiz Windows normal kullanıcıda Python/FFmpeg kurulu olmadan
 başlangıç, worker dispatch, sentetik ayrıştırma/cover/eğitim durdur-devam,
 Program Files izinleri, UAC iptal/başarı, NVDA/JAWS ve fiziksel donanım matrisi.
 Yerel diagnostic EXE testi temiz VM veya fiziksel AMD/Intel GPU testi değildir.
+
+## GitHub ön sürümü ve Windows kabulü
+
+GitHub taslak yayınları salt okunur CI token'ına göstermez. Hazır setup ve
+receipt'leri önce taslağa yükleyin, test edildiği açıkça belirtilen bir **ön
+sürüm** açın ve `installer-acceptance.yml` iş akışını çalıştırın. İş akışı
+`contents: read` kullanır; kurulumun depo yazma yetkisine ihtiyacı yoktur.
+Ön sürüm aşamasında sitenin ve programın `master/version.json` duyurusu açılmaz.
+
+```powershell
+$version = (Get-Content version.json -Raw | ConvertFrom-Json).version
+gh release edit "v$version" --draft=false --prerelease --latest=false
+gh workflow run installer-acceptance.yml --ref master -f "tag=v$version" -f backend=both
+```
+
+`backend=cpu` veya `cuda` ile yüklemesi biten paket ayrı sınanabilir. İş akışı
+indirilen setup'ı receipt/hash/boyutuyla doğrular; geçici GitHub Windows 2022
+makinesinde sistem Python/CUDA/codec PATH girdilerini kapatıp ilk kurulum,
+aynı paketle yeniden kurulum, iki frozen test ve kaldırma çalıştırır. Örnek
+kullanıcı dosyalarının korunmasını denetler. Fiziksel NVIDIA testi yerelde
+yapılır; hosted CUDA denemesi GPU'suz açılış yolunu sınar. Etkileşimli UAC,
+farklı iki sürüm arası güncelleme ve canlı NVDA/JAWS ayrı kabul konularıdır.
+
+İki kabul de başarılı olduktan sonra hashli manifest ve SHA256SUMS.txt'yi
+Release'e ekleyin, ön sürümü normal yayına çevirin ve sunucudaki dosya hash/boyutlarıyla
+indirme bağlantılarını doğrulayın. Ardından `master/version.json` duyurusunu ve
+siteyi güncelleyin. İş akışını başlatmak testin geçtiği anlamına gelmez.
+
+Gelecek sürümlerde yerelde yükseltilen `version.json`'u setup'lar hazır olmadan
+master'a göndermeyin. Paketlenecek kaynak commit'ini önce sabit yayın tag'iyle
+göndermek, master'ın önceki doğrulanmış güncelleme kaydını korur. Yeni kaynağı
+ve son yayın manifestini master'a birlikte gönderin; böylece kurulu programlar
+henüz hazır olmayan yüksek sürümü erken görmez.
+
+Her dosya [GitHub'ın 2 GiB sınırının](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)
+altında olmalıdır; mevcut CUDA setup'ı bu sınıra yakındır. Boyutu yüklemeden
+önce kontrol edin. Kurulum tek dosyalıdır; yan `.bin` dosyaları updater tarafından
+desteklenmez. Kaynaklar, lisanslar veya codec'ler boyut için eksiltilmez.
 
 ## Kaynak geliştirme tanısı
 
