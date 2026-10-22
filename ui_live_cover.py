@@ -11,7 +11,7 @@ from live_audio import AudioDevice, enumerate_devices
 from live_cover import LiveOptions
 from live_gate import (CalibrationOptions, HYSTERESIS_DB, ATTACK_MS, HOLD_MS,
                        RELEASE_MS, validate_gate)
-from ui_common import add_intro, apply_native_style, explanation_control, name_control
+from ui_common import add_intro, apply_native_style, checkbox_control, explanation_control, name_control
 from ui_operation import OperationPreparation, operation_error
 
 
@@ -77,8 +77,8 @@ class LiveCoverPanel(wx.ScrolledWindow):
             'Kısa parçalar daha sık dönüştürme gerektirir. Duyulan toplam gecikme parça süresinden uzundur. '
             'İşlemci yetişemiyorsa 1000 ms veya Ayarlar’dan ekran kartını seçin.')
         layout.Add(text, 0, wx.EXPAND | wx.ALL, 8)
-        self.gate_enabled = name_control(wx.CheckBox(self, label='Ses eşiğini uygula; sessizken dönüştürmeyi beklet'),
-                                         'Ses eşiğini uygula; sessizken dönüştürmeyi beklet')
+        self.gate_enabled = checkbox_control(
+            wx.CheckBox(self, label='Ses eşiğini uygula; sessizken dönüştürmeyi beklet'))
         self.gate_enabled.SetValue(True)
         self.gate_enabled.Bind(wx.EVT_CHECKBOX, self.OnGateChange)
         layout.Add(self.gate_enabled, 0, wx.ALL, 8)

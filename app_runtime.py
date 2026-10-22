@@ -53,6 +53,20 @@ def model_directory(app_dir=None):
     return directory
 
 
+def model_cache_directories(app_dir):
+    """Legacy model locations shared by the GUI and headless model management."""
+    user_home = os.path.expanduser('~')
+    return [
+        os.path.join(app_dir, 'modeller'),
+        os.path.join(os.environ.get('LOCALAPPDATA', user_home), 'GhostkillerSoundToolbox', 'modeller'),
+        os.path.join(user_home, '.cache', 'audio-separator', 'models'),
+        os.path.join(user_home, '.cache', 'audio-separator'),
+        os.path.join(user_home, 'AppData', 'Local', 'audio-separator', 'models'),
+        os.path.join(user_home, 'AppData', 'Local', 'audio-separator'),
+        os.path.join(os.environ.get('TEMP', ''), 'audio-separator-models'),
+    ]
+
+
 def data_directory():
     if not getattr(sys, "frozen", False):
         return app_directory()

@@ -74,7 +74,7 @@ class ExperimentTests(unittest.TestCase):
                 split_review(report,options,cancelled)
             self.assertEqual(len(checks),2)
 
-    def test_archive_retention_never_deletes_resume_best_or_preferred_snapshot(self):
+    def test_archive_retention_keeps_exactly_the_newest_requested_snapshots(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as temporary:
             root=Path(temporary)
             for name in ('resume.pth','latest.pth','best_validation.pth'):(root/name).write_bytes(b'unchanged')
@@ -87,7 +87,7 @@ class ExperimentTests(unittest.TestCase):
                 archive_snapshot(root,options,epoch,epoch*10,1/epoch)
             records=snapshot_records(root)
             self.assertEqual(len(records),2)
-            self.assertEqual({r['epoch'] for r in records},{1,4})
+            self.assertEqual({r['epoch'] for r in records},{3,4})
             self.assertEqual((root/'resume.pth').read_bytes(),b'unchanged')
             self.assertEqual((root/'best_validation.pth').read_bytes(),b'unchanged')
             self.assertEqual(len(list((root/'snapshots').glob('*.pth'))),2)

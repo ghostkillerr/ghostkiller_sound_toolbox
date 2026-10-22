@@ -242,6 +242,29 @@ class BoundedPitchTests(unittest.TestCase):
 
 
 class TimelineTests(unittest.TestCase):
+    def test_selected_index_is_not_replaced_by_a_similarly_named_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source, model, output = [root/name for name in ('source.wav', 'model.pth', 'raw.wav')]
+            samples = np.full(3200, .1, dtype='float32')
+            sf.write(source, samples, 16000, subtype='FLOAT')
+            model.touch()
+            converter = VoiceConverter('cpu', quality_policy=InferenceQualityPolicy(False, False, False))
+            converter.tgt_sr, converter.n_spk, converter.use_f0 = 16000, 1, 0
+            converter.get_vc = lambda *args: None
+            converter.hubert_model, converter.last_embedder_model = object(), ('contentvec', None)
+            pipeline = Mock(return_value=samples.copy())
+            converter.vc = SimpleNamespace(pipeline=pipeline)
+            for name in ('trained_models/voice.index', 'voice_trained.index', 'trained_voice.index'):
+                with self.subTest(name=name):
+                    chosen = root/name
+                    alternate = root/name.replace('trained', 'added')
+                    for index in (chosen, alternate):
+                        index.parent.mkdir(parents=True, exist_ok=True)
+                        index.write_bytes(b'different selected model data')
+                    converter.convert_audio(str(source), str(output), str(model), str(chosen))
+                    self.assertEqual(pipeline.call_args.kwargs['file_index'], str(chosen))
+
     def test_rvc_writer_preserves_float_until_pcm24_user_export(self):
         from audio_export import export_audio
         with tempfile.TemporaryDirectory(dir=Path(__file__).resolve().parents[1]) as folder:

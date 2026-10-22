@@ -29,26 +29,33 @@ kalırsa bağımsız kontrol için başka bir şarkı/oturum eklemeniz istenir.
 
 ## 2. İlk eğitimi başlatın
 
-Modele ad verin. Emin değilseniz 40 kHz, otomatik batch ve mevcut diğer ayarları
-koruyun. Epoch hedefi kalite garantisi değildir; daha fazla epoch sonucu her zaman
-iyileştirmez. **Yeni ses modeli eğit** düğmesiyle başlayın.
+Modele ad verin. **Kaç epoch'ta bir model kaydedilsin?** alanı ara model aralığıdır:
+`10` seçilirse 10, 20, 30 ve devam eden epoch'larda kayıt alınır. Hedef epoch bu
+aralığa denk gelmese de son epoch ayrıca kaydedilir. **Son kaç epoch modeli
+tutulsun?** alanı disk üzerinde kalacak en yeni kayıt sayısını belirler. Örneğin
+aralık `10`, sayı `3` ve hedef `100` ise sonunda 80, 90 ve 100 modelleri kalır.
+Emin değilseniz 40 kHz, otomatik batch ve mevcut diğer ayarları koruyun. Epoch
+hedefi kalite garantisi değildir; daha fazla epoch sonucu her zaman iyileştirmez.
+**Yeni ses modeli eğit** düğmesiyle başlayın.
 
 İşlem sırasında aşama, süre tahmini ve RAM/VRAM ölçümleri gösterilir. **Durdur ve
 kaydet**, tam optimizasyon adımından sonra devam noktası bırakır. Zorla durdurma
 son kayıttan sonraki adımları kaybettirebilir. Son sağlam kayıt korunur.
 
-**Eğitim oturumlarım** ile önceki oturumları listeleyin. Açmak yeniden eğitim
-başlatmaz. **Yarım kalan eğitime devam et** kayıtlı ayarları geri getirir.
+**Eğitim oturumlarım** ile önceki oturumları listeleyin. Oturumu seçtikten sonra
+sonuç açma, yarım eğitime devam etme, epoch hedefini artırma, önceki eğitimden
+yeni model başlatma ve geçmişi inceleme işlemlerinden uygun olanı seçebilirsiniz.
+Yalnızca oturumu açmak yeniden eğitim başlatmaz. **Yarım kalan eğitime devam et**
+kayıtlı ayarları geri getirir.
 CPU/GPU backend'i, veri veya yardımcı model kimliği değişmişse aynen devam edilmez.
 
 ## 3. Sonuçları karşılaştırın
 
 Her değerlendirmede son model ve en düşük kontrol mel hatasına sahip model
-üretilir. Varsayılan olarak ayrıca en fazla **üç ara model**, **2048 MB** sınırı
-içinde saklanır. Sayı ve disk sınırı gelişmiş ayarlardan değiştirilebilir.
-Tercih ettiğiniz bir ara model korunur; bu model tek başına yeni disk sınırını
-aşıyorsa silinmez. Son model, en düşük hatalı model ve tam devam kaydı arşiv
-budamasından etkilenmez.
+üretilir. Varsayılan olarak en yeni **üç epoch modeli**, **2048 MB** sınırı
+içinde saklanır. Tutulacak sayı ana eğitim ekranından, disk sınırı gelişmiş
+ayarlardan değiştirilebilir. Sınır aşılırken en eski epoch modelleri kaldırılır.
+Son model, en düşük hatalı model ve tam devam kaydı teknik oturumda ayrıca bulunur.
 
 Sonuç bölümünde modeli, ortak test kaydını ve index kapalı/açık seçeneğini belirleyip
 dinleyin. Her aday aynı ayrılmış kayıtlarla sınanır. **Index kapalı** modelin kendi
@@ -65,20 +72,50 @@ kayıplarını native tabloda gösterir. Düşük mel hatası daha iyi duyulan t
 garantilemez. Anlaşılırlık, nota kararlılığı, tını ve istenmeyen sesleri dinleyin.
 **Tercih et ve not yaz** ile dinleyerek seçtiğiniz adayı kaydedin.
 
-**Ses değiştirme listesine ekle** kalıcı bir model/index kopyası oluşturur.
-Farklı adayları farklı adlarla kaydedebilirsiniz; mevcut adın üstüne yazılmaz.
-Küçük inference modeli tam devam kaydı değildir.
+**Kaydedilen epoch modellerini AI Cover listesine ekle** tutulan bütün epoch
+modellerini tek seferde kalıcı olarak kaydeder. Örneğin `Ahmet` için temiz klasör
+`trained_models/Ahmet/`; dosyalar `Ahmet_Epoch_080.pth`,
+`Ahmet_Epoch_090.pth`, `Ahmet_Epoch_100.pth` ve ortak `Ahmet.index` olur.
+AI Cover listesinde her epoch ayrı görünür ve aynı index'i kullanır. Aynı adlı
+klasör varsa `Ahmet (2)` gibi numaralanır; mevcut dosyaların üzerine yazılmaz.
+Teknik eğitim klasörü işlem bitince kendiliğinden açılmaz. Küçük inference
+modelleri tam devam kaydı değildir.
+
+Model kaydından önce teknik çalışma dosyalarının yaklaşık boyutu gösterilir.
+**Evet** seçilirse modeller güvenli klasöre ve AI Cover listesine başarıyla
+kaydedildikten sonra devam checkpoint'i, hazırlanmış parçalar/özellikler, ara
+test sesleri ve teknik oturum silinir. Özgün kayıtlar ile `trained_models`
+altındaki kalıcı model/index dosyaları bu temizliğin dışındadır. Temizlenen
+eğitime daha sonra epoch eklenemez ve eski test sesleri açılamaz. Devam etmek
+isteyen kullanıcı **Hayır** ile oturumu tutabilir; tamamlanmış oturum daha sonra
+**Eğitim oturumlarım → Teknik çalışma dosyalarını sil** yoluyla temizlenebilir.
+Yarım veya başka yeni bir eğitimin başlangıç ağırlığı olarak beklenen oturumlar
+otomatik temizlenmez.
+
+Bağlı eğitim hata vermiş olsa da devam edilebilir; başlangıç checkpoint'ine
+bağımlılığı sürerken eski oturum silinmez. Bir oturumun özgün/karşılaştırma kaydı
+veya AI Cover listesindeki bir model/index temizlenecek klasörün içindeyse de
+işlem durur. Önce modeli kalıcı konuma kaydedip eski liste kaydını kaldırmak gerekir.
+Okunamayan oturum/model kayıtları ve yönlendirilmiş klasörler otomatik temizliği
+engeller; belirsiz durumda dosyalar korunur.
+
+Dosya kilidi gibi bir nedenle temizlik yarıda kalırsa oturum **Temizlik yarım
+kaldı** olarak görünür. Bu durumdaki oturumdan eğitim başlatılmaz; menüden
+**Teknik çalışma dosyalarını sil** yeniden denenebilir veya teknik klasör
+açılabilir. Bozuk isteğe bağlı hazırlık-cache kaydı tek başına tamamlanmış
+silme işlemini başarısız diye göstermez.
 
 ## 4. Ek eğitim veya yeni deneme
 
-- **Toplam tekrar sayısını artır ve devam et:** Önce bir oturum açın, daha yüksek
+- **Toplam tekrar sayısını artır ve devam et:** Eğitim oturumlarım içinden tamamlanan
+  oturumu seçin, daha yüksek
   toplam epoch hedefi girin. Aynı veri, optimizer/scheduler ve RNG ile devam edilir.
   Hedef değişikliği ve hangi checkpoint'ten yapıldığı kaydedilir.
-- **Önceki eğitimden yeni bir model eğit:** Formda yeni kayıt/ayarları belirleyin,
-  başlangıç alınacak eğitim oturumunu seçin. Önceki G/D ağırlıkları kopyalanır;
+- **Önceki eğitimden yeni bir model eğit:** Formda yeni kayıt/ayarları belirleyip
+  Eğitim oturumlarım içinden başlangıç eğitimini seçin. Önceki G/D ağırlıkları kopyalanır;
   optimizer ve sayaçlar yeni oturumda sıfırdan başlar. Örnekleme hızı/mimari
   eşleşmelidir. Eski oturum ve modeller değişmez. Bu işlem tam resume değildir.
-- **İki eğitimin ayarlarını karşılaştır:** İki oturum seçip epoch, öğrenme hızı,
+- **İki eğitimin ayarlarını karşılaştır:** Gelişmiş eğitim ayarlarından iki oturum seçip epoch, öğrenme hızı,
   batch, parça/örtüşme ve kontrol payı farklarını okuyun.
 
 ## 5. Aynı kayıtlarla farklı ayarlar denemek

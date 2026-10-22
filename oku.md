@@ -13,7 +13,7 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 | --- | --- |
 | Uygulama sürümü | `version.json`: **2.1.0**, `published`, CPU ve CUDA hash/boyut/URL kayıtları |
 | Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları yayımlandı |
-| Kaynak doğrulaması | 19 Ekim yenileme kaynağında CPU/CUDA ortamlarında ayrı ayrı **436 test** geçti. 2.1.0 kurulumlarının yeniden derleme/doğrulaması sürüyor. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
+| Kaynak doğrulaması | 19 Ekim yenileme kaynağında CPU/CUDA ortamlarında ayrı ayrı **436 test** geçti. İki yeni 2.1.0 setup üretildi; yerel frozen testleri ve kaynak/hash eşleşmesi geçti. Yeni paketlerin temiz Windows kabulü ve yayını bekler. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
 | Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması ve 10 saniyelik otomatik mikrofon ölçümünün çalışması doğrulandı. Son eşik/pencere değişikliği, genel ses kalitesi ve NVDA/JAWS kabulü sürüyor |
@@ -31,6 +31,10 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
   ile ses dönüşümü; seçilen modeller sırayla çalışır.
 - **Model Eğitimi:** kayıt inceleme, bölüm seçme, RVC V2 eğitimi, durdur/devam,
   ara model karşılaştırma, oturumlar, deney sırası ve eğitilen modeli kaydetme.
+  Kayıt aralığı ile tutulacak son epoch modeli sayısı kullanıcıdan alınır. Kalıcı
+  epoch modelleri adlarına ait temiz klasörde tek ortak index ile saklanır.
+  Başarılı kalıcı kayıttan sonra kullanıcı onayıyla teknik eğitim oturumu
+  temizlenebilir; özgün kayıtlar ve kalıcı modeller bu işlemin dışındadır.
 - **Canlı AI Cover (4. sekme):** mikrofonu kayıtlı RVC modeliyle dönüştürüp
   seçilen kulaklık/çıkış aygıtından dinleme. Deneysel kaynak geliştirmesidir;
   gerçek mikrofon, donanım gecikmesi ve ses kalitesi kabulü sürer.
@@ -67,6 +71,11 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
 - Seçilen canlı giriş/çıkışın kimliği ve adı açılışta doğrulanır; başka aygıta
   geçilmez. Gerçek açılan ses yolu arayüzde gösterilir. Canlı oturum günlüğüne
   yalnız **Mikrofon açıldı.** bir kez yazılır; ilerleme durum alanındadır.
+  Model hazırlığı ve aygıt açılışı tamamlanınca seçilen çıkıştan kısa bir hazır
+  sesi gelir; bu ses mikrofondan dönüştürülen kullanıcı sesi değildir.
+- İşlem/model seçimleri ekran okuyucuya basılı düğme olarak değil, gerçek
+  işaretli/işaretsiz durumu değişen onay kutuları olarak sunulur. Görsel
+  `[AÇIK]` / `[KAPALI]` adı bu durumla eşleşir.
 - Ses çıktılarına Ghostkiller eki veya `separation.json` eklenmez. Ad çakışırsa
   `(2)`, `(3)` ile yeni dosya/klasör oluşturulur; önceki sonuç korunur. Sonuç
   mesajı kapatılınca çıktı klasörü açılır.
@@ -103,6 +112,7 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
 | `instruments/`, `restoration/` | SCNet/HTDemucs ayırma ve isteğe bağlı A2SB onarımı |
 | `rvc/infer/`, `rvc/lib/`, `rvc/configs/` | RVC dönüşümü, F0/helper cache, model/index kontrolü ve ağlar |
 | `training/` | Analiz/dataset, FP32 GAN, checkpoint/resume, değerlendirme/index/model kaydı |
+| `training/cleanup.py`, `registry_store.py` | Oturum temizliği/bağımlılık koruması ve UI'dan bağımsız, kilitli model kayıtları |
 | `hardware.py`, `compute_backend.py` | Donanım keşfi, gerçek kernel denetimi ve açık cihaz seçimi |
 | `model_manager.py`, `model_download.py` | Model kataloğu, bütünlük, atomik onarım ve sürdürülebilir indirme |
 | `app_version.py`, `updater.py`, `release_security.py` | Sürüm, denetim ve backend/URL/hash doğrulaması |
@@ -183,7 +193,7 @@ foreach ($backend in @('cpu', 'cuda')) {
 
 Canlı ses/gate değişikliğinin ilgili regresyonları aynı ortam değişkenleriyle
 her iki hazır ortamda şöyle çalıştırılır. Yayın öncesinde yukarıdaki tam matris
-de çalıştırılır; 19 Ekim yenileme kaynağında iki ortamda 436 test geçti:
+de çalıştırılır; güncel tam matris sonucu Son durum belgesindedir:
 
 ```powershell
 foreach ($backend in @('cpu', 'cuda')) {

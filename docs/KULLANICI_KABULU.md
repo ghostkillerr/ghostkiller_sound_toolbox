@@ -34,12 +34,18 @@ başlamamalı. Sesleri internete yüklemen gerekmez; dosyalar bilgisayarında i�
 
 1. Aynı kişiye ait, mümkünse farklı bölümler içeren temiz kayıtlar ekle.
 2. **Kayıtları eğitim başlatmadan incele** düğmesini kullan; anlaşılmayan uyarıyı aktar.
-3. İlk işleyiş denemesi için kısa eğitim ayarı hazırlanır. Az tekrar,
+3. İlk işleyiş denemesi için kısa eğitim ayarı hazırlanır. Kayıt aralığına `2`,
+   tutulacak son model sayısına `3` gibi küçük değerler yaz. Az tekrar,
    düğmelerin çalışmasını gösterir; iyi ses modeli kanıtı değildir.
 4. Eğitim sonucundaki modelleri aynı test kaydıyla dinle. Önce **index kapalı**
    seçimi modelin kendi sonucunu duymanı sağlar.
-5. Daha uzun denemede **durdur ve kaydet**, **yarım kalan eğitime devam et** ve
-   modeli ses değiştirme listesine ekleme akışlarını dene.
+5. Daha uzun denemede **durdur ve kaydet**, **Eğitim oturumlarım** içinden
+   **yarım kalan eğitime devam et** ve epoch modellerini AI Cover listesine
+   ekleme akışlarını dene. Model klasöründe yalnız seçtiğin sayıda
+   `Ad_Epoch_NNN.pth` ve tek `Ad.index` bulunmalı; teknik eğitim dosyaları bu
+   klasöre karışmamalıdır. Model kaydından sonra önerilen teknik dosya temizliğini
+   onayla; bildirilen boşaltılan alan kadar oturum klasörü kalkmalı, özgün kayıtlar
+   ve kalıcı modeller açılmaya devam etmelidir.
 
 Kayıt incelemesi, ara modeller, oturumlar, şablonlar ve eğitim sırası zaten
 vardır. İyileştirmeler gerçek kullanımda zor gelen adıma ve duyulan sonuca göre seçilir.
@@ -62,6 +68,8 @@ Yayımlanmış 2.1.0 kurulumunda bu sekme yoktur. Kaynaktaki yeni sürümde
 1. Kulaklık tak; AI Cover'a eklediğin modeli, mikrofonu ve dinleme aygıtını seç.
 2. **Canlı dinlemeyi başlat** düğmesine basıp kısa cümleler söyle. Hangi sesi
    duyduğunu, konuşmanın anlaşılırlığını, kesinti veya rahatsız eden gecikmeyi anlat.
+   Model ve aygıtlar hazır olduğunda seçilen çıkıştan kısa hazır sesi gelmeli;
+   bu sesten sonra konuşmaya başlayabilmelisin.
 3. 250/500/1000 ms parça sürelerini ayrı dene. Bu seçenekler toplam gecikme
    değildir; duyduğun gecikmeyi ve atlanan parça sayısını birlikte değerlendir.
    **Ses eşiği** -45 dB'den başlar; dip sesi devam ederse dinlerken -35 dB gibi
@@ -88,6 +96,9 @@ Yayımlanmış 2.1.0 kurulumunda bu sekme yoktur. Kaynaktaki yeni sürümde
    Dinleme sürerken geçerli değer motora aktarılmalı; sayıyı yazarken geçici
    boş/eksik giriş, son geçerli canlı eşiği değiştirmemelidir. Otomatik ölçüm
    sonucundaki pencere kapanana kadar mikrofon tekrar açılmamalıdır.
+10. İşlem, enstrüman ve model seçimlerinde NVDA kontrolü **onay kutusu** olarak,
+    her öğeyi de gerçek değerine göre **işaretli** veya **işaretli değil** diye
+    okumalıdır. Seçim değişince aynı öğe sürekli işaretli kalmamalıdır.
 
 Canlı dinleme ses dosyası üretmez. Ayrıntılı kullanım ve teknik sınırlar
 [Canlı AI Cover](CANLI_AI_COVER.md) belgesindedir.

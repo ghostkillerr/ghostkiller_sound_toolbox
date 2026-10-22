@@ -9,12 +9,17 @@ import shutil
 from urllib.error import HTTPError
 from urllib.request import Request
 
+MAX_MODEL_BYTES = 4 * 1024**3  # Includes the 2.26 GB A2SB model.
+MAX_METADATA_BYTES = 1024**2
+DISK_RESERVE_BYTES = 64 * 1024**2
+
 
 def download(url, target, *, opener, cancelled=None, progress=None, validate=None):
     from app_settings import write_json_atomic
     from registry_store import registry_lock
 
     target = Path(target)
+    maximum = MAX_METADATA_BYTES if target.suffix.lower() in ('.json', '.yaml', '.yml') else MAX_MODEL_BYTES
     model_root = next((parent for parent in target.resolve().parents if parent.name.casefold() == 'models'), target.parent)
     cache = model_root / '.downloads'
     cache.mkdir(parents=True, exist_ok=True)
@@ -50,7 +55,7 @@ def download(url, target, *, opener, cancelled=None, progress=None, validate=Non
             size = partial.stat().st_size
             resumable = (saved.get('url') == url and isinstance(saved.get('validator'), str)
                          and bool(saved['validator']) and isinstance(saved.get('total'), int)
-                         and 0 < size <= saved['total'])
+                         and 0 < size <= saved['total'] <= maximum)
         except (OSError, ValueError, AttributeError, TypeError):
             resumable = False
         if not resumable:
@@ -80,6 +85,9 @@ def download(url, target, *, opener, cancelled=None, progress=None, validate=Non
                 length = int(response.headers.get('Content-Length', 0))
                 if length < 0:
                     raise ValueError('İndirilecek modelin boyutu geçersiz.')
+                if length > maximum:
+                    keep_partial = False
+                    raise ValueError('İndirilecek model dosyası izin verilen boyutu aşıyor.')
                 etag = response.headers.get('ETag', '')
                 validator = etag if etag and not etag.startswith('W/') else response.headers.get('Last-Modified', '')
                 if code == 206:
@@ -99,7 +107,7 @@ def download(url, target, *, opener, cancelled=None, progress=None, validate=Non
                     raise ValueError(f'Model sunucusu beklenmeyen yanıt verdi: {code}')
                 keep_partial = bool(validator and total)
                 write_json_atomic(str(state), {'url': url, 'validator': validator, 'total': total})
-                if total and shutil.disk_usage(cache).free < total - size + 64 * 1024**2:
+                if shutil.disk_usage(cache).free < total - size + DISK_RESERVE_BYTES:
                     raise OSError(errno.ENOSPC, 'Model indirmesi için diskte yeterli boş alan yok.')
                 if progress:
                     progress(size, total)
@@ -109,9 +117,14 @@ def download(url, target, *, opener, cancelled=None, progress=None, validate=Non
                         chunk = response.read(1024 * 1024)
                         if not chunk:
                             break
+                        if size + len(chunk) > maximum:
+                            keep_partial = False
+                            raise ValueError('İndirilen model dosyası izin verilen boyutu aşıyor.')
                         if total and size + len(chunk) > total:
                             keep_partial = False
                             raise ValueError('İndirilen model bildirilen boyutu aşıyor.')
+                        if not total and shutil.disk_usage(cache).free < len(chunk) + DISK_RESERVE_BYTES:
+                            raise OSError(errno.ENOSPC, 'Model indirmesi için diskte yeterli boş alan yok.')
                         output.write(chunk)
                         size += len(chunk)
                         if progress:

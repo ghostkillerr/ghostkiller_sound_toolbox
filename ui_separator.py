@@ -22,7 +22,7 @@ import tempfile
 import threading
 import importlib.util
 from app_runtime import (JOB_LOCK, post_ui, append_log, model_directory, copy_model,
-                         same_path, validate_audio_file, finish_job, output_filename)
+                         same_path, validate_audio_file, finish_job, output_filename, model_cache_directories)
 
 from separation_steps import SEPARATION_STEPS
 from ui_model_terms import confirm_restoration_terms, confirm_demucs_terms
@@ -79,18 +79,6 @@ def setup_ffmpeg_paths(app_dir):
         # Keep Settings reachable; workers reject missing bundled codecs explicitly.
         pass
 
-
-def model_cache_directories(app_dir):
-    user_home = os.path.expanduser("~")
-    return [
-        os.path.join(app_dir, "modeller"),
-        os.path.join(os.environ.get('LOCALAPPDATA', user_home), 'GhostkillerSoundToolbox', 'modeller'),
-        os.path.join(user_home, ".cache", "audio-separator", "models"),
-        os.path.join(user_home, ".cache", "audio-separator"),
-        os.path.join(user_home, "AppData", "Local", "audio-separator", "models"),
-        os.path.join(user_home, "AppData", "Local", "audio-separator"),
-        os.path.join(os.environ.get("TEMP", ""), "audio-separator-models"),
-    ]
 
 def get_model_directory(app_dir):
     return model_directory(app_dir)

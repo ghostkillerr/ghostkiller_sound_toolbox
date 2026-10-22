@@ -5,11 +5,13 @@ import json
 import threading
 from dataclasses import replace
 import wx
-from ui_common import apply_native_style, add_intro, section_title, name_control, explanation_control
-from ui_operation import OperationPreparation, open_result_folder, operation_error
+from ui_common import (apply_native_style, add_intro, checkbox_control, section_title,
+                       name_control, explanation_control)
+from ui_operation import OperationPreparation, operation_error
 from app_runtime import JOB_LOCK, post_ui, data_directory, finish_job
 from training.config import TrainingOptions
-from training.service import create_job, validate_resume, TrainingProcess, register_model
+from training.service import (create_job, delete_training_job, register_models,
+                              training_job_size, validate_resume, TrainingProcess)
 from training.experiments import (ExperimentQueue, list_sessions, read_notes, save_notes,
                                   request_extension, save_preset, split_review)
 
@@ -78,6 +80,8 @@ class TrainingPanel(wx.ScrolledWindow):
         self.sample_rate.SetSelection(1)
         self.sample_rate.Bind(wx.EVT_CHOICE, self.OnProfile)
         self.epochs = field(self,layout,"Eğitim tekrar sayısı (epoch)",lambda:wx.SpinCtrl(self,min=1,max=10000,initial=200),"200 epoch, kayıtların eğitim sırasında 200 kez işlenmesi demektir. Daha fazla tekrar daha uzun sürer. Gereğinden fazla tekrar sonucu kötüleştirebilir.")
+        self.interval = field(self,layout,"Kaç epoch'ta bir model kaydedilsin?",lambda:wx.SpinCtrl(self,min=1,max=1000,initial=10),"10 seçilirse 10, 20, 30 ve devam eden epoch'larda bir ara model kaydedilir. Son epoch ayrıca korunur.",False)
+        self.snapshot_limit = field(self,layout,"Son kaç epoch modeli tutulsun?",lambda:wx.SpinCtrl(self,min=1,max=20,initial=3),"Örneğin 3 seçilirse yalnız en yeni üç kayıtlı epoch modeli tutulur. Bu sayı disk kullanımını doğrudan etkiler.",False)
         self.advanced_toggle = wx.ToggleButton(self,label="Gelişmiş eğitim ayarları [KAPALI]")
         self.advanced_toggle.Bind(wx.EVT_TOGGLEBUTTON,self.OnAdvanced)
         layout.Add(self.advanced_toggle,0,wx.ALL,8)
@@ -85,7 +89,6 @@ class TrainingPanel(wx.ScrolledWindow):
         advanced_layout = wx.BoxSizer(wx.VERTICAL)
         field_advanced = lambda label,create,help_text,focus=True:field(self.advanced,advanced_layout,label,create,help_text,focus)
         self.batch = field_advanced("Aynı anda işlenen parça sayısı; 0 otomatik",lambda:wx.SpinCtrl(self.advanced,min=0,max=64,initial=0),"0 seçilirse program belleğe uygun sayıyı ölçer. Sayıyı artırmak daha çok bellek kullanır.")
-        self.interval = field_advanced("Kaydetme ve değerlendirme aralığı (epoch)",lambda:wx.SpinCtrl(self.advanced,min=1,max=1000,initial=10),"10 seçilirse her 10 eğitim tekrarında model kaydedilir ve değerlendirilir. Devam kaydı ayrıca yaklaşık beş dakikada bir alınır.")
         self.learning_rate = field_advanced("Öğrenme hızı",lambda:wx.TextCtrl(self.advanced,value="0.0001"),"Modelin bir adımda ne kadar değişeceğini belirler. 0.0001 küçük bir değişimdir; emin değilseniz değiştirmeyin.")
         self.segment = field_advanced("Hazırlanan ses parçalarının süresi (saniye)",lambda:wx.TextCtrl(self.advanced,value='3.0'),"3.0 değeri, kayıtların hazırlıkta üç saniyelik parçalara bölünmesi demektir. 1 ile 6 saniye arasında bir değer yazın.")
         self.overlap = field_advanced("Ardışık parçaların ortak süresi (saniye)",lambda:wx.TextCtrl(self.advanced,value='0.3'),"0.3 değeri, iki komşu parçada aynı sesin 0.3 saniyesinin bulunması demektir. 0 ile 1 saniye arasında bir değer yazın.")
@@ -94,16 +97,16 @@ class TrainingPanel(wx.ScrolledWindow):
         self.f0 = field_advanced("Nota algılama yöntemi",lambda:wx.Choice(self.advanced,choices=["RMVPE","CREPE","CREPE Tiny"]),"Sesin notasını bulur. Emin değilseniz RMVPE seçili kalsın.",False)
         self.f0.SetSelection(0)
         self.f0.Bind(wx.EVT_CHOICE, lambda event: self.preparation.RefreshReadiness())
-        self.checkpointing = wx.CheckBox(self.advanced,label="Bellek tasarrufu kullan; eğitim daha yavaş olabilir")
+        self.checkpointing = checkbox_control(
+            wx.CheckBox(self.advanced,label="Bellek tasarrufu kullan; eğitim daha yavaş olabilir"))
         self.checkpointing.SetValue(True)
         advanced_layout.Add(self.checkpointing,0,wx.ALL,8)
         self.seed = field_advanced('Tekrarlanabilirlik tohumu',lambda:wx.TextCtrl(self.advanced,value='1234'),
                                    'Aynı veri ve ayarlarla karşılaştırma için bu sayıyı sabit tutun. Farklı donanımda birebir aynı sonuç garanti edilmez.')
-        self.snapshot_limit = field_advanced('Saklanacak ara model sayısı',lambda:wx.SpinCtrl(self.advanced,min=0,max=20,initial=3),
-                                            'Her değerlendirmede bir ara model saklanır. 0 arşivi kapatır; son model ve devam kaydı korunur.')
         self.snapshot_budget = field_advanced('Ara modeller için disk sınırı (MB)',lambda:wx.SpinCtrl(self.advanced,min=256,max=16384,initial=2048),
                                              'Arşiv bu sınırın içinde tutulur. Eski ara modeller kaldırılabilir; kaydettiğiniz ses modelleri etkilenmez.')
-        self.reuse_preparation = wx.CheckBox(self.advanced,label='Aynı kayıtların doğrulanmış hazırlığını yeniden kullan')
+        self.reuse_preparation = checkbox_control(
+            wx.CheckBox(self.advanced,label='Aynı kayıtların doğrulanmış hazırlığını yeniden kullan'))
         self.reuse_preparation.SetValue(True)
         advanced_layout.Add(self.reuse_preparation,0,wx.ALL,8)
         self.comparison_label=wx.StaticText(self.advanced,label='Ayrı karşılaştırma kaydı seçilmedi; kontrol kayıtları kullanılacak.')
@@ -116,6 +119,7 @@ class TrainingPanel(wx.ScrolledWindow):
         action(self.advanced,advanced_layout,'Eğitim sırasını göster',self.OnQueueShow)
         action(self.advanced,advanced_layout,'Sıradaki eğitimleri çalıştır',self.OnQueueRun)
         action(self.advanced,advanced_layout,'Bekleyen eğitimleri sıradan çıkar',self.OnQueueClear)
+        action(self.advanced,advanced_layout,'İki eğitimin ayarlarını karşılaştır',self.OnCompareSessions)
         self.group_intro = wx.StaticText(self.advanced,label="Yalnız aynı şarkının birden fazla kaydını eklediyseniz bunlara aynı eşleştirme adını verin. Böylece modelin kontrolü, öğrendiği şarkının başka kopyasıyla yapılmaz. Farklı şarkılarda eşleştirme gerekmez.")
         self.group_intro.Wrap(self.FromDIP(620))
         advanced_layout.Add(self.group_intro,0,wx.EXPAND | wx.ALL,8)
@@ -139,14 +143,12 @@ class TrainingPanel(wx.ScrolledWindow):
         self.btn_resume.Bind(wx.EVT_BUTTON,self.OnResume)
         name_control(self.btn_resume,'Yarım kalan eğitime devam et. Daha önce durdurduğunuz eğitimi, son kaydedilen noktadan sürdürür.')
         layout.Add(self.btn_resume,0,wx.ALL,8)
+        self.btn_resume.Hide()
         self.btn_load = wx.Button(self,label="Kayıtlı eğitimin sonuçlarını aç")
         self.btn_load.Bind(wx.EVT_BUTTON,self.OnLoad)
         layout.Add(self.btn_load,0,wx.ALL,8)
+        self.btn_load.Hide()
         action(self,layout,'Eğitim oturumlarım',self.OnSessions)
-        action(self,layout,'İki eğitimin ayarlarını karşılaştır',self.OnCompareSessions)
-        action(self,layout,'Açık eğitimin toplam tekrar sayısını artır ve devam et',self.OnExtend)
-        action(self,layout,'Önceki eğitimden yeni bir model eğit',self.OnFineTune)
-        action(self,layout,'Açık eğitimin değerlendirme geçmişi',self.OnHistory)
 
         self.progress_panel = wx.Panel(self,style=wx.TAB_TRAVERSAL)
         progress_layout = wx.BoxSizer(wx.VERTICAL)
@@ -178,6 +180,7 @@ class TrainingPanel(wx.ScrolledWindow):
         self.btn_folder.Bind(wx.EVT_BUTTON,self.OnOpenFolder)
         self.btn_folder.Disable()
         progress_layout.Add(self.btn_folder,0,wx.ALL,8)
+        self.btn_folder.Hide()
         self.progress_panel.SetSizer(progress_layout)
         layout.Add(self.progress_panel,0,wx.EXPAND | wx.ALL,8)
         self.progress_panel.Hide()
@@ -195,7 +198,7 @@ class TrainingPanel(wx.ScrolledWindow):
         self.btn_listen = wx.Button(self.result_panel,label="Seçili modelin test sesini dinle")
         self.btn_listen.Bind(wx.EVT_BUTTON,self.OnListen)
         result_layout.Add(self.btn_listen,0,wx.ALL,8)
-        self.btn_register = wx.Button(self.result_panel,label="Seçili modeli ses değiştirme listesine ekle")
+        self.btn_register = wx.Button(self.result_panel,label="Kaydedilen epoch modellerini AI Cover listesine ekle")
         self.btn_register.Bind(wx.EVT_BUTTON,self.OnRegister)
         result_layout.Add(self.btn_register,0,wx.ALL,8)
         self.btn_note = action(self.result_panel,result_layout,'Seçili modeli tercih et ve oturum notu yaz',self.OnNote)
@@ -214,8 +217,9 @@ class TrainingPanel(wx.ScrolledWindow):
 
     def RefreshSections(self):
         self.result_panel.Show(self.result is not None)
-        for control in (self.txt_resources,self.txt_timing,self.txt_job,self.txt_analysis,self.txt_pitch,self.txt_log):
+        for control in (self.txt_resources,self.txt_timing,self.txt_analysis,self.txt_pitch,self.txt_log):
             control.Show(bool(control.GetValue()))
+        self.txt_job.Hide()
         self.Layout()
         self.FitInside()
 
@@ -319,7 +323,7 @@ class TrainingPanel(wx.ScrolledWindow):
     def EnableUI(self, enable):
         self.busy = not enable
         for control in (self.source_list, self.btn_add, self.btn_remove, self.model_name, self.sample_rate,
-                        self.epochs, self.batch, self.interval, self.advanced_toggle, self.advanced,
+                        self.epochs, self.interval, self.snapshot_limit, self.batch, self.advanced_toggle, self.advanced,
                         self.btn_start, self.btn_resume, self.btn_load, self.btn_group):
             control.Enable(enable)
         for control in self.extra_controls:
@@ -482,11 +486,11 @@ class TrainingPanel(wx.ScrolledWindow):
 
     def OnLoad(self, event, job_path=None):
         if self.busy:
-            return
+            return False
         if job_path is None:
             with wx.DirDialog(self, "Kayıtlı eğitimin sonuç klasörünü seçin", defaultPath=str(Path(data_directory())/"training_runs")) as dialog:
                 if dialog.ShowModal() != wx.ID_OK:
-                    return
+                    return False
                 job_path = dialog.GetPath()
         job = Path(job_path)
         self.ShowProgress()
@@ -511,12 +515,14 @@ class TrainingPanel(wx.ScrolledWindow):
                 self.OnAnalyzed(report,announce=False)
             else:
                 self.ClearAnalysis()
-            self.txt_status.SetValue("Tamamlanan oturum açıldı; adayı AI Cover'a ekleyebilirsiniz." if result else "Oturum açıldı. Devam düğmesi kayıtlı ayarlarla eğitimi sürdürür.")
+            self.txt_status.SetValue("Tamamlanan oturum açıldı; kaydedilen epoch modellerini AI Cover'a ekleyebilirsiniz." if result else "Oturum açıldı. Eğitim oturumlarım menüsünden kayıtlı ayarlarla devam edebilirsiniz.")
             self.txt_timing.SetValue(f"Son kayıtlı adım: {manifest.get('last_checkpoint_step','bilinmiyor')}.")
             self.gauge.SetValue(100 if result else 0)
             self.EnableUI(True)
+            return True
         except Exception as error:
             self.txt_status.SetValue(str(error))
+            return False
 
     def Start(self, resume, job=None, parent_job=None, options_override=None):
         if self.busy or not JOB_LOCK.acquire(blocking=False):
@@ -536,10 +542,6 @@ class TrainingPanel(wx.ScrolledWindow):
             if self.queue_item:
                 self.queue.update(self.queue_item['id'], job=job)
             self.runner = TrainingProcess()
-            self.runner.job = job
-            cancel = Path(job)/"cancel.request"
-            if cancel.exists():
-                cancel.unlink()
             self._last_stage = None
             self.EnableUI(False)
             self.gauge.SetValue(0)
@@ -564,7 +566,7 @@ class TrainingPanel(wx.ScrolledWindow):
     def Run(self, resume):
         try:
             result = self.runner.run(self.job, lambda value: post_ui(self, self.OnProgress, value), resume)
-            post_ui(self, self.OnFinished, result, "Eğitim tamamlandı. Test sesleri oturum klasöründedir; dinleyip adayı AI Cover'a ekleyin.")
+            post_ui(self, self.OnFinished, result, "Eğitim tamamlandı. Adayları dinleyip kaydedilen epoch modellerini AI Cover'a ekleyebilirsiniz.")
         except Exception as error:
             post_ui(self, self.OnFinished, None, operation_error(error))
         finally:
@@ -628,8 +630,6 @@ class TrainingPanel(wx.ScrolledWindow):
                 self.queue_running = False
         if not queued or not result:
             self.NotifyResult(message,"Eğitim tamamlandı" if result else "Eğitim durdu",error=not result)
-        if result:
-            open_result_folder(self, self.job)
 
     def OnCancel(self, event):
         self.queue_running = False
@@ -661,19 +661,35 @@ class TrainingPanel(wx.ScrolledWindow):
     def OnRegister(self, event):
         if not self.result or self.busy or not JOB_LOCK.acquire(blocking=False):
             return
-        candidate = self.result['models'][self.candidate.GetSelection()]['file']
-        with wx.TextEntryDialog(self,'Ses değiştirme listesinde görünecek model adı','Modeli kaydet',self.model_name.GetValue()) as dialog:
+        with wx.TextEntryDialog(self,'Model klasöründe ve AI Cover listesinde kullanılacak ad','Epoch modellerini kaydet',self.model_name.GetValue()) as dialog:
             if dialog.ShowModal()!=wx.ID_OK:
                 JOB_LOCK.release()
                 return
             model_name = dialog.GetValue().strip()
+        try:
+            size = training_job_size(self.job,Path(data_directory())/'training_runs')
+        except Exception as error:
+            JOB_LOCK.release()
+            self.OnOperationError(str(error),'Eğitim dosyaları incelenemedi')
+            return
+        cleanup_after = wx.MessageBox(
+            f"Kalıcı epoch modelleri kopyalandıktan sonra yaklaşık {self.FormatBytes(size)} teknik eğitim dosyası silinsin mi?\n\n"
+            "Silinenler: devam checkpoint'i, hazırlanmış ses parçaları, özellikler ve test sesleri. Bu eğitime daha sonra devam edilemez.\n\n"
+            "Özgün ses kayıtlarınız ve kalıcı AI Cover modelleriniz silinmez. Diskin şişmemesi için Evet önerilir.",
+            'Eğitim çalışma dosyalarını temizle',wx.YES_NO | wx.YES_DEFAULT | wx.ICON_WARNING,parent=self)==wx.YES
         self.EnableUI(False)
         self.btn_cancel.Disable()
         def worker():
             try:
                 from ui_cover import get_models_file_path, get_app_dir
-                name = register_model(self.job, candidate, get_models_file_path(get_app_dir()),name=model_name)
-                post_ui(self, self.OnRegistered, name)
+                names, destination = register_models(self.job, get_models_file_path(get_app_dir()),name=model_name)
+                deleted, cleanup_error = 0, ''
+                if cleanup_after:
+                    try:
+                        deleted = delete_training_job(self.job,Path(data_directory())/'training_runs')
+                    except Exception as error:
+                        cleanup_error = str(error)
+                post_ui(self, self.OnRegistered, names, destination, deleted, cleanup_error)
             except Exception as error:
                 post_ui(self, self.OnOperationError, str(error), "Model kaydedilemedi")
             finally:
@@ -685,12 +701,29 @@ class TrainingPanel(wx.ScrolledWindow):
             self.EnableUI(True)
             raise
 
-    def OnRegistered(self, name):
-        self.txt_status.SetValue(f"{name} AI Cover model listesine eklendi.")
+    def OnRegistered(self, names, destination, deleted=0, cleanup_error=''):
+        message=f"{len(names)} epoch modeli AI Cover listesine eklendi. Klasör: {destination}"
+        if deleted:
+            message += f"\n{self.FormatBytes(deleted)} teknik eğitim dosyası silindi."
+            self.job = self.result = self.runner = None
+            self.txt_job.Clear()
+            self.btn_folder.Disable()
+            self.RefreshSections()
+        elif cleanup_error:
+            message += f"\nModeller güvende, ancak teknik eğitim dosyaları silinemedi: {cleanup_error}"
+        self.txt_status.SetValue(message)
         refresh = getattr(self.settings, "refresh_cover", None)
         if refresh:
             refresh()
         self.NotifyResult(self.txt_status.GetValue(),"Model kaydı tamamlandı")
+
+    @staticmethod
+    def FormatBytes(size):
+        value=float(size)
+        for unit in ('bayt','KB','MB','GB','TB'):
+            if value < 1024 or unit=='TB':
+                return f"{value:.0f} {unit}" if unit=='bayt' else f"{value:.1f} {unit}"
+            value /= 1024
 
     def RefreshCandidates(self):
         if not self.result or not self.result.get('models'):
@@ -759,12 +792,83 @@ class TrainingPanel(wx.ScrolledWindow):
         from ui_training_tools import TableDialog
         sessions = list_sessions(Path(data_directory())/'training_runs')
         states={'completed':'Tamamlandı','cancelled':'Durduruldu','failed':'Hata','running':'Çalışıyor / kesilmiş olabilir',
+                'deleting':'Temizlik yarım kaldı',
                 'interrupted':'Kesildi','created':'Hazır'}
         rows=[(s['name'],states.get(s['status'],s['status']),f"{s['epoch']}/{s['epochs']}",s['note'][:100]) for s in sessions]
         with TableDialog(self,'Eğitim oturumlarım',('Ad','Durum','Son epoch/hedef','Not'),rows,
-                         'Bir oturum seçip Tamam ile açın. Açmak eğitimi başlatmaz. Geçmiş düğmesiyle ölçümleri inceleyebilirsiniz.') as dialog:
-            if dialog.ShowModal()==wx.ID_OK and dialog.selection>=0:
-                self.OnLoad(None,sessions[dialog.selection]['path'])
+                         'Bir eğitim seçin. Sonraki pencerede o eğitimle ne yapmak istediğiniz sorulur.') as dialog:
+            if dialog.ShowModal()!=wx.ID_OK or dialog.selection<0:
+                return
+            session=sessions[dialog.selection]
+        completed=session['status']=='completed'
+        deleting=session['status']=='deleting'
+        choices=(['Sonuçları aç','Epoch hedefini artır ve devam et','Bu eğitimden yeni model başlat',
+                  'Değerlendirme geçmişini aç','Teknik çalışma dosyalarını sil','Teknik oturum klasörünü aç'] if completed else
+                 ['Oturumu aç','Yarım kalan eğitime devam et','Teknik oturum klasörünü aç'])
+        if deleting:
+            choices=['Teknik çalışma dosyalarını sil','Teknik oturum klasörünü aç']
+        with wx.SingleChoiceDialog(self,f"{session['name']} eğitimi için yapılacak işlemi seçin",
+                                   'Eğitim işlemi',choices) as dialog:
+            if dialog.ShowModal()!=wx.ID_OK:
+                return
+            action_name=choices[dialog.GetSelection()]
+        path=session['path']
+        if action_name in ('Sonuçları aç','Oturumu aç'):
+            self.OnLoad(None,path)
+        elif action_name=='Yarım kalan eğitime devam et':
+            self.Start(True,path)
+        elif action_name=='Epoch hedefini artır ve devam et':
+            if self.OnLoad(None,path):
+                self.OnExtend(None)
+        elif action_name=='Bu eğitimden yeni model başlat':
+            self.OnFineTune(None,path)
+        elif action_name=='Değerlendirme geçmişini aç':
+            if self.OnLoad(None,path):
+                self.OnHistory(None)
+        elif action_name=='Teknik çalışma dosyalarını sil':
+            self.OnCleanup(path,session['name'])
+        else:
+            wx.LaunchDefaultApplication(path)
+
+    def OnCleanup(self,path,name):
+        if self.busy:
+            return
+        try:
+            size=training_job_size(path,Path(data_directory())/'training_runs')
+        except Exception as error:
+            self.OnOperationError(str(error),'Eğitim dosyaları incelenemedi')
+            return
+        message=(f"'{name}' eğitiminin yaklaşık {self.FormatBytes(size)} teknik çalışma dosyası kalıcı olarak silinsin mi?\n\n"
+                 "Bu eğitime devam edilemez ve eski test sesleri açılamaz. Özgün kayıtlar ve AI Cover'a kaydedilmiş modeller silinmez.")
+        if wx.MessageBox(message,'Eğitim çalışma dosyalarını sil',wx.YES_NO | wx.NO_DEFAULT | wx.ICON_WARNING,parent=self)!=wx.YES:
+            return
+        if not JOB_LOCK.acquire(blocking=False):
+            return
+        self.EnableUI(False)
+        self.btn_cancel.Disable()
+        def worker():
+            try:
+                deleted=delete_training_job(path,Path(data_directory())/'training_runs')
+                post_ui(self,self.OnCleaned,path,name,deleted)
+            except Exception as error:
+                post_ui(self,self.OnOperationError,str(error),'Eğitim dosyaları silinemedi')
+            finally:
+                finish_job(self)
+        try:
+            threading.Thread(target=worker,daemon=True).start()
+        except Exception:
+            JOB_LOCK.release()
+            self.EnableUI(True)
+            raise
+
+    def OnCleaned(self,path,name,deleted):
+        if self.job and Path(self.job).resolve()==Path(path).resolve():
+            self.job = self.result = self.runner = None
+            self.txt_job.Clear()
+            self.btn_folder.Disable()
+            self.RefreshSections()
+        self.NotifyResult(f"'{name}' eğitimine ait {self.FormatBytes(deleted)} teknik çalışma dosyası silindi. Özgün kayıtlar ve kalıcı modeller korundu.",
+                          'Eğitim dosyaları temizlendi')
 
     def OnHistory(self,event):
         if self.job:
@@ -859,7 +963,10 @@ class TrainingPanel(wx.ScrolledWindow):
             self.EnableUI(True)
             self.OnOperationError(str(error),'Ek eğitim başlatılamadı')
 
-    def OnFineTune(self,event):
+    def OnFineTune(self,event,parent_job=None):
+        if parent_job is not None:
+            self.Start(False,parent_job=parent_job)
+            return
         with wx.DirDialog(self,'Başlangıç modeli alınacak eğitim oturumunu seçin',defaultPath=str(Path(data_directory())/'training_runs')) as dialog:
             if dialog.ShowModal()==wx.ID_OK:
                 self.Start(False,parent_job=dialog.GetPath())

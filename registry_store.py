@@ -10,6 +10,18 @@ _locks = {}
 _locks_guard = threading.Lock()
 
 
+def validate_models(models):
+    """Validate the shared model registry without importing the desktop UI."""
+    if not isinstance(models, dict) or any(
+        not isinstance(name, str) or not name.strip() or not isinstance(data, dict)
+        or not isinstance(data.get('pth'), str) or not data['pth']
+        or not isinstance(data.get('index', ''), str)
+        for name, data in models.items()
+    ):
+        raise ValueError('Model kayıt biçimi geçersiz.')
+    return models
+
+
 @contextmanager
 def registry_lock(path, timeout=5.):
     path = Path(path).resolve()

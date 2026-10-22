@@ -1,20 +1,9 @@
 {
   "version": "2.1.0",
   "app_name": "Ghostkiller Sound Toolbox",
-  "changelog": "Vokal ve enstrüman ayırma, RVC ses değiştirme ve model eğitimi. Ortak MP3/WAV/FLAC/OGG ve mono/stereo tercihleri, numaralı çıktılar, kolay model hazırlama ve onaylı güncelleme denetimi.",
+  "changelog": "22 Ekim 2026 yenilemesi: Canlı AI Cover, düzenli epoch modelleri, güvenli eğitim temizliği, oturum kilitleri, sınırlı model indirmeleri ve RVC index/CUDA cihaz seçimi düzeltmeleri. Sürüm 2.1.0 olarak korundu; mevcut 2.1.0 kullanıcıları yeni kurulumu elle çalıştırmalıdır.",
   "release_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0",
-  "packages": {
-    "cpu": {
-      "download_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller_V2_Setup_cpu_2.1.0.exe",
-      "sha256": "1a9655694be55ee2ecd55169930103817f44e192511febc9b0db93c16a86ac60",
-      "size": 373825544
-    },
-    "cuda": {
-      "download_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller_V2_Setup_cuda_2.1.0.exe",
-      "sha256": "38b9c11d13ad5a512daeb90b84b849665267f026b485ea273b66383eba6092a1",
-      "size": 2136828435
-    }
-  },
-  "release_date": "2026-10-18",
-  "distribution_status": "published"
+  "packages": {},
+  "release_date": "2026-10-22",
+  "distribution_status": "unpublished"
 }

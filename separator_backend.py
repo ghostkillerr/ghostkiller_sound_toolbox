@@ -59,7 +59,10 @@ class LocalSeparator(Separator):
             if not torch.cuda.is_available():
                 raise RuntimeError("Ekran kartı kullanılamıyor. Ayarlar'dan donanımı yeniden kontrol edin.")
             if "CUDAExecutionProvider" in onnxruntime.get_available_providers():
-                self.onnx_execution_provider.insert(0, "CUDAExecutionProvider")
+                index = self.torch_device.index
+                if index is None:
+                    index = torch.cuda.current_device()
+                self.onnx_execution_provider.insert(0, ("CUDAExecutionProvider", {"device_id": index}))
         self.logger.info(f"Uygulamanın seçtiği cihaz: {self.torch_device}")
 
     def download_file_if_not_exists(self, url, output_path):

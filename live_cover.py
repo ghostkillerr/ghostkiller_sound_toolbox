@@ -11,6 +11,22 @@ from live_audio import RATE
 from live_gate import NoiseGate, validate_gate
 
 
+READY_TONE_SECONDS = .16
+
+
+def ready_tone():
+    """Return a short rising cue for a fully opened live audio route."""
+    import numpy as np
+    first_frames = round(RATE * READY_TONE_SECONDS / 2)
+    second_frames = round(RATE * READY_TONE_SECONDS) - first_frames
+    parts = []
+    for frames, frequency in ((first_frames, 660.), (second_frames, 880.)):
+        time_axis = np.arange(frames, dtype='float32') / RATE
+        envelope = np.sin(np.linspace(0., np.pi, frames, dtype='float32')) ** 2
+        parts.append((.12 * envelope * np.sin(2 * np.pi * frequency * time_axis)).astype('float32'))
+    return np.concatenate(parts)
+
+
 @dataclass(frozen=True)
 class LiveOptions:
     model_path: str
@@ -203,6 +219,10 @@ def run_live(options, *, cancelled=lambda: False, progress=lambda message: None,
                                          WaveOutput(options.output_device, expected_name=options.output_name))
             source = stack.enter_context(input_factory(options.input_device) if input_factory else
                                          WaveInput(options.input_device, expected_name=options.input_name))
+
+            # Model warm-up can take several seconds. Confirm through the selected
+            # output that both devices are now open before capture processing starts.
+            output.write(ready_tone())
 
             def capture():
                 data = np.empty(0, dtype='float32')

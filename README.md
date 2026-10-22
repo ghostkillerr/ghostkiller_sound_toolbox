@@ -20,7 +20,9 @@ Kurulum dosyaları henüz dijital yayıncı sertifikasıyla imzalanmamıştır.
 - Yerel RVC modelleriyle ses değiştirme; iki motor için ortak işlemci/ekran kartı tercihi.
 - RVC V2 model eğitimi, kayıt analizi, durdur/devam, index ve AI Cover'a model kaydı.
 - Eğitim öncesi kayıt/bölüm inceleme, ara modelleri aynı seslerle karşılaştırma,
-  oturum ve deney sırası, kayıtlı ayarlar, ek epoch ve önceki eğitimden yeni model.
+  kayıt aralığı/son model sayısı, tek index'li düzenli model klasörleri, oturum ve
+  deney sırası, kayıtlı ayarlar, ek epoch, önceki eğitimden yeni model ve kullanıcı
+  onaylı teknik çalışma dosyası temizliği.
 - Ayarlar sekmesinde donanım testi, model indirme, çevrimdışı bütünlük kontrolü ve bozuk dosya onarımı.
 
 Sesler yerel bilgisayarda işlenir. Eksik modelleri indirmek ve güncelleme kontrolü için internet kullanılabilir. TTS içermez.

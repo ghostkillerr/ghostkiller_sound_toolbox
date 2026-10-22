@@ -26,7 +26,7 @@ düğme gizlenir; dosya biçimi, kanal ve donanım özeti görünür kalır.
 
 1. Ayarlar'ı açın. Açılıştaki donanım kontrolünün bitmesini bekleyin veya Donanımı kontrol et düğmesini kullanın.
 2. İşlemci veya Ekran kartı seçin. Kullanılamayan cihaz için açıklama gösterilir; kayıtlı GPU tercihi sessizce değiştirilmez.
-3. Listede beş ayrıştırma modeli ve ContentVec/RMVPE yardımcıları vardır. Başlangıçta tümü [AÇIK] durumundadır; Space ile her model açılıp kapatılır. Yukarı/aşağı oklarla ve Tab ile dolaşılır; düğmeler yerel basılı/basılı değil durumunu ve açık/kapalı etiketini sunar.
+3. Listede ayrıştırma modelleri, ContentVec/RMVPE yardımcıları ve eğitim modelleri vardır. Space ile model seçimi değiştirilir. Yukarı/aşağı oklarla ve Tab ile dolaşılır; güncel kaynakta seçimler onay kutusu rolü, işaretli/işaretsiz durumu ve açık/kapalı etiketiyle sunulur.
 4. Eksikleri indir, Dosyaları kontrol et veya Seçilenleri onar düğmesini kullanın.
 5. Modeller hazır olduğunda ses sekmesine dönün. Eksik/değişmiş model ses işini başlatmaz; Ayarlar açılır.
 
@@ -49,6 +49,11 @@ AMD'nin Windows PyTorch desteği belirli cihaz/sürücü/çalışma ortamlarına
 - Hazırlama öncesi eksik dosyaların sunucudan alınabilen boyutları gösterilir.
   İndirilecek dosya için boş disk alanı kontrol edilir. Boyut alınamayan dosyalar
   ayrıca belirtilir; bu bilgi dosya doğrulamasını değiştirmez.
+- İndirilen JSON/YAML dosyası en çok **1 MiB**, diğer model dosyaları en çok
+  **4 GiB** olabilir. Sınır hem HTTP başlığında hem okunan toplam baytta uygulanır.
+  Boyutu bildirilmemiş akışta her blok öncesi disk alanı denetlenir; en az
+  **64 MiB** boşluk payı bırakılır. Aşırı büyük metadata yerelden alınsa da
+  parser'a verilmeden reddedilir.
 - Desteklenen sunucularda ETag/Last-Modified ve Range ile yarım indirme sürer.
   Sunucu dosyası değişmişse veya Range desteklenmiyorsa dosya baştan indirilir.
   Kısmi dosyalar özel `.downloads` önbelleğinde tutulur; doğrulanan tamamlanmış
@@ -64,7 +69,13 @@ AMD'nin Windows PyTorch desteği belirli cihaz/sürücü/çalışma ortamlarına
 
 ## Test kanıtları
 
-- `python -m unittest discover -s test -v`: **75 test başarılı**. Testlerde küçük gerçek PyTorch checkpoint'leri, sahte ağ yanıtları ve görünmeyen gerçek wxPython kontrolleri kullanılır.
+- İlk model yönetimi geliştirmesinde **75 test başarılıydı**. Güncel tam test
+  sayısı ve kaynak/kurulum ayrımı [Son durum](SON_DURUM.md) içindedir. Testlerde
+  küçük gerçek PyTorch checkpoint'leri, sahte ağ yanıtları ve görünmeyen gerçek
+  wxPython kontrolleri kullanılır.
+- Çok kartlı sistemde ONNX sağlayıcısına PyTorch ile aynı CUDA cihaz numarası
+  iletilir. `cuda:1` aktarımı gerçek ONNX seçenek normalleştiricisiyle sınanır;
+  bu regresyon testi iki fiziksel GPU üzerinde çalışma kabulü değildir.
 - CPU/GPU seçimi ve kalıcılık, başarısız GPU kernel testi, iki motora aynı cihazın aktarılması, eksik modelde Ayarlar'a yönlendirme, bozuk tercih/bütünlük kaydı, CRC/SHA-256 farkları, atomik onarım, iptal ve yola taşma senaryoları kontrol edildi.
 - Beş mevcut ayrıştırma ağırlığı ve ContentVec/RMVPE yardımcıları çevrimdışı CRC/yapı/hash kontrolünden geçti. Büyük modeller çoğaltılmadan eski yerel cache konumları salt okunarak test edildi; geçici bütünlük kayıtları temizlendi.
 - 1 saniyelik sentetik 220 Hz ses, mevcut kişisel RVC ağırlığıyla hem CPU hem `cuda:0` üzerinden dönüştürüldü. İnternet yasaklandı; iki çıktı da **32 kHz, 31.360 sonlu örnek, 0,98 saniye**. Bu kısa işlev testi kalite veya karşılaştırmalı performans benchmark'ı değildir.

@@ -272,6 +272,9 @@ def validate_file(path, relative, cancelled=None, config=None):
             return
     extension = os.path.splitext(relative)[1].lower()
     if extension in (".json", ".yaml", ".yml"):
+        from model_download import MAX_METADATA_BYTES
+        if os.path.getsize(path) > MAX_METADATA_BYTES:
+            raise ValueError('Model yapılandırması izin verilen 1 MiB boyutunu aşıyor.')
         with open(path, encoding="utf-8") as stream:
             if extension == ".json":
                 value = json.load(stream)
@@ -492,7 +495,7 @@ class ModelManager:
         if relative.startswith(("predictors/", "embedders/")):
             return [os.path.join(self.app_dir, "rvc", "models", relative),
                     os.path.join(os.path.expanduser("~"), ".cache", "rvc", "models", relative)]
-        from ui_separator import model_cache_directories
+        from app_runtime import model_cache_directories
         return [os.path.join(directory, relative) for directory in model_cache_directories(self.app_dir)]
 
     def process(self, model_ids, action, cancelled=None, progress=None, log=None):

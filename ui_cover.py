@@ -6,9 +6,9 @@ Bu modül, RVC (Retrieval-based Voice Conversion) yapay zeka cover çıkarım (i
 ve model yönetim sistemini modüler bir wx.Panel (CoverPanel) olarak sağlar.
 
 Özellikler:
-1. Erişilebilirlik (A11y): Ses Ayrıştırma (Sound Cleaner) modülüyle birebir aynı şekilde,
-   her model için "basılı" / "basılı değil" ve "[AÇIK]" / "[KAPALI]" okumasına sahip
-   wx.ToggleButton kullanan ModelToggleList bileşeni barındırır.
+1. Erişilebilirlik (A11y): Ses Ayrıştırma (Sound Cleaner) modülüyle aynı şekilde,
+   her model için onay kutusu rolü, canlı işaretli/işaretsiz durumu ve
+   "[AÇIK]" / "[KAPALI]" adını sunan ModelToggleList bileşeni barındırır.
 2. 'models.json' üzerinden kalıcı model (.pth ve opsiyonel .index) yönetimi (Ekle / Sil).
 3. RTX 5060 Ti 16 GB VRAM sınırlarını korumak için tekli kuyruk (queue) threading mimarisi.
    Aynı anda birden fazla model asla çalıştırılmaz, her işlem arası VRAM/GC temizliği yapılır.
@@ -17,7 +17,7 @@ ve model yönetim sistemini modüler bir wx.Panel (CoverPanel) olarak sağlar.
 """
 
 import wx
-from ui_common import apply_native_style, add_intro
+from ui_common import apply_native_style, add_intro, checkbox_control, ToggleAccessible
 from audio_export import (export_audio, selected_output_format, normalize_output_format,
                           selected_output_channels, normalize_output_channels)
 from ui_operation import OperationPreparation, show_result, operation_error
@@ -28,6 +28,7 @@ import gc
 import math
 import tempfile
 import threading
+from registry_store import validate_models
 from app_runtime import (JOB_LOCK, post_ui, append_log, safe_filename, data_directory, model_directory,
                          copy_model, download_model, same_path, validate_audio_file, finish_job)
 
@@ -50,17 +51,6 @@ def get_models_file_path(app_dir):
             if not os.path.exists(target):
                 copy_model(legacy, target)
     return target
-
-
-def validate_models(models):
-    if not isinstance(models, dict) or any(
-        not isinstance(name, str) or not name.strip() or not isinstance(data, dict)
-        or not isinstance(data.get("pth"), str) or not data["pth"]
-        or not isinstance(data.get("index", ""), str)
-        for name, data in models.items()
-    ):
-        raise ValueError("Model kayıt biçimi geçersiz.")
-    return models
 
 
 def load_models(app_dir):
@@ -147,8 +137,8 @@ class ModelToggleList(wx.ScrolledWindow):
     Sound Cleaner (ui_separator.py) ile birebir aynı A11y / NVDA mantığına sahip
     Model Seçim Listesi Bileşeni.
     Her model için standart bir wx.ToggleButton (Aç/Kapat Düğmesi) oluşturulur.
-    Ekran okuyucular (NVDA/JAWS) her öğe için 'basılı' / 'basılı değil' ve
-    '[AÇIK]' / '[KAPALI]' durumunu net bir şekilde okur.
+    Ekran okuyucular (NVDA/JAWS) her öğeyi onay kutusu olarak ve
+    '[AÇIK]' / '[KAPALI]' durumuyla okur.
     Yukarı/Aşağı ok tuşları ve Tab ile dolaşım desteklenir.
     """
     def __init__(self, parent):
@@ -198,6 +188,7 @@ class ModelToggleList(wx.ScrolledWindow):
                 btn.SetValue(selected)
                 btn.model_name = name
                 btn.display_name = display_name
+                btn.SetAccessible(ToggleAccessible(btn))
                 btn.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggleModel)
                 btn.Bind(wx.EVT_KEY_DOWN, lambda event, idx=i: self.OnKeyDown(event, idx))
                 self.buttons.append(btn)
@@ -222,6 +213,8 @@ class ModelToggleList(wx.ScrolledWindow):
             btn.SetBackgroundColour(self.bg_btn)
         apply_native_style(btn)
         btn.Refresh()
+        wx.Accessible.NotifyEvent(wx.ACC_EVENT_OBJECT_NAMECHANGE, btn, wx.OBJID_CLIENT, wx.ACC_SELF)
+        wx.Accessible.NotifyEvent(wx.ACC_EVENT_OBJECT_STATECHANGE, btn, wx.OBJID_CLIENT, wx.ACC_SELF)
 
     def OnKeyDown(self, event, idx):
         """Klavye Yukarı/Aşağı ok tuşları ile model listesi arasında NVDA erişilebilir dolaşımı sağlar."""
@@ -426,7 +419,7 @@ class CoverPanel(wx.ScrolledWindow):
         for key, label in (('input_highpass_80hz', '80 Hz altındaki giriş sesini filtrele'),
                            ('pipeline_highpass_48hz', '48 Hz altındaki sesi filtrele'),
                            ('smooth_pitch', 'Nota geçişlerini yumuşat')):
-            control = wx.CheckBox(self.advanced_options, label=label)
+            control = checkbox_control(wx.CheckBox(self.advanced_options, label=label))
             control.SetValue(True)
             self.quality_controls[key] = control
             advanced_layout.Add(control, 0, wx.ALL, 3)

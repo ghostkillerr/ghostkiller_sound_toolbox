@@ -88,11 +88,9 @@ def archive_snapshot(job, options, epoch, step, validation):
     catalog = [r for r in catalog if r['file'] != relative]
     catalog.append({'file':relative, 'epoch':epoch, 'step':step, 'holdout_mel_l1':validation,
                     'sha256':file_digest(target), 'size':target.stat().st_size})
-    # A user's preferred snapshot remains available, even while later runs improve.
-    preferred = read_notes(job).get('preferred_model')
     kept = []
-    for record in sorted(catalog, key=lambda r:(r['file']==preferred, r['step']), reverse=True):
-        if record['file']==preferred or (len(kept)<options.snapshot_limit and sum(r['size'] for r in kept)+record['size'] <= budget):
+    for record in sorted(catalog, key=lambda r:r['step'], reverse=True):
+        if len(kept)<options.snapshot_limit and sum(r['size'] for r in kept)+record['size'] <= budget:
             kept.append(record)
     write_json_atomic(str(job/'snapshots.json'), {'models':kept})
     retained = {r['file'] for r in kept}
@@ -166,6 +164,8 @@ def request_extension(job, total_epochs):
     from model_manager import file_digest
     with registry_lock(Path(job)/'controller.guard', timeout=.1), registry_lock(Path(job)/'worker.guard', timeout=.1):
         manifest = read_manifest(job)
+        if manifest.get('status') == 'deleting':
+            raise ValueError('Bu eğitim oturumunun teknik dosyaları temizleniyor.')
         options = TrainingOptions.from_dict(manifest['options'])
         updated = replace(options, epochs=total_epochs).validate(False)
         if total_epochs <= options.epochs:

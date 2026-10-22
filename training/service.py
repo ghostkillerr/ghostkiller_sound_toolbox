@@ -13,7 +13,8 @@ from app_settings import write_json_atomic
 from audio_export import selected_output_format, selected_output_channels
 from training.config import TrainingOptions, BACKEND_COMMIT, FORMAT_VERSION, TRAINER_REVISION
 from training.storage import read_manifest, update_manifest,rng_layout
-from registry_store import registry_lock
+from registry_store import registry_lock, validate_models
+from training.cleanup import training_job_size, delete_training_job
 
 
 def create_job(options, settings, parent_job=None):
@@ -22,8 +23,12 @@ def create_job(options, settings, parent_job=None):
     from hardware import ensure_training_backend
     ensure_training_backend(device)
     settings.manager.require_ready([f"training_v2_{options.sample_rate//1000}k"])
-    root = Path(data_directory())/"training_runs"
-    root.mkdir(exist_ok=True)
+    root = Path(data_directory()) / 'training_runs'
+    with registry_lock(root / 'lifecycle.guard'):
+        return _create_job(root, options, settings, device, parent_job)
+
+
+def _create_job(root, options, settings, device, parent_job):
     job = root/(safe_filename(options.name)+"_"+uuid.uuid4().hex[:12])
     job.mkdir()
     write_json_atomic(str(job/"manifest.json"),{
@@ -40,6 +45,8 @@ def create_job(options, settings, parent_job=None):
         try:
             with registry_lock(Path(parent_job)/'worker.guard', timeout=.1):
                 parent = read_manifest(parent_job)
+                if parent.get('status') == 'deleting':
+                    raise ValueError('Başlangıç eğitim oturumu temizleniyor.')
                 previous = TrainingOptions.from_dict(parent['options'])
                 if previous.sample_rate != options.sample_rate or parent.get('trainer_revision',TRAINER_REVISION)!=TRAINER_REVISION:
                     raise ValueError('Başlangıç eğitiminin mimarisi ve örnekleme hızı yeni eğitimle aynı olmalı.')
@@ -54,7 +61,14 @@ def create_job(options, settings, parent_job=None):
 
 
 def validate_resume(job, settings):
+    with registry_lock(Path(job)/'controller.guard', timeout=.1), registry_lock(Path(job)/'worker.guard', timeout=.1):
+        return _validate_resume(job, settings)
+
+
+def _validate_resume(job, settings):
     manifest = read_manifest(job)
+    if manifest.get('status') == 'deleting':
+        raise ValueError('Bu eğitim oturumunun teknik dosyaları temizleniyor.')
     if manifest.get("format_version") != FORMAT_VERSION or manifest.get("backend_commit") != BACKEND_COMMIT:
         raise ValueError("Bu eğitim oturumu farklı bir backend sürümüyle oluşturulmuş.")
     if manifest.get("trainer_revision", "ghostkiller-rvc-v2-fp32-1") != TRAINER_REVISION:
@@ -164,6 +178,8 @@ class TrainingProcess:
         events = Path(job)/"events.jsonl"
         heartbeat = Path(job)/"heartbeat.json"
         with registry_lock(Path(job)/"worker.guard",timeout=.1):
+            if read_manifest(job).get('status') == 'deleting':
+                raise ValueError('Bu eğitim oturumunun teknik dosyaları temizleniyor.')
             with self._cancel_lock:
                 self.job = job
                 marker = Path(job)/"cancel.request"
@@ -283,7 +299,6 @@ def register_model(job, candidate, registry_path, name=None):
         if file_digest(path) != digest:
             raise ValueError("Test edilen model veya index sonradan değişmiş; kayıt yapılmadı.")
     path = Path(registry_path)
-    from ui_cover import validate_models
     name = read_manifest(job)["options"]["name"] if name is None else name
     if not isinstance(name,str) or not name.strip() or len(name)>100:
         raise ValueError('Model adı 1–100 karakter olmalı.')
@@ -314,3 +329,84 @@ def register_model(job, candidate, registry_path, name=None):
         shutil.rmtree(destination)
         raise
     return name
+
+
+def register_models(job, registry_path, name=None):
+    """Install every retained epoch snapshot in one clean, user-facing folder."""
+    from model_manager import file_digest
+    from registry_store import update_registry
+
+    job = Path(job)
+    result = json.loads((job/"result.json").read_text(encoding="utf-8"))
+    manifest = read_manifest(job)
+    if manifest.get("status") != "completed":
+        raise ValueError("Eğitim ve uyumluluk testi tamamlanmadı.")
+    name = manifest["options"]["name"] if name is None else name
+    if not isinstance(name,str) or not name.strip() or len(name)>100:
+        raise ValueError('Model adı 1–100 karakter olmalı.')
+
+    # latest/best are technical comparison exports.  The snapshot records are
+    # the exact, bounded epoch history chosen by the user on the training page.
+    by_epoch = {}
+    for record in result.get("models",()):
+        epoch = record.get("epoch")
+        if type(epoch) is int and epoch > 0 and record.get("smoke_passed"):
+            by_epoch[epoch] = record
+    if not by_epoch:
+        # Completed jobs made by older versions do not have epoch snapshots.
+        record = next((r for r in result.get("models",())
+                       if r.get("file") == "latest.pth" and r.get("smoke_passed")),None)
+        if record:
+            by_epoch[int(result.get("epochs") or manifest["options"]["epochs"])] = record
+    records = sorted(by_epoch.items())
+    if not records:
+        raise ValueError("Kaydedilecek, uyumluluk testinden geçmiş epoch modeli bulunamadı.")
+
+    index_source = Path(result["index"])
+    index_digest = result["index_sha256"]
+    if file_digest(index_source) != index_digest:
+        raise ValueError("Test edilen index sonradan değişmiş; kayıt yapılmadı.")
+    for _epoch, record in records:
+        if file_digest(record["pth"]) != record["sha256"]:
+            raise ValueError("Test edilen epoch modellerinden biri sonradan değişmiş; kayıt yapılmadı.")
+
+    registry_path = Path(registry_path)
+    root = registry_path.resolve().parent/"trained_models"
+    root.mkdir(exist_ok=True)
+    base = safe_filename(name.strip())
+    destination = root/base
+    suffix = 2
+    while True:
+        try:
+            destination.mkdir()
+            break
+        except FileExistsError:
+            destination = root/f"{base} ({suffix})"
+            suffix += 1
+    installed_base = destination.name
+    installed = []
+    try:
+        index_target = destination/f"{installed_base}.index"
+        shutil.copyfile(index_source,index_target)
+        if file_digest(index_target) != index_digest:
+            raise ValueError("Kalıcı modele kopyalanan index kontrolü başarısız; liste değiştirilmedi.")
+        for epoch, record in records:
+            target = destination/f"{installed_base}_Epoch_{epoch:03d}.pth"
+            shutil.copyfile(record["pth"],target)
+            if file_digest(target) != record["sha256"]:
+                raise ValueError("Kalıcı modele kopyalanan epoch dosyası kontrolü başarısız; liste değiştirilmedi.")
+            installed.append((f"{installed_base} - Epoch {epoch}",target))
+
+        def add_models(models):
+            duplicate = next((label for label,_target in installed if label in models),None)
+            if duplicate:
+                raise ValueError(f"'{duplicate}' adlı AI Cover modeli zaten kayıtlı. Mevcut modelin üzerine yazılmadı.")
+            for label,target in installed:
+                models[label] = {"pth":str(target),"index":str(index_target)}
+        update_registry(registry_path,add_models,validate_models)
+    except BaseException:
+        if destination.resolve().parent != root.resolve():
+            raise RuntimeError("Kalıcı model temizleme yolu geçersiz.")
+        shutil.rmtree(destination)
+        raise
+    return [label for label,_target in installed], str(destination)

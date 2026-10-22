@@ -312,10 +312,8 @@ class VoiceConverter:
             .strip('"')
             .strip()
         )
-        if "trained" in file_index:
-            alt_index = file_index.replace("trained", "added")
-            if os.path.exists(alt_index):
-                file_index = alt_index
+        # The caller selected this index explicitly. Renaming "trained" to
+        # "added" can silently select another voice, even in a parent directory.
 
         output_sr = int(resample_sr) if resample_sr >= 16000 else self.tgt_sr
 

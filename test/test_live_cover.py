@@ -13,7 +13,8 @@ import numpy as np
 
 from live_audio import (AudioDevice, InputCaps, WaveFormat, WaveHeader, WaveInput,
                         WaveOutput, WHDR_DONE, WHDR_PREPARED)
-from live_cover import LiveOptions, LiveWindow, LatestBlocks, RATE, run_live, LiveRVC, NoiseGate
+from live_cover import (LiveOptions, LiveWindow, LatestBlocks, RATE, READY_TONE_SECONDS,
+                        ready_tone, run_live, LiveRVC, NoiseGate)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -253,9 +254,10 @@ class LiveCoreTests(unittest.TestCase):
             def clear(self): pass
             def write(self, audio):
                 state.writes.append(audio)
-                if gate_updates and len(state.writes) == 1:
+                data_writes = [value for value in state.writes if len(value) == RATE//4]
+                if gate_updates and len(data_writes) == 1:
                     live_controls['threshold_db'] = -45
-                if len(state.writes) == 3: stopped.set()
+                if len(data_writes) == 3: stopped.set()
             def __exit__(self, *_): state.closed.append('output')
         def progress(message):
             if progress_error and 'Mikrofon açıldı.' in message:
@@ -272,9 +274,11 @@ class LiveCoreTests(unittest.TestCase):
         self.assertEqual(state.opened, ['output', 'input'])
         self.assertEqual(state.closed, ['input', 'output', 'converter'])
         self.assertEqual(result['blocks'], 3)
-        self.assertTrue(all(len(block) == RATE//4 for block in state.writes))
-        np.testing.assert_array_equal(state.writes[0][:RATE//50], 0)
-        np.testing.assert_allclose(state.writes[1], .05, atol=1e-7)
+        self.assertEqual(len(state.writes[0]), round(RATE*READY_TONE_SECONDS))
+        self.assertGreater(float(np.max(np.abs(state.writes[0]))), .1)
+        self.assertTrue(all(len(block) == RATE//4 for block in state.writes[1:]))
+        np.testing.assert_array_equal(state.writes[1][:RATE//50], 0)
+        np.testing.assert_allclose(state.writes[2], .05, atol=1e-7)
 
     def test_slow_inference_drops_old_audio_instead_of_growing_the_queue(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as folder:
@@ -287,7 +291,7 @@ class LiveCoreTests(unittest.TestCase):
             result, state = self.exercise_session(folder, silent=True)
         self.assertEqual(state.conversions, 0)
         self.assertEqual(result['gated_blocks'], 3)
-        for audio in state.writes:
+        for audio in state.writes[1:]:
             np.testing.assert_array_equal(audio, 0)
         self.assertEqual(state.closed, ['input', 'output', 'converter'])
 
@@ -297,8 +301,17 @@ class LiveCoreTests(unittest.TestCase):
         self.assertEqual(state.converters, 1)
         self.assertEqual(state.conversions, 2)
         self.assertEqual(result['gated_blocks'], 1)
-        np.testing.assert_array_equal(state.writes[0], 0)
-        np.testing.assert_allclose(state.writes[2], .05, atol=1e-7)
+        np.testing.assert_array_equal(state.writes[1], 0)
+        np.testing.assert_allclose(state.writes[3], .05, atol=1e-7)
+
+    def test_ready_tone_is_short_finite_and_click_free(self):
+        tone = ready_tone()
+        self.assertEqual(tone.shape, (round(RATE*READY_TONE_SECONDS),))
+        self.assertEqual(tone.dtype, np.float32)
+        self.assertTrue(np.isfinite(tone).all())
+        self.assertLessEqual(float(np.max(np.abs(tone))), .121)
+        self.assertAlmostEqual(float(tone[0]), 0., places=7)
+        self.assertAlmostEqual(float(tone[-1]), 0., places=7)
 
     def test_conversion_or_progress_failure_joins_capture_before_closing(self):
         for kwargs, message in (({'failure': 'convert'}, 'conversion'), ({'progress_error': True}, 'progress')):
@@ -376,12 +389,13 @@ class LiveCoreTests(unittest.TestCase):
                 def clear(self): pass
                 def write(self, audio):
                     written.append(audio)
-                    stopped.set()
+                    if len(audio) != round(RATE*READY_TONE_SECONDS):
+                        stopped.set()
                 def __exit__(self, *_): pass
             run_live(LiveOptions(str(model)), cancelled=stopped.is_set, converter_factory=Converter,
                      input_factory=Input, output_factory=Output)
-        self.assertGreater(np.max(written[0][:RATE//5]), .1)
-        np.testing.assert_array_equal(written[0][-RATE//10:], 0)
+        self.assertGreater(np.max(written[1][:RATE//5]), .1)
+        np.testing.assert_array_equal(written[1][-RATE//10:], 0)
 
 
 if __name__ == '__main__':

@@ -311,6 +311,19 @@ class SettingsTests(unittest.TestCase):
                 ui_cover.ensure_rvc_prerequisites(folder)
             download.assert_not_called()
 
+    def test_onnx_separator_receives_the_selected_cuda_device(self):
+        from onnxruntime.capi.onnxruntime_inference_collection import check_and_normalize_provider_args
+        available = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+            separator = LocalSeparator(model_file_dir=folder, device='cuda:1', info_only=True)
+            with patch.object(torch.cuda, 'is_available', return_value=True), \
+                 patch('onnxruntime.get_available_providers', return_value=available):
+                separator.setup_torch_device(None)
+            names, options = check_and_normalize_provider_args(separator.onnx_execution_provider, None, available)
+            self.assertEqual(str(separator.torch_device), 'cuda:1')
+            self.assertEqual(names, available)
+            self.assertEqual(options[0].get('device_id'), '1')
+
     def test_gui_embedder_mode_rejects_missing_files_without_network(self):
         import rvc.lib.utils as utils
         with tempfile.TemporaryDirectory(dir=ROOT) as folder, patch.object(utils, 'model_directory', return_value=folder), patch.object(utils, 'download_model') as download:
@@ -330,11 +343,17 @@ class SettingsTests(unittest.TestCase):
                 first = panel.model_list.buttons[0]
                 self.assertIsInstance(first, wx.ToggleButton)
                 self.assertIn('[AÇIK]', first.GetLabel())
+                self.assertEqual(first.GetAccessible().GetRole(wx.ACC_SELF),
+                                 (wx.ACC_OK, wx.ROLE_SYSTEM_CHECKBUTTON))
+                self.assertTrue(first.GetAccessible().GetState(wx.ACC_SELF)[1]
+                                & wx.ACC_STATE_SYSTEM_CHECKED)
                 first.SetValue(False)
                 event = wx.CommandEvent(wx.EVT_TOGGLEBUTTON.typeId, first.GetId())
                 event.SetEventObject(first)
                 first.GetEventHandler().ProcessEvent(event)
                 self.assertIn('[KAPALI]', first.GetLabel())
+                self.assertFalse(first.GetAccessible().GetState(wx.ACC_SELF)[1]
+                                 & wx.ACC_STATE_SYSTEM_CHECKED)
                 panel.RefreshModels()
                 self.assertIs(panel.model_list.buttons[0], first)
                 self.assertNotIn(panel.model_ids[0], panel.model_list.GetCheckedModels())

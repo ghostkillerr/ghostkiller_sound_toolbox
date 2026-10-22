@@ -7,6 +7,12 @@ Kişisel sesler, korunmuş PTH ve index dosyaları değiştirilmedi.
 
 ## Güvenli index sözleşmesi
 
+22 Ekim kaynak düzeltmesi: seçilen index dosyasının yolu aynen kullanılır.
+Yoldaki `trained` sözcüğünü `added` ile değiştiren eski kestirme kaldırıldı;
+bu kestirme `trained_models` klasör adını da değiştirip mevcut başka bir
+index'i sessizce seçebiliyordu. Klasör ve dosya adındaki üç ayrı durum
+`test_selected_index_is_not_replaced_by_a_similarly_named_file` ile sınanır.
+
 `rvc/infer/safe_index.py` dosyaları Python ile sınırlı bloklarda okur.
 `inspect_index(path, expected_dimension=None)` bütün uzunlukları, sonlu float
 verilerini ve ID'leri doğrular; native FAISS dosya okuyucusu çağırmaz.

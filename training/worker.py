@@ -36,6 +36,10 @@ def main(argv=None):
             # write cancellation/checkpoint state belonging to the first worker.
             print("Eğitim oturumu başka bir alt işlemde kullanılıyor: "+str(error),file=sys.stderr,flush=True)
             return 1
+        from training.storage import read_manifest
+        if read_manifest(job).get('status') == 'deleting':
+            print('Bu eğitim oturumunun teknik dosyaları temizleniyor; eğitim başlatılmadı.', file=sys.stderr, flush=True)
+            return 1
         return _run_worker(job,args.resume)
 
 

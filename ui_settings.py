@@ -7,7 +7,8 @@ from app_runtime import JOB_LOCK, post_ui, append_log, finish_job
 from hardware import detect_hardware
 from model_manager import model_catalog, default_model_selection
 from ui_cover import ModelToggleList
-from ui_common import apply_native_style, DetailsDialog, add_intro, section_title, name_control
+from ui_common import (apply_native_style, DetailsDialog, add_intro, checkbox_control,
+                       section_title, name_control)
 from audio_export import OUTPUT_FORMATS, selected_output_format, OUTPUT_CHANNELS, selected_output_channels
 from updater import check_for_updates, last_update_result
 from ui_model_terms import confirm_restoration_terms, confirm_demucs_terms
@@ -49,7 +50,8 @@ class SettingsPanel(wx.ScrolledWindow):
         layout.Add(wx.StaticText(self, label='Mono veya stereo seçimi kaydedilen tüm ses dosyalarına uygulanır.'),
                    0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         section_title(self, layout, "Program güncellemeleri")
-        self.chk_auto_update = wx.CheckBox(self, label="Açılışta güncellemeleri otomatik denetle")
+        self.chk_auto_update = checkbox_control(
+            wx.CheckBox(self, label="Açılışta güncellemeleri otomatik denetle"))
         self.chk_auto_update.SetValue(settings.auto_update)
         self.chk_auto_update.Bind(wx.EVT_CHECKBOX, self.OnAutoUpdate)
         layout.Add(self.chk_auto_update, 0, wx.EXPAND | wx.ALL, 8)

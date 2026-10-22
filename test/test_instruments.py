@@ -163,7 +163,7 @@ class InstrumentTests(unittest.TestCase):
                     accessible = control.GetAccessible()
                     self.assertIs(type(accessible),type(panel.chk_step1.GetAccessible()))
                     self.assertEqual(accessible.GetRole(wx.ACC_SELF),
-                                     (wx.ACC_OK,wx.ROLE_SYSTEM_PUSHBUTTON))
+                                     (wx.ACC_OK,wx.ROLE_SYSTEM_CHECKBUTTON))
                     base_label = control.GetLabel().split(' - ')[0]
                     for active in (False,True):
                         with patch.object(wx.Accessible,'NotifyEvent') as notify:
@@ -174,9 +174,9 @@ class InstrumentTests(unittest.TestCase):
                         self.assertEqual(control.GetName(),label)
                         self.assertEqual(accessible.GetName(wx.ACC_SELF),(wx.ACC_OK,label))
                         state = accessible.GetState(wx.ACC_SELF)[1]
-                        self.assertEqual(bool(state & wx.ACC_STATE_SYSTEM_PRESSED),active)
+                        self.assertEqual(bool(state & wx.ACC_STATE_SYSTEM_CHECKED),active)
                         self.assertEqual(accessible.GetDefaultAction(wx.ACC_SELF),
-                                         (wx.ACC_OK,'Kapat' if active else 'Aç'))
+                                         (wx.ACC_OK,'İşaretini kaldır' if active else 'İşaretle'))
                         notify.assert_any_call(wx.ACC_EVENT_OBJECT_NAMECHANGE,control,
                                                wx.OBJID_CLIENT,wx.ACC_SELF)
                         notify.assert_any_call(wx.ACC_EVENT_OBJECT_STATECHANGE,control,

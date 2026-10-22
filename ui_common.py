@@ -29,7 +29,12 @@ def name_control(control, name, help_text=''):
 
 
 class ToggleAccessible(wx.Accessible):
-    """Expose the native toggle's current label, pressed state and help to MSAA."""
+    """Expose a visual toggle as a checked/unchecked selection to MSAA.
+
+    These controls select processing steps, stems or models. A push-button
+    ``pressed`` state is ambiguous in NVDA, so expose their checkbox semantics
+    while retaining the existing visual ToggleButton design.
+    """
     def __init__(self, window, help_text=''):
         super().__init__(window)
         self.help_text = help_text
@@ -38,14 +43,14 @@ class ToggleAccessible(wx.Accessible):
         return (wx.ACC_OK, self.GetWindow().GetLabel()) if child_id == wx.ACC_SELF else (wx.ACC_NOT_IMPLEMENTED, '')
 
     def GetRole(self, child_id):
-        return (wx.ACC_OK, wx.ROLE_SYSTEM_PUSHBUTTON) if child_id == wx.ACC_SELF else (wx.ACC_NOT_IMPLEMENTED, 0)
+        return (wx.ACC_OK, wx.ROLE_SYSTEM_CHECKBUTTON) if child_id == wx.ACC_SELF else (wx.ACC_NOT_IMPLEMENTED, 0)
 
     def GetState(self, child_id):
         if child_id != wx.ACC_SELF:
             return wx.ACC_NOT_IMPLEMENTED, 0
         control = self.GetWindow()
         state = wx.ACC_STATE_SYSTEM_FOCUSABLE
-        if control.GetValue(): state |= wx.ACC_STATE_SYSTEM_PRESSED
+        if control.GetValue(): state |= wx.ACC_STATE_SYSTEM_CHECKED
         if control.HasFocus(): state |= wx.ACC_STATE_SYSTEM_FOCUSED
         if not control.IsEnabled(): state |= wx.ACC_STATE_SYSTEM_UNAVAILABLE
         if not control.IsShownOnScreen(): state |= wx.ACC_STATE_SYSTEM_INVISIBLE
@@ -59,7 +64,7 @@ class ToggleAccessible(wx.Accessible):
 
     def GetDefaultAction(self, child_id):
         if child_id == wx.ACC_SELF:
-            return wx.ACC_OK, 'Kapat' if self.GetWindow().GetValue() else 'Aç'
+            return wx.ACC_OK, 'İşaretini kaldır' if self.GetWindow().GetValue() else 'İşaretle'
         return wx.ACC_NOT_IMPLEMENTED, ''
 
     def DoDefaultAction(self, child_id):
@@ -71,6 +76,51 @@ class ToggleAccessible(wx.Accessible):
         event.SetEventObject(control)
         control.GetEventHandler().ProcessEvent(event)
         return wx.ACC_OK
+
+
+class CheckBoxAccessible(NamedAccessible):
+    """Report a real checkbox's current state instead of a cached MSAA state."""
+    def GetRole(self, child_id):
+        return (wx.ACC_OK, wx.ROLE_SYSTEM_CHECKBUTTON) if child_id == wx.ACC_SELF else (wx.ACC_NOT_IMPLEMENTED, 0)
+
+    def GetState(self, child_id):
+        if child_id != wx.ACC_SELF:
+            return wx.ACC_NOT_IMPLEMENTED, 0
+        control = self.GetWindow()
+        state = wx.ACC_STATE_SYSTEM_FOCUSABLE
+        if control.GetValue():
+            state |= wx.ACC_STATE_SYSTEM_CHECKED
+        if control.HasFocus():
+            state |= wx.ACC_STATE_SYSTEM_FOCUSED
+        if not control.IsEnabled():
+            state |= wx.ACC_STATE_SYSTEM_UNAVAILABLE
+        if not control.IsShownOnScreen():
+            state |= wx.ACC_STATE_SYSTEM_INVISIBLE
+        return wx.ACC_OK, state
+
+    def GetDefaultAction(self, child_id):
+        if child_id == wx.ACC_SELF:
+            return wx.ACC_OK, 'İşaretini kaldır' if self.GetWindow().GetValue() else 'İşaretle'
+        return wx.ACC_NOT_IMPLEMENTED, ''
+
+    def DoDefaultAction(self, child_id):
+        control = self.GetWindow()
+        if child_id != wx.ACC_SELF or not control.IsEnabled() or not control.IsShownOnScreen():
+            return wx.ACC_FAIL
+        control.SetValue(not control.GetValue())
+        event = wx.CommandEvent(wx.EVT_CHECKBOX.typeId, control.GetId())
+        event.SetEventObject(control)
+        control.GetEventHandler().ProcessEvent(event)
+        return wx.ACC_OK
+
+
+def checkbox_control(control, name=None, help_text=''):
+    """Apply explicit, dynamically queried checkbox accessibility semantics."""
+    name = name or control.GetLabel()
+    control.SetName(name)
+    control.SetHelpText(help_text)
+    control.SetAccessible(CheckBoxAccessible(control, name, help_text))
+    return control
 
 
 class ExplanationAccessible(NamedAccessible):

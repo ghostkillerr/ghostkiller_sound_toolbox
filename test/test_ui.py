@@ -9,9 +9,32 @@ import ui_cover
 import ui_separator
 from types import SimpleNamespace
 from app_runtime import JOB_LOCK, post_ui
+from ui_common import checkbox_control
 
 
 class AccessibilityControls(unittest.TestCase):
+    def test_checkbox_accessibility_reports_live_checked_and_unchecked_state(self):
+        app = wx.GetApp() or wx.App(False)
+        frame = wx.Frame(None)
+        try:
+            control = checkbox_control(wx.CheckBox(frame, label='Deneme seçeneği'))
+            frame.Show(); app.Yield()
+            accessible = control.GetAccessible()
+            self.assertEqual(accessible.GetRole(wx.ACC_SELF),
+                             (wx.ACC_OK, wx.ROLE_SYSTEM_CHECKBUTTON))
+            self.assertFalse(accessible.GetState(wx.ACC_SELF)[1]
+                             & wx.ACC_STATE_SYSTEM_CHECKED)
+            self.assertEqual(accessible.GetDefaultAction(wx.ACC_SELF),
+                             (wx.ACC_OK, 'İşaretle'))
+            self.assertEqual(accessible.DoDefaultAction(wx.ACC_SELF), wx.ACC_OK)
+            self.assertTrue(accessible.GetState(wx.ACC_SELF)[1]
+                            & wx.ACC_STATE_SYSTEM_CHECKED)
+            self.assertEqual(accessible.GetDefaultAction(wx.ACC_SELF),
+                             (wx.ACC_OK, 'İşaretini kaldır'))
+        finally:
+            frame.Destroy()
+            app.ProcessPendingEvents()
+
     def test_tab_focus_visits_training_explanation_before_next_setting(self):
         from ui_training import TrainingPanel
         app = wx.GetApp() or wx.App(False)
@@ -35,6 +58,12 @@ class AccessibilityControls(unittest.TestCase):
             self.assertEqual(explanation.GetAccessible().GetRole(wx.ACC_SELF),(wx.ACC_OK,wx.ROLE_SYSTEM_STATICTEXT))
             self.assertTrue(explanation.GetAccessible().GetState(wx.ACC_SELF)[1] & wx.ACC_STATE_SYSTEM_FOCUSED)
             explanation.Navigate(wx.NavigationKeyEvent.IsForward)
+            app.Yield()
+            self.assertIs(wx.Window.FindFocus(),panel.interval)
+            panel.interval.Navigate(wx.NavigationKeyEvent.IsForward)
+            app.Yield()
+            self.assertIs(wx.Window.FindFocus(),panel.snapshot_limit)
+            panel.snapshot_limit.Navigate(wx.NavigationKeyEvent.IsForward)
             app.Yield()
             self.assertIs(wx.Window.FindFocus(),panel.advanced_toggle)
             panel.advanced_toggle.SetValue(True)
@@ -90,7 +119,7 @@ class AccessibilityControls(unittest.TestCase):
             self.assertFalse(panel.result_panel.IsShown())
             self.assertFalse(hasattr(panel,'btn_settings'))
             self.assertFalse(hasattr(panel,'btn_analyze'))
-            fields = (panel.model_name,panel.sample_rate,panel.epochs,panel.batch,panel.interval,
+            fields = (panel.model_name,panel.sample_rate,panel.epochs,panel.interval,panel.snapshot_limit,panel.batch,
                       panel.learning_rate,panel.segment,panel.overlap,panel.holdout,panel.threads,panel.f0)
             for control in fields:
                 with self.subTest(name=control.GetName()):
@@ -105,6 +134,10 @@ class AccessibilityControls(unittest.TestCase):
             for control in (panel.model_name,panel.sample_rate,panel.f0):
                 self.assertNotIn(control,panel.field_explanations)
             self.assertFalse(panel.btn_group.IsShown())
+            self.assertFalse(panel.btn_resume.IsShown())
+            self.assertFalse(panel.btn_load.IsShown())
+            self.assertFalse(panel.btn_folder.IsShown())
+            self.assertIn('epoch modellerini',panel.btn_register.GetLabel())
             self.assertIsInstance(panel.segment,wx.TextCtrl)
             self.assertIsInstance(panel.overlap,wx.TextCtrl)
             panel.sources = ['example.wav']

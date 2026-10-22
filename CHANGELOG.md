@@ -5,6 +5,18 @@ toplanır. Küçük teknik düzeltmeler ilgili özelliğin altında birleştiril
 
 ## Yayımlanmamış kaynak değişiklikleri
 
+- **Güvenli eğitim temizliği:** başarısız fakat devam edilebilir bağlı eğitimler,
+  oturum içindeki özgün/test kayıtları ve AI Cover listesinin kullandığı dosyalar
+  temizliği engeller. Yarım kalan temizlik ayrı durumla gösterilir ve yeniden
+  denenebilir; temizlenen oturum yanlışlıkla eğitime devam ettirilemez.
+- **Eğitim oturumu sahipliği:** devam kontrolü çalışan oturumun ayarlarını
+  değiştirmez; iptal işaretini yalnız oturum kilidini alan denetleyici yönetir.
+- **Model indirme sınırları:** JSON/YAML için 1 MiB, model dosyası için 4 GiB
+  üst sınır uygulanır. Boyutu bildirilmemiş indirmelerde de disk boşluğu
+  kontrol edilir; başarısız indirme önceki dosyayı değiştirmez.
+- **Doğru model ve cihaz:** RVC seçilen index yolunu ad benzerliğine göre
+  başka bir dosyaya çevirmez. ONNX ayrıştırması seçilen CUDA kartının numarasını
+  da alır; çok kartlı sistemde varsayılan karta yönelmesi giderildi.
 - **RVC çıktı hassasiyeti:** ara WAV sesi artık float saklanır; AI Cover ve
   eğitim dinleme örnekleri kullanıcıya WAV/FLAC kaydedilirken önce 16 bite düşmez.
 - **Canlı AI Cover:** deneysel 4. sekmede kayıtlı ses modeli, mikrofon ve kulaklık
@@ -25,8 +37,26 @@ toplanır. Küçük teknik düzeltmeler ilgili özelliğin altında birleştiril
   kapandıktan sonra **Dinleme tamamlandı** sonuç penceresi açılır.
 - **Canlı aygıt seçimi:** seçilen öğe aygıt kimliğini taşır; açılan giriş/çıkış
   adı ve numarası doğrulanır. Eksik aygıtta varsayılana geçilmez; doğrulanmış yol
-  ekranda gösterilir. Sistem Python'uyla açılan kaynak, kayıtlı GPU tercihini
-  hazır yerel CUDA ortamıyla karşılar.
+  ekranda gösterilir. Model hazırlığı ve aygıt açılışı tamamlanınca seçilen
+  çıkıştan kısa bir hazır sesi çalınır. Sistem Python'uyla açılan kaynak,
+  kayıtlı GPU tercihini hazır yerel CUDA ortamıyla karşılar.
+- **Ekran okuyucu seçim durumları:** işlem, enstrüman ve model seçimleri NVDA/
+  JAWS'a basılı düğme yerine onay kutusu olarak sunulur. İşaretli/işaretsiz
+  durumu kontrolün gerçek değeriyle birlikte değişir; normal onay kutuları da
+  aynı canlı durum sözleşmesini kullanır.
+- **Düzenli eğitim çıktıları:** kayıt aralığı ve tutulacak son epoch modeli sayısı
+  ana eğitim ekranında açıkça seçilir. En yeni istenen sayı kadar model, model
+  adına ait temiz klasöre `Ad_Epoch_010.pth` biçiminde kaydedilir ve tek bir
+  `Ad.index` paylaşır; mevcut klasörler numaralanarak korunur.
+- **Daha sade eğitim ekranı:** devam, sonuç, ek epoch, önceki eğitimden başlatma
+  ve geçmiş işlemleri **Eğitim oturumlarım** altında bağlama göre sunulur. Ayar
+  karşılaştırması gelişmiş bölüme taşındı; teknik oturum klasörü tamamlanınca
+  kendiliğinden açılmaz.
+- **Eğitim diski temizliği:** kalıcı epoch modelleri kaydedilirken teknik oturumun
+  boyutu gösterilir ve önerilen temizlik onayı sunulur. Onaydan sonra checkpoint,
+  hazırlanmış parçalar/özellikler ve test sesleri silinir; özgün kayıtlarla kalıcı
+  modeller korunur. Tamamlanan oturumlar daha sonra oturum menüsünden de
+  temizlenebilir; yarım veya bağımlı eğitimler sessizce silinmez.
 
 ## 2.1.0 — 18 Ekim 2026
 

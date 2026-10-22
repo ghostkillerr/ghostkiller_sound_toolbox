@@ -17,7 +17,9 @@ beşinci sekme **Ayarlar** olarak düzenlenmiştir.
 3. Gerekiyorsa **Bu işlem için eksik modelleri hazırla** düğmesini kullan.
    CPU/ekran kartı tercihi 5. sekmedeki ortak Ayarlar'dan alınır.
 4. **Canlı dinlemeyi başlat** düğmesine bas. Önce model ve yardımcı ağlar
-   hazırlanır; ardından mikrofon açılır. Ses dönüştürülerek kulaklığa gönderilir.
+   hazırlanır; ardından mikrofon açılır. Hazırlık ve seçilen aygıtların açılışı
+   tamamlandığında seçilen çıkıştan kısa, yükselen bir hazır sesi gelir. Bundan
+   sonra konuşabilirsin. Ses dönüştürülerek kulaklığa gönderilir.
    **Doğrulanmış ses yolu** alanında gerçekten açılan giriş ve çıkış görünür.
    Günlüğe yalnız bir kez **Mikrofon açıldı.** yazılır; tekrarlayan gecikme/
    eşik bilgileri yalnız durum alanını günceller.
@@ -126,6 +128,7 @@ denetleyici 1,5 saniye sonra kendi worker işlem grubunu sonlandırır; bu akı�
 kaydedilecek checkpoint veya ses çıktısı yoktur. Son UI callback'i sonrasında
 işlem kilidi bırakılır. Native tamponlar reset/unprepare tamamlanmadan
 serbest bırakılmaz. Fiziksel aygıtlar yalnız kullanıcı başlatınca açılır.
+Hazır sesi bellekte üretilir, dosyaya kaydedilmez ve RVC modelinden geçirilmez.
 
 Windows aygıt sözleşmeleri Microsoft'un [waveInOpen](https://learn.microsoft.com/en-us/windows/win32/api/mmeapi/nf-mmeapi-waveinopen),
 [WAVEHDR](https://learn.microsoft.com/en-us/windows/win32/api/mmeapi/ns-mmeapi-wavehdr),

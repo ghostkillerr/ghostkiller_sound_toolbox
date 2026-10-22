@@ -7,6 +7,7 @@ Bu dizin kullanım ve teknik kararları içerir; günlük çalışma geçmişi b
 | İhtiyaç | Belge |
 | --- | --- |
 | Projeyi geliştirmek ve yayımlamak | [oku.md](../oku.md) |
+| Kod incelemesi, düzeltmeler ve disk temizliği | [22 Ekim ayrıntılı inceleme](KOD_INCELEMESI_2026-10-22.md) |
 | İlk denemeyi yapmak | [Kullanıcı kabulü](KULLANICI_KABULU.md) |
 | Enstrümanları ayrı kaydetmek | [Enstrüman ayırma](ENSTRUMAN_AYIRMA.md) |
 | Kısa vokal kayıplarını onarmak | [Vokal onarımı](VOKAL_ONARIMI.md) |

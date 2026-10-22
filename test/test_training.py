@@ -13,7 +13,8 @@ from training.config import TrainingOptions, architecture, inference_config
 from training.dataset import prepare, source_splits, check_cancel
 from training.storage import atomic_torch_save
 from training.index import build_index
-from training.service import TrainingProcess, register_model, create_job, validate_resume
+from training.service import (TrainingProcess, create_job, delete_training_job, register_model,
+                              register_models, training_job_size, validate_resume)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -221,6 +222,73 @@ class TrainingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 register_model(root,'latest.pth',registry)
             self.assertEqual(registry.read_bytes(),before)
+
+    def test_epoch_registration_uses_clean_folder_and_one_shared_index(self):
+        from model_manager import file_digest
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+            root=Path(folder)
+            snapshots=root/'snapshots';snapshots.mkdir()
+            index=root/'voice.index';index.write_bytes(b'one shared index')
+            models=[]
+            for epoch in (10,20,30):
+                model=snapshots/f'epoch_{epoch:06d}_step_{epoch:010d}.pth'
+                model.write_bytes(f'model {epoch}'.encode())
+                models.append({'file':str(model.relative_to(root)),'pth':str(model),'epoch':epoch,
+                               'step':epoch,'sha256':file_digest(model),'smoke_passed':True})
+            (root/'manifest.json').write_text(json.dumps({'status':'completed','options':{'name':'Ahmet','epochs':30}}),encoding='utf-8')
+            (root/'result.json').write_text(json.dumps({'epochs':30,'models':models,'index':str(index),
+                                                        'index_sha256':file_digest(index)}),encoding='utf-8')
+            registry=root/'models.json'
+            names,destination=register_models(root,registry)
+            target=Path(destination)
+            self.assertEqual(target.name,'Ahmet')
+            self.assertEqual(names,['Ahmet - Epoch 10','Ahmet - Epoch 20','Ahmet - Epoch 30'])
+            self.assertEqual({p.name for p in target.iterdir()},
+                             {'Ahmet_Epoch_010.pth','Ahmet_Epoch_020.pth','Ahmet_Epoch_030.pth','Ahmet.index'})
+            saved=json.loads(registry.read_text(encoding='utf-8'))
+            self.assertEqual({Path(value['index']) for value in saved.values()},{target/'Ahmet.index'})
+            self.assertFalse((target/'provenance.json').exists())
+            second_names,second_destination=register_models(root,registry)
+            self.assertEqual(Path(second_destination).name,'Ahmet (2)')
+            self.assertEqual(second_names[0],'Ahmet (2) - Epoch 10')
+
+    def test_completed_training_cleanup_removes_only_owned_session_and_cache_reference(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+            root=Path(folder);runs=root/'training_runs';runs.mkdir()
+            job=runs/'Ahmet_job';job.mkdir()
+            (job/'manifest.json').write_text(json.dumps({'status':'completed'}),encoding='utf-8')
+            (job/'resume.pth').write_bytes(b'checkpoint')
+            prepared=job/'prepared';prepared.mkdir();(prepared/'piece.wav').write_bytes(b'audio')
+            original=root/'original.wav';original.write_bytes(b'original')
+            model=root/'trained_models'/'Ahmet'/'Ahmet_Epoch_010.pth'
+            model.parent.mkdir(parents=True);model.write_bytes(b'model')
+            cache=runs/'preparation-cache.json'
+            cache.write_text(json.dumps({'owned':{'job':str(job),'files':{}},
+                                         'other':{'job':str(runs/'Other_job'),'files':{}}}),encoding='utf-8')
+            expected=training_job_size(job,runs)
+            removed=delete_training_job(job,runs)
+            self.assertEqual(removed,expected)
+            self.assertFalse(job.exists())
+            self.assertEqual(original.read_bytes(),b'original')
+            self.assertEqual(model.read_bytes(),b'model')
+            self.assertEqual(set(json.loads(cache.read_text(encoding='utf-8'))),{'other'})
+
+    def test_training_cleanup_refuses_incomplete_or_required_parent_session(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as folder:
+            runs=Path(folder)/'training_runs';runs.mkdir()
+            job=runs/'parent';job.mkdir()
+            manifest=job/'manifest.json'
+            manifest.write_text(json.dumps({'status':'interrupted'}),encoding='utf-8')
+            with self.assertRaisesRegex(ValueError,'tamamlanmış'):
+                delete_training_job(job,runs)
+            manifest.write_text(json.dumps({'status':'completed'}),encoding='utf-8')
+            (job/'resume.pth').write_bytes(b'needed')
+            child=runs/'child';child.mkdir()
+            (child/'manifest.json').write_text(json.dumps({'status':'created','options':{'name':'Yeni model'},
+                                                            'initial_from':{'checkpoint':str(job/'resume.pth')}}),encoding='utf-8')
+            with self.assertRaisesRegex(ValueError,'başlangıç ağırlıklarını bekliyor'):
+                delete_training_job(job,runs)
+            self.assertTrue(job.is_dir())
 
     def test_training_ui_shared_settings_and_thread_failure(self):
         import wx
