@@ -4,7 +4,10 @@ CPU ve NVIDIA CUDA ayrı, hash kilitli ortamlardan üretilir. Bu belge derleme
 reçetesidir; güncel test/paket durumu [Son durum](SON_DURUM.md), kullanıcı
 talimatları ve yayın sırası [oku.md](../oku.md) içindedir. **2.1.0 CPU/CUDA
 kurulumları yayımlandı**; gerçek boyut/hash kayıtları `version.json` ve Release
-asset'lerindedir. Yeni sürüm için aşağıdaki derleme ve kabul adımları tekrarlanır.
+asset'lerindedir. 23 Ekim 2026 yenilemesinin paketlenen kaynağı
+`v2.1.0-source-20261022` etiketidir; ilk yayının `v2.1.0` etiketi taşınmamıştır.
+Sürüm numarası aynı kaldığı için mevcut 2.1.0 kullanıcılarına elle kurulum
+gerekir. Yeni sürüm için aşağıdaki derleme ve kabul adımları tekrarlanır.
 
 ## Çalışma ortamları ve kilitler
 

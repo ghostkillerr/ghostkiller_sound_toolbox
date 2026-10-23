@@ -1,7 +1,7 @@
-# Canlı AI Cover — deneysel kaynak geliştirmesi
+# Canlı AI Cover — deneysel özellik
 
-19 Ekim 2026. Bu özellik kaynakta geliştiriliyor; yayımlanmış 2.1.0 CPU/CUDA
-kurulumlarının kapsamına dahil değildir. Dördüncü sekme **Canlı AI Cover**,
+23 Ekim 2026. Bu özellik yenilenmiş 2.1.0 CPU/CUDA kurulumlarında bulunur.
+Önceki 2.1.0 kurulumunu kullananlar aynı backend paketini elle yeniden kurmalıdır. Dördüncü sekme **Canlı AI Cover**,
 beşinci sekme **Ayarlar** olarak düzenlenmiştir.
 
 ## Kullanım
@@ -156,9 +156,10 @@ yanıt vermeyen canlı worker'ın normal durdurmayla kapanmasını sınar.
 başarı/iptal/hata kapanışı, model/çıkış açmaması, UI başarı sırası ve yanlış
 mikrofonda eski profilin kullanılmaması da regresyonlarla sınanır.
 
-19 Ekim yenileme kaynağında CPU ve CUDA ortamlarında ayrı ayrı **436 test**
-geçti; fiziksel donanımla yayın preflight ve pip check kontrolleri de başarılıdır.
-Güncel test/derleme kanıtları `build/release_20261019_live/` içindedir.
+23 Ekim yenilemesinin kaynağında CPU ve CUDA ortamlarında ayrı ayrı **458 test**
+geçti; fiziksel donanımla yayın preflight, pip check, iki frozen EXE ve temiz
+Windows kurulum kabulü de başarılıdır. Güncel kayıtlar `build/release_20261022/`,
+internet üzerinden izlenebilen kanıtlar [Son durum](SON_DURUM.md) içindedir.
 Paket self-test'i yeni canlı modüllerin yüklenmesini, çok düşük eşiği,
 sentetik 10 saniye ölçümünü ve kapanışı fiziksel mikrofon/çıkış açmadan sınar.
 Önceki eşik ve otomatik ölçüm regresyonları `build/gate_threshold_checks/`

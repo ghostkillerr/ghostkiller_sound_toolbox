@@ -1,5 +1,9 @@
 # Kod incelemesi ve disk temizliği — 22 Ekim 2026
 
+Bu belge 22 Ekim inceleme anını kaydeder. Sonraki 23 Ekim yayınında bu
+düzeltmelerle CPU/CUDA kurulumları üretildi; güncel paket ve kabul kanıtları
+[Son durum](SON_DURUM.md) içindedir.
+
 Bu inceleme yerel kaynak ağacına aittir. Çalışma başlarken ağaçta mevcut olan
 canlı ses, erişilebilirlik, epoch kaydı, eğitim ekranı ve tanıtım değişiklikleri
 korundu. Aşağıdaki düzeltmeler bunların üzerine uygulandı. Mevcut installer'lar

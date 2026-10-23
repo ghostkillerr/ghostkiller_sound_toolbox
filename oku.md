@@ -1,6 +1,6 @@
 # Ghostkiller Sound Toolbox — ajan ve geliştirici rehberi
 
-Son doğrulama: **19 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
+Son doğrulama: **23 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
 görev geçmişi değildir. Kullanıcının güncel talimatı burada yazanlardan önceliklidir.
 
 ## 1. Proje ve güncel durum
@@ -12,8 +12,8 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 | Konu | Durum / kaynak |
 | --- | --- |
 | Uygulama sürümü | `version.json`: **2.1.0**, `published`, CPU ve CUDA hash/boyut/URL kayıtları |
-| Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları yayımlandı |
-| Kaynak doğrulaması | 19 Ekim yenileme kaynağında CPU/CUDA ortamlarında ayrı ayrı **436 test** geçti. İki yeni 2.1.0 setup üretildi; yerel frozen testleri ve kaynak/hash eşleşmesi geçti. Yeni paketlerin temiz Windows kabulü ve yayını bekler. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
+| Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları 23 Ekim 2026 tarihinde yenilendi; mevcut 2.1.0 için elle kurulum gerekir |
+| Kaynak doğrulaması | 23 Ekim yenilemesinde CPU/CUDA ortamlarında ayrı ayrı **458 test**, iki gerçek EXE, fiziksel NVIDIA Torch/ONNX, CPU/CUDA/XPU kaynak CI ve iki setup'ın temiz Windows kabulü geçti. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
 | Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması ve 10 saniyelik otomatik mikrofon ölçümünün çalışması doğrulandı. Son eşik/pencere değişikliği, genel ses kalitesi ve NVDA/JAWS kabulü sürüyor |
@@ -36,7 +36,7 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
   Başarılı kalıcı kayıttan sonra kullanıcı onayıyla teknik eğitim oturumu
   temizlenebilir; özgün kayıtlar ve kalıcı modeller bu işlemin dışındadır.
 - **Canlı AI Cover (4. sekme):** mikrofonu kayıtlı RVC modeliyle dönüştürüp
-  seçilen kulaklık/çıkış aygıtından dinleme. Deneysel kaynak geliştirmesidir;
+  seçilen kulaklık/çıkış aygıtından dinleme. 23 Ekim kurulumlarında deneysel olarak bulunur;
   gerçek mikrofon, donanım gecikmesi ve ses kalitesi kabulü sürer.
 - **Ayarlar (5. sekme):** donanım kontrolü, CPU/GPU tercihi, model hazırlama/onarım,
   ses dosyası biçimi, kanal düzeni, tema ve güncelleme denetimi.
@@ -160,8 +160,8 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
    Küçük sentetik test veya az epoch, gerçek ses kalitesi kanıtı değildir.
 7. A2SB ticari olmayan, HTDemucs ağırlıkları bilimsel kullanım koşullarıyla
    sunulur; indirme/kullanım onayını koru. Yeniden miksleme ekranı ve TTS mevcut
-   ürün kapsamında değildir. Canlı mikrofon dönüşümü deneysel kaynak özelliğidir;
-   yayımlanmış 2.1.0 installer'larında bulunduğunu iddia etme.
+   ürün kapsamında değildir. Canlı mikrofon dönüşümü 23 Ekim 2.1.0 yenilemesinde
+   deneyseldir; paket kabulü gerçek ses/gecikme kabulü anlamına gelmez.
 
 ## 5. Çalıştırma ve doğrulama
 
@@ -252,7 +252,10 @@ Kaynaktaki canlı AI Cover geliştirmesinde otomatik 10 saniyelik ölçüm kulla
 tarafından çalışır bulundu. Alt sınırı kaldırılmış eşik girişi ve sonuç
 penceresinin son kullanıcı kabulü; gerçek modelle ses kalitesi, Line 2'de
 akustik dinleme/gecikme ve ekran okuyucu anonsları hâlâ doğrulanmalıdır.
-Yeni kaynak davranışlarını yayımlanmış 2.1.0 installer'larına mal etme.
+23 Ekim yenilemesinin paketlenen kaynağı `v2.1.0-source-20261022`
+etiketindedir; eski `v2.1.0` etiketi ilk yayını gösterir ve taşınmamıştır.
+Sürüm numarası aynı kaldığı için bu yenileme mevcut 2.1.0 kurulumlarına
+otomatik teklif edilmez; aynı backend paketi elle kurulmalıdır.
 
 - Güncel kanıt ve açık işler: [SON_DURUM.md](docs/SON_DURUM.md)
 - Kullanıcı denemeleri: [KULLANICI_KABULU.md](docs/KULLANICI_KABULU.md)

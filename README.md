@@ -8,10 +8,14 @@ Geliştiriciler ve yapay zekâ ajanları için başlangıç: **[oku.md](oku.md)*
 · [GitHub yayınları](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases)
 · [Sürüm notları](CHANGELOG.md)
 
-**2.1.0 yayımlandı.** Windows x64 için [CPU ve NVIDIA CUDA kurulumlarını](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0)
+**2.1.0 kurulumları 23 Ekim 2026 tarihinde yenilendi.** Windows x64 için [CPU ve NVIDIA CUDA kurulumlarını](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0)
 indirebilirsiniz. CPU paketi yaklaşık **374 MB**, CUDA paketi **2,14 GB**.
 Python ve FFmpeg paketlerin içindedir; ilk kullanımda gerekli modelleri programdan hazırlayın.
 Kurulum dosyaları henüz dijital yayıncı sertifikasıyla imzalanmamıştır.
+
+**Zaten 2.1.0 kullanıyorsanız aynı CPU veya CUDA paketini indirip kurulumu
+yeniden çalıştırın.** Sürüm numarası korunduğu için otomatik güncelleme bildirimi
+çıkmaz. Yeni kurulumlar Canlı AI Cover ve son eğitim/indirme düzeltmelerini içerir.
 
 - Müzik/vokal ayırma, arka vokal, yankı ve gürültü temizleme.
 - [Enstrüman ayırma](docs/ENSTRUMAN_AYIRMA.md): dört kanallı SCNet ve bilimsel kullanım için deneysel altı kanallı HTDemucs; ayrı ses dosyaları.
@@ -27,11 +31,11 @@ Kurulum dosyaları henüz dijital yayıncı sertifikasıyla imzalanmamıştır.
 
 Sesler yerel bilgisayarda işlenir. Eksik modelleri indirmek ve güncelleme kontrolü için internet kullanılabilir. TTS içermez.
 
-**Yayımlanmamış kaynak geliştirmesi:** 4. sekmeye deneysel
-[Canlı AI Cover](docs/CANLI_AI_COVER.md) eklendi; Ayarlar 5. sekmeye taşındı.
+**Deneysel Canlı AI Cover:** 23 Ekim 2.1.0 kurulumlarında 4. sekmede
+[Canlı AI Cover](docs/CANLI_AI_COVER.md), 5. sekmede Ayarlar bulunur.
 Mikrofon sesini kayıtlı RVC modeliyle dönüştürüp seçilen kulaklıkta dinleme,
-aygıt seçimi ve başlat/durdur akışı geliştiriliyor. Bu özellik yayımlanmış
-2.1.0 kurulumlarında bulunmaz; gerçek ses ve gecikme kabulü henüz tamamlanmadı.
+aygıt seçimi ve başlat/durdur akışı vardır. Gerçek ses kalitesi, akustik
+gecikme ve bütün aygıtlarda kullanım kabulü henüz tamamlanmadı.
 Canlı ses eşiği dinlerken ayarlanabilir; eşik altında dönüştürme bekler.
 **Otomatik ayarla (10 saniye sessizlik)** ile ortam gürültüsü ölçülür;
 eşik ayarlanınca mikrofon kapanır. Dinlemeyi ayrıca başlatın.

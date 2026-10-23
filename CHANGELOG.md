@@ -3,7 +3,17 @@
 Ghostkiller Sound Toolbox'ın kullanıcıya yansıyan önemli değişiklikleri burada
 toplanır. Küçük teknik düzeltmeler ilgili özelliğin altında birleştirilir.
 
-## Yayımlanmamış kaynak değişiklikleri
+## 2.1.0 — 23 Ekim 2026 yenilemesi
+
+CPU ve CUDA kurulumları aşağıdaki değişikliklerle yeniden üretildi. Sürüm
+numarası kullanıcı talimatıyla **2.1.0** korundu; mevcut 2.1.0 kullanıcıları
+aynı backend paketini indirip elle yeniden kurmalıdır. Otomatik güncelleme
+bildirimi çıkmaz. CPU/CUDA ortamlarında ayrı ayrı **458 test**, iki gerçek
+EXE testi ve temiz Windows kurulum/yeniden kurulum/kaldırma kabulü geçti:
+[CPU](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39856163928),
+[CUDA](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39891844457).
+Paketlenen kaynak [sabit kaynak etiketi](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/tree/v2.1.0-source-20261022) ile izlenir;
+eski `v2.1.0` etiketi taşınmadı.
 
 - **Güvenli eğitim temizliği:** başarısız fakat devam edilebilir bağlı eğitimler,
   oturum içindeki özgün/test kayıtları ve AI Cover listesinin kullandığı dosyalar

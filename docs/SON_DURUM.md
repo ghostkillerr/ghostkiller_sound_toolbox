@@ -1,14 +1,66 @@
-# Güncel durum — 22 Ekim 2026
+# Güncel durum — 23 Ekim 2026
 
 | Konu | Doğrulanmış durum |
 | --- | --- |
-| Yayın | **2.1.0**, 18 Ekim 2026; `version.json`: `published`, CPU/CUDA hash ve URL kayıtları |
-| Kurulumlar | CPU **373.825.544 bayt**, NVIDIA CUDA **2.136.828.435 bayt** |
-| 2.1.0 yayın kaynağı | Yerel CPU/CUDA ortamlarında ayrı ayrı **363 test**; GitHub CPU/CUDA/XPU kaynak CI başarılı |
-| Güncel yerel kaynak | 22 Ekim kod incelemesi sonrasında CPU/CUDA ortamlarında ayrı ayrı **458 test** geçti. Bu turda bağımlılıklar ve kurulumlar yeniden üretilmedi; önceki donanım/preflight kabulü yeni kaynak için tekrar yapılmış sayılmaz |
-| 2.1.0 frozen testleri | İki gerçek EXE geçti; CUDA'da fiziksel NVIDIA Torch backward ve ONNX CUDA oturumu da geçti |
-| 2.1.0 Windows kurulumu | İki setup için ilk kurulum, aynı paketle yeniden kurulum, açılış ve kaldırma geçti; örnek kullanıcı dosyaları korundu |
+| Yayın | **2.1.0 — 23 Ekim yenilemesi**; CPU/CUDA kurulumları ve hashli manifest yayımlandı |
+| Kurulumlar | CPU **373.887.686 bayt**, NVIDIA CUDA **2.136.900.907 bayt** |
+| Kaynak | CPU/CUDA ortamlarında ayrı ayrı **458 test**; [CPU/CUDA/XPU kaynak CI](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39720313588) başarılı |
+| Paket testleri | İki gerçek EXE geçti; fiziksel NVIDIA Torch forward/backward ve ONNX CUDA oturumu başarılı |
+| Temiz Windows | [CPU kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39856163928) ve [CUDA kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39891844457): ilk kurulum, aynı paketle yeniden kurulum, açılış ve kaldırma; örnek kullanıcı dosyaları korundu |
+| Sürüm davranışı | Sürüm 2.1.0 korundu; mevcut 2.1.0 kullanıcıları aynı backend paketini **elle yeniden kurmalı** |
 | İmza | Kurulumlar dijital yayıncı sertifikasıyla imzalı değil; SHA-256 ve derleme receipt'leri yayımlandı |
+
+## 23 Ekim yenilemesi ve kaynak kimliği
+
+22 Ekim incelemesindeki eğitim temizliği/kilit, indirme sınırı ve model/index/
+CUDA seçimi düzeltmeleri bu kurulumlardadır. Deneysel Canlı AI Cover, otomatik
+ses eşiği, erişilebilir seçimler ve düzenli epoch modelleri de paketlenmiştir.
+Gerçek mikrofon ses kalitesi, akustik gecikme, uzun eğitim ve bütün arayüzde
+NVDA/JAWS kabulü açık kalır; kurulum testleri bu kabulün yerine geçmez.
+
+Paketlenen kaynak commit'i **`b519bba`**, [sabit kaynak etiketi](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/tree/v2.1.0-source-20261022).
+İki paketin ortak source SHA-256 değeri:
+`9d774349e11bcdc3191b7924877a1610ae6c63c038d36134fe84e8dcf9a8beef`.
+İlk yayının `v2.1.0` Git etiketi değiştirilmedi. Release'teki önceki dosyalar
+`.previous` ve `.previous-20261020` adlarıyla geri dönüş için korundu;
+indirilecek güncel kurulumlar normal `.exe` adlarıdır.
+
+- CPU SHA-256: `c95948ab3583412203c566fc31ecd50513617aa7d29f7d3118a004a19531ddc6`
+- CUDA SHA-256: `eb67e89289f9afead5e5b330b8ebfcc5fc756ec95f513c78655a6037d5d8dba6`
+- Yerel derleme, frozen, receipt, yükleme ve kabul kayıtları: `build/release_20261022/`.
+- Yerel kaynak regresyonları ve korunmuş veri envanteri: `build/audit_20261022/`.
+
+[Kurulumları indir](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0) ·
+[Program sitesi](https://ghostkillerr.github.io/ghostkiller_sound_toolbox/) ·
+[Ekransız Oyuncular](https://ekransizoyuncular.gen.tr/projeler/ghostkiller_sound_cleaner).
+
+## 23 Ekim site yayını
+
+Ekransız Oyuncular'daki Ghostkiller sayfası ve ilgili proje açıklaması yeni
+kurulumlarla eşleştirildi. Tarih, boyut, SHA-256, deneysel canlı ses açıklaması
+ve aynı sürüm için elle kurulum bilgisi güncellendi. Dosya sahipliği/izinleri,
+diğer proje alanları ve indirme sayaçları korundu; önceki içerik yedeklendi.
+
+Canlı HTTP denetiminde sayfa `200`, iki paket için HEAD isteği doğru GitHub
+dosyasına `302` verdi. HEAD istekleri sayacı artırmadı. `download[]=cpu`
+gibi dizi parametreleri artık PHP hatası oluşturmuyor; sayfa `200` açılıyor.
+Tarayıcıda yeni tarih, paket seçimi ve açıklamalar doğrulandı. GitHub Pages
+için dört JavaScript ve üç site paketleme testi geçti.
+
+## Yayın sonrası derleme temizliği
+
+İki setup'ın kabulünden sonra yeniden oluşan CPU/CUDA `release_dist` ve
+`release_work` klasörleri kaldırıldı: **7.334.676.222 bayt (6,83 GiB)**.
+Ölçülen boş disk alanı artışı **5,66 GiB**. Güncel iki setup, receipt'ler,
+hazır ortamlar, kaynak/lisans materyali ve derleme kanıtları saklandı;
+PyInstaller teşhis tabloları sıkıştırıldı. Koruma listesindeki **2.019 dosya**
+silmeden önce ve sonra SHA-256 ile aynı bulundu. Ayrıntı:
+`build/release_20261022/cleanup-verification.json`.
+
+## Önceki denetimlerin tarihli kayıtları
+
+Aşağıdaki bölümler kendi tarihlerindeki durumu korur. “Henüz yayımlanmadı” veya
+“kurulumlar üretilmedi” ifadeleri güncel 23 Ekim paket durumunu anlatmaz.
 
 ## 22 Ekim kod incelemesi ve disk temizliği
 
@@ -67,7 +119,7 @@ Yeni paket ve site yayını için güncel kullanıcı talimatı gerekir.
 [2.1.0 kurulumları](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0) · [Program sitesi](https://ghostkillerr.github.io/ghostkiller_sound_toolbox/).
 Projeye giriş [oku.md](../oku.md), yeni yayın reçetesi [RELEASE_BUILD.md](RELEASE_BUILD.md).
 
-## Yayımlanmamış kaynak geliştirmesi
+## 19 Ekim kaynak geliştirmesi — tarihsel kayıt
 
 - RVC ara WAV'ı float hassasiyetinde tutulur. AI Cover ve eğitim dinleme
   örneklerinin 24 bit WAV/FLAC export'tan önce 16 bite düşmesi giderildi;
@@ -152,7 +204,7 @@ Projeye giriş [oku.md](../oku.md), yeni yayın reçetesi [RELEASE_BUILD.md](REL
 - İsteğe bağlı A2SB kısa vokal onarımı ve deneysel HTDemucs koşullarının
   indirme/kullanım öncesinde gösterilmesi. Standart ve onarılmış sonuç ayrıdır.
 
-## Doğrulama kanıtları
+## İlk 18 Ekim yayınının doğrulama kanıtları
 
 - [CPU kurulum kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39149347756) ve [CUDA kurulum kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39151347703):
   GitHub Windows 2022 makineleri, Python/CUDA/codec PATH girdileri kapalı.

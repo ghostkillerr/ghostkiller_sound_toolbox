@@ -1,6 +1,6 @@
 # Kullanıcı denemesi
 
-Güncelleme: **19 Ekim 2026**. Güncel test ve paket durumu
+Güncelleme: **23 Ekim 2026**. Güncel test ve paket durumu
 [Son durum](SON_DURUM.md) dosyasındadır. Kod yazman, komut çalıştırman veya
 eğitim teorisini bilmen gerekmiyor. Sonucu dinleyip takıldığın yeri anlatman yeterli.
 
@@ -60,10 +60,11 @@ Hata olursa son yaptığın işlemle birlikte mesajı bildir. Günlük dosyasın
 veya hatayı kendin çözmen beklenmez. Yayın öncesinde yeni installer'ın temiz
 Windows'ta kurulması ve eski sürümden güncellenmesi geliştirme tarafında ayrıca sınanır.
 
-## 5. Canlı AI Cover — yalnız geliştirilmekte olan kaynakta
+## 5. Canlı AI Cover — deneysel
 
-Yayımlanmış 2.1.0 kurulumunda bu sekme yoktur. Kaynaktaki yeni sürümde
-**4. Canlı AI Cover**, ardından **5. Ayarlar** görünmelidir.
+23 Ekim 2026 tarihinde yenilenen 2.1.0 kurulumunda **4. Canlı AI Cover**,
+ardından **5. Ayarlar** görünmelidir. Önceki 2.1.0 kurulumları otomatik
+güncelleme bildirimi almaz; aynı CPU/CUDA paketini elle yeniden kurun.
 
 1. Kulaklık tak; AI Cover'a eklediğin modeli, mikrofonu ve dinleme aygıtını seç.
 2. **Canlı dinlemeyi başlat** düğmesine basıp kısa cümleler söyle. Hangi sesi
