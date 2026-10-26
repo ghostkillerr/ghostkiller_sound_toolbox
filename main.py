@@ -17,6 +17,8 @@ Bu modül, uygulamanın giriş noktası (entry point) olup şu görevleri üstle
 
 import os
 import sys
+import time
+_startup_started = time.perf_counter()
 from app_runtime import (JOB_LOCK, resource_directory, data_directory, post_ui,
                          configure_runtime_cache, configure_thread_environment,
                          configure_ffmpeg_environment)
@@ -29,14 +31,21 @@ if __name__ == '__main__':
     from startup_diagnostics import install
     worker_flag = next((flag for flag in ('--audio-worker','--training-worker') if flag in sys.argv),None)
     diagnostic_directory = None
+    if '--startup-probe' in sys.argv:
+        diagnostic_directory = os.path.dirname(os.path.abspath(sys.argv[sys.argv.index('--startup-probe') + 1]))
     if worker_flag and len(sys.argv)>sys.argv.index(worker_flag)+1:
         worker_args = sys.argv[sys.argv.index(worker_flag)+1:]
         if worker_args[0]=='--probe' and len(worker_args)>1:
             diagnostic_directory = os.path.dirname(os.path.abspath(worker_args[1]))
         elif worker_args[0]!='--probe':
             diagnostic_directory = worker_args[0]
-    install(quiet='--self-test' in sys.argv or worker_flag is not None,
+    install(quiet='--self-test' in sys.argv or '--startup-probe' in sys.argv or worker_flag is not None,
             directory=diagnostic_directory,worker=worker_flag is not None)
+    from startup_diagnostics import startup_phase
+    startup_phase('python-entry', _startup_started)
+    if '--startup-probe' in sys.argv:
+        from startup_probe import run
+        sys.exit(run(sys.argv[sys.argv.index('--startup-probe') + 1], _startup_started))
     from source_runtime import relaunch_source
     if relaunch_source():
         sys.exit(0)
@@ -73,7 +82,7 @@ class GhostkillerMainFrame(wx.Frame):
     Ghostkiller Sound Cleaner V2 - Ana Çerçeve Sınıfı
     wx.Notebook barındırır ve sekmeleri yönetir.
     """
-    def __init__(self):
+    def __init__(self, startup_checks=True):
         """Ana pencereyi, boyutları ve renk paletini başlatır."""
         super(GhostkillerMainFrame, self).__init__(
             parent=None,
@@ -86,12 +95,13 @@ class GhostkillerMainFrame(wx.Frame):
 
         self.InitIcon()
         self.InitMenuBar()
-        self.InitUI()
+        self.InitUI(startup_checks=startup_checks)
         self.Bind(wx.EVT_CLOSE, self.OnClose)
         self.Bind(wx.EVT_CHAR_HOOK, self.OnNavigationKey)
         self.Centre()
 
-        wx.CallAfter(lambda: post_ui(self, self.BeginStartupSequence))
+        if startup_checks:
+            wx.CallAfter(lambda: post_ui(self, self.BeginStartupSequence))
 
     def OnClose(self, event):
         if JOB_LOCK.locked() and event.CanVeto():
@@ -164,7 +174,7 @@ class GhostkillerMainFrame(wx.Frame):
                       self.notebook.GetCurrentPage().txt_status)
         target.SetFocus()
 
-    def InitUI(self):
+    def InitUI(self, startup_checks=True):
         """Arayüz bileşenlerini, Karanlık Modu ve wx.Notebook sekmelerini oluşturur."""
         from ui_separator import SeparatorPanel
         from ui_cover import CoverPanel
@@ -208,7 +218,7 @@ class GhostkillerMainFrame(wx.Frame):
         self.notebook.AddPage(self.training_tab, "3. Model Eğitimi")
         self.live_cover_tab = LiveCoverPanel(self.notebook, self.settings, models=self.cover_tab.models)
         self.notebook.AddPage(self.live_cover_tab, "4. Canlı AI Cover")
-        self.settings_tab = SettingsPanel(self.notebook, self.settings)
+        self.settings_tab = SettingsPanel(self.notebook, self.settings, auto_detect=startup_checks)
         self.notebook.AddPage(self.settings_tab, "5. Ayarlar")
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
 
@@ -365,6 +375,8 @@ if __name__ == '__main__':
         else:
             frame = GhostkillerMainFrame()
             frame.Show(True)
+            startup_phase('window-shown', _startup_started)
+            wx.CallAfter(startup_phase, 'event-loop-ready', _startup_started)
             app.MainLoop()
     finally:
         instance.close()

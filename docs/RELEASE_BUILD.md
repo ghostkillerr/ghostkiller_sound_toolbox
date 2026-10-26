@@ -11,6 +11,36 @@ gerekir. Yeni sürüm için aşağıdaki derleme ve kabul adımları tekrarlanı
 
 ## Çalışma ortamları ve kilitler
 
+### Açılış için küçük EXE ve çevrimdışı kurulum
+
+PyInstaller `append_pkg=False` kullanır. `Ghostkiller_Sound_Cleaner_V2.exe`
+ile yanındaki `Ghostkiller_Sound_Cleaner_V2.pkg` birlikte dağıtılır;
+installer preflight ve frozen self-test arşivin varlığını denetler.
+Uygulamanın otomatik donanım kontrolü ana süreç yerine native worker'da çalışır.
+
+Elle kurulum alternatifi için doğrulanmış aynı frozen klasör kullanılır:
+
+```powershell
+build/release_cuda/Scripts/python.exe -m tools.release.build_offline_installer --backend cuda --package-dir build/release_dist_cuda/Ghostkiller_Sound_Cleaner_V2
+```
+
+CPU için ortam/backend/klasör CPU olarak değiştirilir. Çıktı
+`Ghostkiller_V2_Setup_<backend>_2.1.0_offline.zip` ve `.build.json` receipt'tir.
+ZIP; küçük setup, bütün `.bin` parçaları ve Türkçe ayıklama yönergesini içerir.
+Receipt dış arşivin ve her girdinin boyut/SHA-256 değerini saklar.
+`expand_offline_installer.ps1` bunları doğrular; fazla, eksik, yinelenen veya
+dizin dışına çıkan girdileri herhangi bir dosya ayıklamadan reddeder.
+Hedef klasör yeni olmalıdır. Bu araç setup'ı çalıştırmaz.
+
+Windows installer acceptance workflow'unda `distribution=offline-zip` seçimi
+arşivi doğrular, disposable Windows VM'de kurar/yeniden kurar/kaldırır.
+İlk setup günlüğüne kadar süre ve kurulu uygulamanın gizli açılış ölçümü de
+saklanır. Hosted VM, gerçek UAC etkileşimi veya kullanıcının soğuk disk/antivirüs
+koşulları için süre garantisi vermez. Varsayılan `single-exe` kabul yolu ve
+tek-EXE otomatik güncelleme sözleşmesi korunur; ZIP manifestte EXE diye sunulmaz.
+
+### Ortam hazırlığı
+
 Windows x64 / CPython 3.12 için `requirements/cpu.lock`, `cuda.lock` ve
 `xpu.lock` bütün doğrudan/geçişli bağımlılıkları sürüm ve SHA-256 ile sabitler.
 CPU: PyTorch 2.11.0+cpu, ORT 1.29.0. NVIDIA: PyTorch 2.11.0+cu128,

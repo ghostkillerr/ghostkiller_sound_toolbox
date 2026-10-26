@@ -8,6 +8,32 @@ import os
 import sys
 import threading
 import traceback
+import time
+
+
+def process_age_seconds():
+    """Include the Windows loader time that precedes Python initialization."""
+    if os.name != 'nt':
+        return None
+    try:
+        from ctypes import wintypes
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+        kernel.GetProcessTimes.restype = wintypes.BOOL
+        creation, exit_time, system, user = (wintypes.FILETIME() for _ in range(4))
+        if not kernel.GetProcessTimes(kernel.GetCurrentProcess(), ctypes.byref(creation),
+                                      ctypes.byref(exit_time), ctypes.byref(system), ctypes.byref(user)):
+            return None
+        created = ((creation.dwHighDateTime << 32) | creation.dwLowDateTime) / 10_000_000 - 11644473600
+        return max(0., time.time() - created)
+    except (OSError, AttributeError):
+        return None
+
+
+def startup_phase(phase, started):
+    logging.getLogger('startup').info('%s python_elapsed_s=%.3f process_elapsed_s=%s',
+                                     phase, time.perf_counter() - started, process_age_seconds())
 
 
 class LogStream:

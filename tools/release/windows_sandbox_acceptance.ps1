@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$Installer,
     [string]$UpgradeInstaller,
-    [string]$OutputDirectory = 'C:\AcceptanceResults'
+    [string]$OutputDirectory = 'C:\AcceptanceResults',
+    [switch]$MeasureStartup
 )
 $ErrorActionPreference = 'Stop'
 # Run only inside a disposable VM. This deliberately installs the production
@@ -22,7 +23,15 @@ for ($index=0; $index -lt $stages.Count; $index++) {
     $stageInstaller = (Resolve-Path -LiteralPath $stages[$index]).Path
     $arguments = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOICONS',
         ('/DIR='+$installRoot),('/LOG='+ (Join-Path $OutputDirectory "install-$index.log")))
-    $process = Start-Process -FilePath $stageInstaller -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    $firstLogSeconds = $null
+    $process = Start-Process -FilePath $stageInstaller -ArgumentList $arguments -WindowStyle Hidden -PassThru
+    do {
+        if ($null -eq $firstLogSeconds -and (Test-Path -LiteralPath (Join-Path $OutputDirectory "install-$index.log"))) {
+            $firstLogSeconds = $timer.Elapsed.TotalSeconds
+        }
+    } while (-not $process.WaitForExit(50))
+    $timer.Stop()
     if ($process.ExitCode -ne 0) { throw "Installer exited $($process.ExitCode)" }
     foreach ($relative in $saved.Keys) {
         if ((Get-FileHash -LiteralPath (Join-Path $installRoot $relative) -Algorithm SHA256).Hash -ne $saved[$relative]) {
@@ -31,11 +40,20 @@ for ($index=0; $index -lt $stages.Count; $index++) {
     }
     $smoke = Join-Path $OutputDirectory "smoke-$index.json"
     $app = Join-Path $installRoot 'Ghostkiller_Sound_Cleaner_V2.exe'
+    if ($MeasureStartup) {
+        $probePath = Join-Path $OutputDirectory "startup-$index.json"
+        $probeProcess = Start-Process -FilePath $app -ArgumentList @('--startup-probe', $probePath) -WindowStyle Hidden -Wait -PassThru
+        $probe = Get-Content -LiteralPath $probePath -Raw | ConvertFrom-Json
+        if ($probeProcess.ExitCode -ne 0 -or $probe.ok -ne $true -or $probe.frozen -ne $true -or $probe.heavy_modules.Count -ne 0) {
+            throw 'Installed startup probe failed.'
+        }
+    }
     $process = Start-Process -FilePath $app -ArgumentList @('--self-test', $smoke) -WindowStyle Hidden -Wait -PassThru
     if ($process.ExitCode -ne 0 -or -not (Get-Content -LiteralPath $smoke -Raw | ConvertFrom-Json).ok) {
         throw "Installed frozen smoke failed: $index"
     }
-    $results += @{ stage=$index; installer=(Split-Path -Leaf $stageInstaller); smoke='passed' }
+    $results += @{ stage=$index; installer=(Split-Path -Leaf $stageInstaller); smoke='passed';
+        installer_first_log_seconds=$firstLogSeconds; installation_seconds=$timer.Elapsed.TotalSeconds }
     if ($index -eq 0) {
         foreach ($relative in @('models\voice.pth','models\voice.index','models.json','settings.json','training_runs\keep.json')) {
             $path = Join-Path $installRoot $relative

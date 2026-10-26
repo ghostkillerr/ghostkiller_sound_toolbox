@@ -4,7 +4,7 @@ import threading
 import time
 import wx
 from app_runtime import JOB_LOCK, post_ui, append_log, finish_job
-from hardware import detect_hardware
+from hardware import detect_hardware_isolated
 from model_manager import model_catalog, default_model_selection
 from ui_cover import ModelToggleList
 from ui_common import (apply_native_style, DetailsDialog, add_intro, checkbox_control,
@@ -338,7 +338,7 @@ class SettingsPanel(wx.ScrolledWindow):
                     post_ui(self, self.QueueDownloadConfirmation, action.split(':', 1)[1], selected, total, unknown)
                 return
             if action == "hardware":
-                report = detect_hardware()
+                report = detect_hardware_isolated(cancelled=lambda: self.is_cancelled)
                 if self.is_cancelled:
                     raise InterruptedError("Donanım kontrolü iptal edildi.")
                 self.settings.report = report

@@ -13,6 +13,12 @@ on:
         default: both
         type: choice
         options: [both, cpu, cuda]
+      distribution:
+        description: Installer artifact format
+        required: true
+        default: single-exe
+        type: choice
+        options: [single-exe, offline-zip]
 
 permissions:
   # Public prereleases keep acceptance read-only; promote after validation.
@@ -29,6 +35,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ inputs.tag }}
       BACKEND: ${{ matrix.backend }}
+      DISTRIBUTION: ${{ inputs.distribution }}
       PYTHONUTF8: '1'
       HF_HUB_OFFLINE: '1'
       TRANSFORMERS_OFFLINE: '1'
@@ -44,19 +51,25 @@ jobs:
           $ErrorActionPreference = 'Stop'
           # A dated candidate tests a same-version refresh without replacing
           # the public installers before acceptance has passed.
-          if ($env:RELEASE_TAG -notmatch '^v(?<version>\d+\.\d+\.\d+)(?:-candidate-\d{8})?$') { throw 'Invalid release tag' }
+          if ($env:RELEASE_TAG -notmatch '^v(?<version>\d+\.\d+\.\d+)(?:-candidate-\d{8}(?:-startup)?)?$') { throw 'Invalid release tag' }
           $version = $Matches.version
           $stem = "Ghostkiller_V2_Setup_$($env:BACKEND)_$version"
           New-Item -ItemType Directory -Path acceptance-input -Force | Out-Null
-          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --dir acceptance-input --pattern "$stem.exe" --pattern "$stem.build.json"
+          $artifactStem = $stem
+          $extension = 'exe'
+          if ($env:DISTRIBUTION -eq 'offline-zip') { $artifactStem += '_offline'; $extension = 'zip' }
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --dir acceptance-input --pattern "$artifactStem.$extension" --pattern "$artifactStem.build.json"
           if ($LASTEXITCODE -ne 0) { throw 'Release download failed' }
-          $installer = Get-Item "acceptance-input/$stem.exe"
-          $receipt = Get-Content "acceptance-input/$stem.build.json" -Raw | ConvertFrom-Json
+          $installer = Get-Item "acceptance-input/$artifactStem.$extension"
+          $receipt = Get-Content "acceptance-input/$artifactStem.build.json" -Raw | ConvertFrom-Json
           if ($receipt.backend -ne $env:BACKEND -or $receipt.application_version -ne $version -or
               $receipt.purpose -ne 'release' -or $receipt.release_eligible -ne $true -or
               $receipt.installer.filename -ne $installer.Name -or $receipt.installer.size -ne $installer.Length -or
               $receipt.installer.sha256 -ne (Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) {
             throw 'Installer build receipt does not match download'
+          }
+          if ($env:DISTRIBUTION -eq 'offline-zip') {
+            $installer = Get-Item (& tools/release/expand_offline_installer.ps1 -Archive $installer.FullName -Receipt "acceptance-input/$artifactStem.build.json" -Destination 'acceptance-input/bundle')
           }
           "INSTALLER=$($installer.FullName)" >> $env:GITHUB_ENV
       - name: Install, preserve user data during reinstall, and uninstall
@@ -68,7 +81,7 @@ jobs:
           foreach ($name in @('PYTHONHOME', 'PYTHONPATH', 'CUDA_PATH', 'CUDA_PATH_V12_8')) {
             Remove-Item "Env:$name" -ErrorAction SilentlyContinue
           }
-          & tools/release/windows_sandbox_acceptance.ps1 -Installer $env:INSTALLER -UpgradeInstaller $env:INSTALLER -OutputDirectory "$env:GITHUB_WORKSPACE/acceptance-results"
+          & tools/release/windows_sandbox_acceptance.ps1 -Installer $env:INSTALLER -UpgradeInstaller $env:INSTALLER -OutputDirectory "$env:GITHUB_WORKSPACE/acceptance-results" -MeasureStartup:($env:DISTRIBUTION -eq 'offline-zip')
           $result = Get-Content acceptance-results/result.json -Raw | ConvertFrom-Json
           if ($result.ok -ne $true) { throw 'Installer acceptance failed' }
           foreach ($index in @(0, 1)) {
@@ -77,6 +90,10 @@ jobs:
                 $smoke.audio_exports.roundtrips.Count -ne 24 -or $smoke.audio_exports.numbered_output_preserved -ne $true -or
                 $smoke.usability_help_and_model_form -ne $true) {
               throw 'Installed frozen runtime or audio codec coverage failed'
+            }
+            if ($env:DISTRIBUTION -eq 'offline-zip' -and
+                ($smoke.external_application_archive -ne $true -or $smoke.hardware_worker -ne $true)) {
+              throw 'External application archive or isolated hardware worker failed'
             }
           }
           # The hosted runner has no NVIDIA GPU. CUDA kernel checks run on the

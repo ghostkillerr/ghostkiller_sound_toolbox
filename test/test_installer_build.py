@@ -22,7 +22,7 @@ class InstallerBuildTests(unittest.TestCase):
                 'common_lock_sha256':sha256(ROOT/'requirements/common.lock')}
         (internal/'build-info.json').write_text(json.dumps(info))
         (internal/'version.json').write_bytes((ROOT/'version.json').read_bytes())
-        for relative in ('Ghostkiller_Sound_Cleaner_V2.exe','_internal/python312.dll','_internal/ffmpeg.exe','_internal/ffprobe.exe',
+        for relative in ('Ghostkiller_Sound_Cleaner_V2.exe','Ghostkiller_Sound_Cleaner_V2.pkg','_internal/python312.dll','_internal/ffmpeg.exe','_internal/ffprobe.exe',
                          '_internal/vcruntime140.dll','_internal/vcruntime140_1.dll','_internal/msvcp140.dll',
                          '_internal/logo.ico','_internal/lisans.txt','_internal/third_party/python/manifest.json',
                          '_internal/update_helper.ps1',

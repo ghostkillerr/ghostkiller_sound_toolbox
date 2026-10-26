@@ -53,7 +53,7 @@ def validate_installer_input(directory, backend):
     current = read_application_version(ROOT/'version.json')
     if version != current or info.get('application_version') != version:
         raise ValueError('Frozen application version is invalid or outdated.')
-    for relative in ('Ghostkiller_Sound_Cleaner_V2.exe','_internal/python312.dll',
+    for relative in ('Ghostkiller_Sound_Cleaner_V2.exe','Ghostkiller_Sound_Cleaner_V2.pkg','_internal/python312.dll',
                      '_internal/vcruntime140.dll','_internal/vcruntime140_1.dll','_internal/msvcp140.dll',
                      '_internal/ffmpeg.exe','_internal/ffprobe.exe',
                      '_internal/logo.ico','_internal/lisans.txt','_internal/THIRD_PARTY_NOTICES.md',

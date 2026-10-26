@@ -122,6 +122,11 @@ def main(argv=None):
         resources = Path(resource_directory())
         info_path = resources / 'build-info.json'
         result['build'] = json.loads(info_path.read_text(encoding='utf-8')) if info_path.is_file() else {'purpose': 'source'}
+        if result['frozen']:
+            archive = Path(sys.executable).with_suffix('.pkg')
+            if not archive.is_file() or not archive.stat().st_size:
+                raise RuntimeError('External application archive is missing.')
+            result['external_application_archive'] = True
         result['torch'] = torch.__version__
         x = torch.randn(8, 8, requires_grad=True)
         loss = (x @ x.T).square().mean()
@@ -204,6 +209,10 @@ def main(argv=None):
                 if ping.get('pid') == os.getpid() or ping.get('device') != worker_device:
                     raise RuntimeError('Audio worker did not run as a separate native process.')
                 result['audio_worker'] = ping
+                hardware = session.execute('hardware_probe', {})
+                if hardware['cpu']['device'] != 'cpu' or not hardware['runtime'].startswith('PyTorch'):
+                    raise RuntimeError('Isolated hardware check failed.')
+                result['hardware_worker'] = True
             training_result = folder / 'training-probe.json'
             command = ([sys.executable, '--training-worker'] if getattr(sys, 'frozen', False)
                        else [sys.executable, '-u', '-m', 'training.worker'])

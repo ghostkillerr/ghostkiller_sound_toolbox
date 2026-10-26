@@ -1,5 +1,38 @@
 # Güncel durum — 26 Ekim 2026
 
+## Açılış gecikmesi düzeltmesi — kabul sürüyor
+
+Kullanıcı NVIDIA CUDA setup'ın UAC izninden sonra yaklaşık üç dakika
+beklediğini, kurulu uygulamanın da geç açıldığını bildirdi. Önceki yayımlanmış
+kurulumun EXE'si 2,14 GB, içindeki uygulama EXE'si yaklaşık 81 MB idi.
+Kaynakta boş verili gizli pencere yaklaşık 0,67 saniyede oluştu; aynı
+bilgisayardaki önbellekli eski frozen worker yaklaşık 0,5–0,9 saniyede açıldı.
+Bu ölçümler kullanıcının üç dakikalık beklemesini yeniden üretmedi.
+
+- PyInstaller uygulama arşivi EXE dışına, yanındaki aynı adlı `.pkg` dosyasına
+  taşındı. Paket doğrulaması bu dosyayı zorunlu tutar.
+- Otomatik donanım kontrolü Torch/CUDA'yı artık arayüz sürecine yüklemez;
+  sahipliği uygulamaya ait ayrı worker içinde çalışır ve iptal edilebilir.
+- Elle kurulum için küçük setup EXE'si ve sıkıştırılmış `.bin` parçaları tek
+  `_offline.zip` içinde hazırlanır. Tamamı aynı klasöre ayıklanmalıdır.
+  Mevcut otomatik güncelleme protokolü ZIP kabul etmez.
+- Normal uygulama günlüğü Python girişini, pencerenin gösterilmesini ve olay
+  döngüsünün hazır olmasını süreç başlangıcından itibaren ölçer.
+  `--startup-probe` gizli, boş verili pencereyi ölçer; kişisel dosyaları,
+  modelleri, mikrofonu veya ağı kullanmaz. Soğuk açılış/görünür pencere testi değildir.
+
+Yerel kanıt klasörü: `build/startup_20261026/`. Yeni paketlerin derleme ve
+temiz Windows kabulü tamamlanmadan aşağıdaki yayımlanmış paketlerin
+değiştirildiği varsayılmamalıdır. Sürüm numarası **2.1.0** olarak korunur.
+
+Teknik gerekçe: Inno Setup, büyük EXE'lerin Windows'ta açılışı
+yavaşlatabileceğini belirtir ve ayrı veri parçalarını önerir
+([Inno değişiklikleri](https://issrc.innosetup.nl/whatsnew.htm),
+[DiskSpanning](https://jrsoftware.org/ishelp/topic_setup_diskspanning.htm)).
+Bu, kullanıcıdaki gecikmenin kesin nedeninin saptandığı anlamına gelmez.
+
+## Önceki tamamlanan 26 Ekim yayını
+
 | Konu | Doğrulanmış durum |
 | --- | --- |
 | Yayın | **2.1.0 — 26 Ekim yenilemesi**; CPU/CUDA kurulumları, receipt ve hashli manifest yayımlandı |

@@ -141,6 +141,9 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
+    # Keep the Windows executable small. COLLECT places the matching archive
+    # beside it; importing the application does not require an 80 MB PE image.
+    append_pkg=False,
     name=artifact_name,
     debug=False,
     bootloader_ignore_signals=False,

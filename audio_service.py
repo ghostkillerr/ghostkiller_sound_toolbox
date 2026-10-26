@@ -84,6 +84,12 @@ class NativeAudioSession:
         microphone_announced = False
         while True:
             try:
+                if kind == 'hardware_probe' and cancelled and cancelled():
+                    # No outputs, checkpoints or microphone belong to this check.
+                    # DLL initialization need not finish before Cancel can return.
+                    self._group.terminate(timeout=3.)
+                    self.close()
+                    raise InterruptedError('Donanım kontrolü iptal edildi.')
                 if kind in ('restore_vocal','instruments','live_cover','calibrate_gate') and cancelled and cancelled():
                     (self.directory/f'cancel_{sequence}').touch(exist_ok=True)
                     if kind in ('live_cover', 'calibrate_gate'):

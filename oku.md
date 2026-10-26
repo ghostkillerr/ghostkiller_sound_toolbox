@@ -15,6 +15,7 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 | Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları 26 Ekim 2026 tarihinde yenilendi; mevcut 2.1.0 için elle kurulum gerekir |
 | Kaynak doğrulaması | 26 Ekim yenilemesi: CPU/CUDA ayrı ayrı **472 test**, iki frozen EXE, fiziksel CUDA preflight, CPU/CUDA/XPU kaynak CI ve temiz Windows kurulum kabulü başarılı. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
+| Açılış gecikmesi çalışması | CUDA setup'ta UAC sonrası ve ana programda bildirilen gecikme için küçük EXE, ayrı donanım kontrolü ve çevrimdışı ZIP kurulumu hazırlanıyor; yayımlanan 26 Ekim paketinden ayrı kabul gerekir |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
 | Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması ve 10 saniyelik otomatik mikrofon ölçümünün çalışması doğrulandı. Son eşik/pencere değişikliği, genel ses kalitesi ve NVDA/JAWS kabulü sürüyor |
 
@@ -98,6 +99,7 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
 | Dosya / dizin | Sorumluluk |
 | --- | --- |
 | `main.py` | Beş sekme, ortak ayarlar, açılış sırası, tek uygulama örneği, worker dispatch |
+| `startup_diagnostics.py`, `startup_probe.py` | Süreç/Python açılış zamanları; kişisel veriden yalıtılmış, gizli pencere oluşturma ölçümü |
 | `ui_separator.py`, `separation_steps.py` | Vokal/enstrüman seçimleri, temizleme zinciri ve çıktı adları |
 | `ui_cover.py` | Kişisel RVC model listesi ve sıralı dönüşüm |
 | `ui_live_cover.py`, `live_cover.py`, `live_audio.py` | Canlı dinleme arayüzü, bellekte RVC akışı ve doğrulanmış Windows ses aygıtları |
@@ -248,10 +250,21 @@ kurulumlar kabulden sonra yedeklenerek yenileriyle değiştirilir.
   atlatmaz; helper sonucu doğrulayıp yeniden açar ve kendi geçici setup'ını temizler.
 - Kullanıcı ayrıca istemeden üretim installer'ını veya Windows Sandbox'ı
   geliştirici bilgisayarında başlatma. Kabul araçları disposable VM içindir.
+- Yeni paketlerde küçük uygulama EXE'sinin yanındaki aynı adlı `.pkg` zorunludur.
+  Elle kurulum alternatifi `tools.release.build_offline_installer` ile üretilen
+  `_offline.zip` dosyasıdır; setup ve tüm `.bin` parçaları birlikte ayıklanır.
+  ZIP mevcut tek-EXE otomatik güncelleme protokolüne verilmez. İki dağıtımın
+  receipt ve temiz Windows kabulü ayrı izlenir.
 
 ## 7. Sıradaki iş ve belge seçimi
 
-**26 Ekim 2.1.0 CPU/CUDA yenilemesi tamamlandı.** Kullanılabilirlik
+**Güncel iş: CUDA setup ve program açılış gecikmesi.** Kullanıcı beklemenin
+yönetici izninden sonra olduğunu bildirdi. Küçük uygulama EXE'si, ayrı süreçte
+donanım kontrolü, açılış ölçümleri ve küçük setup içeren ZIP paketinin güncel
+kanıtı Son durum belgesinde izlenir. Sürüm **2.1.0** kalır. Yerel ölçüm,
+kullanıcının bilgisayarındaki ilk açılış süresinin kanıtı sayılmaz.
+
+**Önceki 26 Ekim 2.1.0 CPU/CUDA yenilemesi tamamlandı.** Kullanılabilirlik
 incelemesindeki 15 bulgunun düzeltmeleri paketlendi; GitHub ve sunucudaki
 Ghostkiller sayfası yenilendi. Kaynak, frozen ve Windows kurulum kanıtları
 Son durum belgesindedir. Gerçek sesle uzun işlem/eğitim, NVDA/JAWS,

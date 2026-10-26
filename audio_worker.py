@@ -42,6 +42,10 @@ class AudioEngine:
         self.live_controls = live_controls
 
     def execute(self, kind, payload):
+        if kind == 'hardware_probe':
+            from dataclasses import asdict
+            from hardware import detect_hardware
+            return asdict(detect_hardware())
         if kind == 'calibrate_gate':
             from live_gate import CalibrationOptions, calibrate_gate
             return calibrate_gate(CalibrationOptions(**payload),

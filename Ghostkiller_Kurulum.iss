@@ -25,7 +25,15 @@ OutputDir={#SourcePath}Setup
 OutputBaseFilename=Ghostkiller_V2_Setup_{#Backend}_{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
+#ifdef OfflineBundle
+; A small launcher avoids a multi-gigabyte PE before the wizard can appear.
+DiskSpanning=yes
+DiskSliceSize=2000000000
+#else
+; Retained for the existing single-file automatic update protocol.
 DiskSpanning=no
+#endif
+SetupLogging=yes
 ArchitecturesAllowed=x64os
 ArchitecturesInstallIn64BitMode=x64os
 MinVersion=10.0.19045

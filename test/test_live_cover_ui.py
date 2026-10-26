@@ -359,10 +359,9 @@ class FiveTabIntegration(unittest.TestCase):
             settings = AppSettings(str(Path(folder)/'settings.json'), ModelManager(folder))
             with patch('app_settings.AppSettings', return_value=settings), \
                  patch('ui_cover.load_models', return_value={}) as models, \
-                 patch('ui_settings.SettingsPanel', side_effect=lambda parent, config: SettingsPanel(parent, config, auto_detect=False)), \
                  patch('ui_live_cover.enumerate_devices', return_value=DEVICES), \
                  patch.object(main.GhostkillerMainFrame, 'BeginStartupSequence'):
-                frame = main.GhostkillerMainFrame()
+                frame = main.GhostkillerMainFrame(startup_checks=False)
                 try:
                     self.assertEqual([frame.notebook.GetPageText(i) for i in range(5)], [
                         '1. Müzik ve Ses Temizleme', '2. Ses Değiştirme (AI Cover)',

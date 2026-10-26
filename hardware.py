@@ -153,6 +153,16 @@ def probe_operations(device):
     synchronize(device)
 
 
+def detect_hardware_isolated(cancelled=None):
+    """Load Torch/CUDA outside the GUI, including during automatic startup checks."""
+    from audio_service import NativeAudioSession
+    with NativeAudioSession() as session:
+        value = session.execute('hardware_probe', {}, cancelled=cancelled)
+    return HardwareReport(cpu=DeviceSupport(**value['cpu']),
+                          gpus=[DeviceSupport(**item) for item in value['gpus']],
+                          detected_cards=value['detected_cards'], runtime=value['runtime'])
+
+
 def detect_hardware():
     import torch
     try:
