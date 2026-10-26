@@ -54,6 +54,7 @@ jobs:
           version, date = match.groups()
           target = 'v' + version
           source_sha = api(f'commits/{tag}')['sha']
+          accepted_at = {}
           for variable, workflow, backend in [
               ('CPU_RUN', 'installer-acceptance.yml', 'cpu'),
               ('CUDA_RUN', 'installer-acceptance.yml', 'cuda'),
@@ -65,6 +66,7 @@ jobs:
               assert run['conclusion'] == 'success' and run['head_sha'] == source_sha
               assert run['path'].split('@')[0] == '.github/workflows/' + workflow
               if backend:
+                  accepted_at[backend] = run['created_at']
                   jobs = api(f'actions/runs/{run_id}/jobs')['jobs']
                   assert any(job['name'] == f'install-upgrade-uninstall ({backend})'
                              and job['conclusion'] == 'success' for job in jobs)
@@ -91,6 +93,7 @@ jobs:
                   with path.open('rb') as file:
                       digest = hashlib.file_digest(file, 'sha256').hexdigest()
                   asset = assets[name]
+                  assert asset['updated_at'] <= accepted_at[backend], 'Candidate asset changed after acceptance began'
                   assert asset['state'] == 'uploaded' and asset['size'] == path.stat().st_size
                   assert asset['digest'] == 'sha256:' + digest
                   if name.endswith('.exe'):
