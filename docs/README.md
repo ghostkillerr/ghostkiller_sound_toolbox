@@ -8,7 +8,7 @@ Bu dizin kullanım ve teknik kararları içerir; günlük çalışma geçmişi b
 | --- | --- |
 | Projeyi geliştirmek ve yayımlamak | [oku.md](../oku.md) |
 | Kod incelemesi, düzeltmeler ve disk temizliği | [22 Ekim ayrıntılı inceleme](KOD_INCELEMESI_2026-10-22.md) |
-| Yeni arayüzde temel akışlar (25 Ekim kaynak) | [Arayüz kullanımı](ARAYUZ_KULLANIMI.md) |
+| Yeni arayüzde temel akışlar (26 Ekim 2.1.0) | [Arayüz kullanımı](ARAYUZ_KULLANIMI.md) |
 | Kullanılabilirlik bulguları ve düzeltmeler | [25 Ekim inceleme](KULLANILABILIRLIK_INCELEMESI_2026-10-25.md) |
 | İlk denemeyi yapmak | [Kullanıcı kabulü](KULLANICI_KABULU.md) |
 | Enstrümanları ayrı kaydetmek | [Enstrüman ayırma](ENSTRUMAN_AYIRMA.md) |

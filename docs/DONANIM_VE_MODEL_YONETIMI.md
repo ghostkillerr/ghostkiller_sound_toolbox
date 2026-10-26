@@ -1,7 +1,7 @@
-# Donanım ve model yönetimi — 25 Ekim 2026
+# Donanım ve model yönetimi — 26 Ekim 2026
 
-25 Ekim kaynak arayüzünü anlatır. Yeni akışlar henüz 23 Ekim 2.1.0
-kurulumlarına eklenmedi; [paket ve kaynak durumu](SON_DURUM.md) ayrı izlenir.
+26 Ekim 2026 tarihinde yenilenen 2.1.0 kurulumları bu akışları içerir.
+Önceki 2.1.0 kullanıcıları aynı CPU/CUDA paketini elle yeniden kurmalıdır.
 
 
 Yeni Ayarlar sekmesi, iki ses motorunun aynı işlemci/ekran kartı tercihini kullanmasını sağlar. Kullanıcı teknik backend seçmez; CPU ve GPU ağırlıkları aynıdır. Intel ve AMD işlemciler CPU yoluyla, uyumlu NVIDIA kartları CUDA yoluyla kullanılır. AMD GPU için uygun ROCm/PyTorch ortamı gereklidir; mevcut CUDA ortamında üretilen setup AMD GPU çalışma ortamını içermez.
@@ -89,7 +89,6 @@ AMD'nin Windows PyTorch desteği belirli cihaz/sürücü/çalışma ortamlarına
 - 1 saniyelik sentetik 220 Hz ses, mevcut kişisel RVC ağırlığıyla hem CPU hem `cuda:0` üzerinden dönüştürüldü. İnternet yasaklandı; iki çıktı da **32 kHz, 31.360 sonlu örnek, 0,98 saniye**. Bu kısa işlev testi kalite veya karşılaştırmalı performans benchmark'ı değildir.
 - Gerçek UVR-DeNoise ayrıştırması RTX 5060 Ti üzerinde çalıştı; ağ cihazı `cuda:0` olarak doğrulandı. İki FLAC çıktı **44,1 kHz, 43.680 sonlu örnek** içerdi. Diğer dört ayrıştırma modelinin bu turdaki kontrolü dosya/metadata kontrolüdür.
 - Bu gerçek denemede Librosa/Numba'nın kütüphane dizinine cache yazarken beklediği görüldü. Numba import edilmeden önce `NUMBA_CACHE_DIR` ayarlanıyor: kaynakta `__pycache__/numba`, EXE'de kullanıcı veri dizininin `cache/numba` klasörü. Düzeltmeden sonra aynı GPU ayrıştırması tamamlandı; EXE cache yolu ayrıca regresyon testiyle kontrol edildi.
-- NVDA/JAWS anonsları, AMD GPU, fiziksel Intel CPU, tüm GPU modellerinde gerçek şarkı ve yeni PyInstaller/Inno Setup dağıtımı ayrıca doğrulanmalıdır.
+- NVDA/JAWS anonsları, AMD GPU, fiziksel Intel CPU, tüm GPU modellerinde gerçek şarkı ayrıca doğrulanmalıdır. 26 Ekim CPU/CUDA PyInstaller/Inno Setup paketlerinin frozen ve temiz Windows kabulü geçti.
 
-Model yönetimi 23 Ekim CPU/CUDA paketlerinde bulunur. 25 Ekim kaynak arayüzü
-henüz paketlenmedi; güncel kaynak ve yayın kanıtları [Son durum](SON_DURUM.md) içindedir.
+Model yönetimi ve yeni arayüz 26 Ekim 2.1.0 CPU/CUDA paketlerinde bulunur; güncel kaynak ve yayın kanıtları [Son durum](SON_DURUM.md) içindedir.

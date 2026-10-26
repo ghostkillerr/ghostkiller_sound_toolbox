@@ -1,6 +1,6 @@
 # Ghostkiller Sound Toolbox — ajan ve geliştirici rehberi
 
-Son kaynak düzenlemesi: **26 Ekim 2026**; son yayımlanan paket: **23 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
+Son kaynak düzenlemesi: **26 Ekim 2026**; son yayımlanan paket: **26 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
 görev geçmişi değildir. Kullanıcının güncel talimatı burada yazanlardan önceliklidir.
 
 ## 1. Proje ve güncel durum
@@ -12,8 +12,8 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 | Konu | Durum / kaynak |
 | --- | --- |
 | Uygulama sürümü | `version.json`: **2.1.0**, `published`, CPU ve CUDA hash/boyut/URL kayıtları |
-| Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları 23 Ekim 2026 tarihinde yenilendi; mevcut 2.1.0 için elle kurulum gerekir |
-| Kaynak doğrulaması | 25 Ekim kullanılabilirlik kaynağı: CPU/CUDA ayrı ayrı **472 test**, pip check ve preflight. 23 Ekim paket kanıtı ayrıdır; yeni setup üretilmedi. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
+| Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları 26 Ekim 2026 tarihinde yenilendi; mevcut 2.1.0 için elle kurulum gerekir |
+| Kaynak doğrulaması | 26 Ekim yenilemesi: CPU/CUDA ayrı ayrı **472 test**, iki frozen EXE, fiziksel CUDA preflight, CPU/CUDA/XPU kaynak CI ve temiz Windows kurulum kabulü başarılı. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
 | Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması ve 10 saniyelik otomatik mikrofon ölçümünün çalışması doğrulandı. Son eşik/pencere değişikliği, genel ses kalitesi ve NVDA/JAWS kabulü sürüyor |
@@ -37,7 +37,7 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
   model birlikte kalıcı kaydedilebilir. Oturum varsayılan olarak saklanır;
   Eğitim oturumlarım içinden ayrı onayla teknik dosyalar temizlenebilir; özgün kayıtlar ve kalıcı modeller bu işlemin dışındadır.
 - **Canlı AI Cover (4. sekme):** mikrofonu kayıtlı RVC modeliyle dönüştürüp
-  seçilen kulaklık/çıkış aygıtından dinleme. 23 Ekim kurulumlarında deneysel olarak bulunur;
+  seçilen kulaklık/çıkış aygıtından dinleme. 26 Ekim kurulumlarında deneysel olarak bulunur;
   gerçek mikrofon, donanım gecikmesi ve ses kalitesi kabulü sürer.
 - **Ayarlar (5. sekme):** donanım kontrolü, CPU/GPU tercihi, model hazırlama/onarım,
   ses dosyası biçimi, kanal düzeni, tema ve güncelleme denetimi.
@@ -162,7 +162,7 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
    Küçük sentetik test veya az epoch, gerçek ses kalitesi kanıtı değildir.
 7. A2SB ticari olmayan, HTDemucs ağırlıkları bilimsel kullanım koşullarıyla
    sunulur; indirme/kullanım onayını koru. Yeniden miksleme ekranı ve TTS mevcut
-   ürün kapsamında değildir. Canlı mikrofon dönüşümü 23 Ekim 2.1.0 yenilemesinde
+   ürün kapsamında değildir. Canlı mikrofon dönüşümü 26 Ekim 2.1.0 yenilemesinde
    deneyseldir; paket kabulü gerçek ses/gecikme kabulü anlamına gelmez.
 
 ## 5. Çalıştırma ve doğrulama
@@ -251,17 +251,18 @@ kurulumlar kabulden sonra yedeklenerek yenileriyle değiştirilir.
 
 ## 7. Sıradaki iş ve belge seçimi
 
-**23 Ekim 2.1.0 CPU/CUDA yayını tamamlandı.** 25 Ekim kullanılabilirlik
-düzeltmeleri yalnız güncel kaynaktadır; bunlar için yeni setup/yayın üretilmedi. Kaynak, frozen ve Windows kurulum
-kanıtları Son durum belgesindedir. Gerçek sesle uzun işlem/eğitim, NVDA/JAWS
-ve etkileşimli UAC/güncelleme kullanıcı kabulü sürer. Kullanıcıdan kod/hash/
-derleme komutu beklenmez; ses ve kullanım geri bildirimi alınır.
+**26 Ekim 2.1.0 CPU/CUDA yenilemesi tamamlandı.** Kullanılabilirlik
+incelemesindeki 15 bulgunun düzeltmeleri paketlendi; GitHub ve sunucudaki
+Ghostkiller sayfası yenilendi. Kaynak, frozen ve Windows kurulum kanıtları
+Son durum belgesindedir. Gerçek sesle uzun işlem/eğitim, NVDA/JAWS,
+%125/%150 ölçeklerde görsel kontrol ve etkileşimli UAC/güncelleme kabulü sürer.
+Kullanıcıdan kod/hash/derleme komutu beklenmez; ses ve kullanım geri bildirimi alınır.
 
 Kaynaktaki canlı AI Cover geliştirmesinde otomatik 10 saniyelik ölçüm kullanıcı
 tarafından çalışır bulundu. Alt sınırı kaldırılmış eşik girişi ve sonuç
 penceresinin son kullanıcı kabulü; gerçek modelle ses kalitesi, Line 2'de
 akustik dinleme/gecikme ve ekran okuyucu anonsları hâlâ doğrulanmalıdır.
-23 Ekim yenilemesinin paketlenen kaynağı `v2.1.0-source-20261022`
+26 Ekim yenilemesinin paketlenen kaynağı `v2.1.0-source-20261026`
 etiketindedir; eski `v2.1.0` etiketi ilk yayını gösterir ve taşınmamıştır.
 Sürüm numarası aynı kaldığı için bu yenileme mevcut 2.1.0 kurulumlarına
 otomatik teklif edilmez; aynı backend paketi elle kurulmalıdır.

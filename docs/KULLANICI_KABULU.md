@@ -1,7 +1,7 @@
 # Kullanıcı denemesi
 
-Güncelleme: **25 Ekim 2026**. Yeni arayüz akışları güncel kaynak içindir;
-23 Ekim kurulumları henüz bu değişiklikleri içermez. Güncel test ve paket durumu
+Güncelleme: **26 Ekim 2026**. Bu akışlar yenilenmiş 2.1.0 CPU/CUDA
+kurulumlarında bulunur. Önceki 2.1.0 kullanıcıları aynı paketi elle kurmalıdır. Güncel test ve paket durumu
 [Son durum](SON_DURUM.md) dosyasındadır. Kod yazman, komut çalıştırman veya
 eğitim teorisini bilmen gerekmiyor. Sonucu dinleyip takıldığın yeri anlatman yeterli.
 
@@ -67,7 +67,7 @@ Windows'ta kurulması ve eski sürümden güncellenmesi geliştirme tarafında a
 
 ## 5. Canlı AI Cover — deneysel
 
-23 Ekim 2026 tarihinde yenilenen 2.1.0 kurulumunda **4. Canlı AI Cover**,
+26 Ekim 2026 tarihinde yenilenen 2.1.0 kurulumunda **4. Canlı AI Cover**,
 ardından **5. Ayarlar** görünmelidir. Önceki 2.1.0 kurulumları otomatik
 güncelleme bildirimi almaz; aynı CPU/CUDA paketini elle yeniden kurun.
 

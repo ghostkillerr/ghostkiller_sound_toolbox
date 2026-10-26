@@ -1,7 +1,7 @@
 # Ses modeli eğitimi — kullanım rehberi
 
-25 Ekim kaynak arayüzünü anlatır. Yeni akışlar henüz 23 Ekim 2.1.0
-kurulumlarına eklenmedi; [paket ve kaynak durumu](SON_DURUM.md) ayrı izlenir.
+26 Ekim 2026 tarihinde yenilenen 2.1.0 kurulumları bu akışları içerir.
+Önceki 2.1.0 kullanıcıları aynı CPU/CUDA paketini elle yeniden kurmalıdır.
 
 
 Program tek kişiye ait kayıtlarla yerel RVC V2 ses modeli eğitir. Ses dosyaları

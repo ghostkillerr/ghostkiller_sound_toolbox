@@ -4,8 +4,8 @@ CPU ve NVIDIA CUDA ayrı, hash kilitli ortamlardan üretilir. Bu belge derleme
 reçetesidir; güncel test/paket durumu [Son durum](SON_DURUM.md), kullanıcı
 talimatları ve yayın sırası [oku.md](../oku.md) içindedir. **2.1.0 CPU/CUDA
 kurulumları yayımlandı**; gerçek boyut/hash kayıtları `version.json` ve Release
-asset'lerindedir. 23 Ekim 2026 yenilemesinin paketlenen kaynağı
-`v2.1.0-source-20261022` etiketidir; ilk yayının `v2.1.0` etiketi taşınmamıştır.
+asset'lerindedir. 26 Ekim 2026 yenilemesinin paketlenen kaynağı
+`v2.1.0-source-20261026` etiketidir; ilk yayının `v2.1.0` etiketi taşınmamıştır.
 Sürüm numarası aynı kaldığı için mevcut 2.1.0 kullanıcılarına elle kurulum
 gerekir. Yeni sürüm için aşağıdaki derleme ve kabul adımları tekrarlanır.
 
@@ -260,7 +260,7 @@ sayfasını açıklayan güvenli bir mesaj gösterir. Yeni şema her backend iç
 release-assets yönlendirmesi kabul edilir; başka host reddedilir. İndirme
 boyutu/hash kontrol edilir, son doğrulama GUI thread dışında tekrar yapılır.
 Varsayılan açık `auto_update` tercihi AppSettings'te saklanır. Kurulu uygulama
-açılışta geliştirici bilgi penceresinden önce denetler ve yalnız yeni sürüm varsa
+açılışta denetler ve yalnız yeni sürüm varsa
 indirme onayı ister. **Evet** sonrasında indirip uygular; **Hayır**, ağ hatası
 veya yeni sürüm bulunmaması normal açılışa devam ettirir. İndirme/kurulum devri
 sırasında geliştirici penceresi açılmaz; iptal veya devir hatasında açılış sürer.
@@ -370,3 +370,28 @@ native wx kontrollerini, CPU forward/backward, gerçek ORT CPU oturumunu,
 Unicode ses adıyla FFmpeg/FFprobe ve MP3/WAV/FLAC/OGG kanal dönüşümlerini,
 ayrı ses/eğitim worker süreçlerini sınar. Kaynak denemesi frozen EXE, UAC veya temiz Windows kabulü
 yerine geçmez. Güncel sonuçlar [Son durum](SON_DURUM.md) içindedir.
+
+## Aynı sürümde tarihli kurulum adayı
+
+26 Ekim yenilemesinde uygulama sürümü 2.1.0 korundu. Kaynak
+`v2.1.0-source-20261026`, kurulum kabulü `v2.1.0-candidate-20261026`
+etiketinden yürütüldü. `installer-acceptance.yml`, `vX.Y.Z` ve
+`vX.Y.Z-candidate-YYYYMMDD` biçimlerini kabul eder; kurulum sürümünü yalnız
+X.Y.Z bölümünden alır. CPU/CUDA testleri ayrı çalıştırılabilir.
+
+İki aday kurulumu kabulden geçmeden kararlı Release dosyaları değiştirilmez.
+Yeni dosyalar geçici adlarla yüklenir; boyut ve sunucu SHA-256 doğrulamasından
+sonra önceki dosyalar tarihli yedek adlarına, yeni dosyalar normal adlarına
+taşınır. İşlem günlüğü ve geri alma planı saklanır. Manifest ve site duyurusu
+ancak bu doğrulamadan sonra güncellenir. Aynı sürüm otomatik teklif edilmez.
+
+`release-stage.yml`, başarılı CPU/CUDA kurulum ve kaynak testlerinin kimlikleriyle
+çalıştırılır. Aday kaynak commit'ini, doğru test işlerini, dosyanın kabul başladıktan
+sonra değiştirilmediğini, receipt, boyut ve SHA-256 değerlerini kontrol eder.
+Dosyaları GitHub içinde yalnız `.pending-YYYYMMDD` adlarına kopyalar; normal
+indirme adlarını veya yayın metnini değiştirmez. Böylece büyük CUDA paketini
+yayıncının bilgisayarından iki kez yüklemek gerekmez. Normal adlara geçiş ayrıca
+doğrulanır. Altı yerel akış kontrolü başarı ile başarısız test, yanlış commit/iş,
+değişmiş dosya ve yanlış hash durumlarını sınadı.
+
+26 Ekim [GitHub içi aktarım kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/40292890291) başarılıdır.

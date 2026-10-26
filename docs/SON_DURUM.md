@@ -2,16 +2,34 @@
 
 | Konu | Doğrulanmış durum |
 | --- | --- |
-| Yayın | **2.1.0 — 23 Ekim yenilemesi**; CPU/CUDA kurulumları ve hashli manifest yayımlandı |
-| Kurulumlar | CPU **373.887.686 bayt**, NVIDIA CUDA **2.136.900.907 bayt** |
-| Güncel kaynak | 25 Ekim kullanılabilirlik düzeltmeleri; yerel CPU/CUDA ortamlarında ayrı ayrı **472 test** başarılı. Yeni kaynak için setup veya CI yayını yapılmadı |
-| Son paketlenen kaynak | 23 Ekim: ayrı ayrı **458 test**; [CPU/CUDA/XPU kaynak CI](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39720313588) başarılı |
-| Paket testleri | İki gerçek EXE geçti; fiziksel NVIDIA Torch forward/backward ve ONNX CUDA oturumu başarılı |
-| Temiz Windows | [CPU kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39856163928) ve [CUDA kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39891844457): ilk kurulum, aynı paketle yeniden kurulum, açılış ve kaldırma; örnek kullanıcı dosyaları korundu |
-| Sürüm davranışı | Sürüm 2.1.0 korundu; mevcut 2.1.0 kullanıcıları aynı backend paketini **elle yeniden kurmalı** |
-| İmza | Kurulumlar dijital yayıncı sertifikasıyla imzalı değil; SHA-256 ve derleme receipt'leri yayımlandı |
+| Yayın | **2.1.0 — 26 Ekim yenilemesi**; CPU/CUDA kurulumları, receipt ve hashli manifest yayımlandı |
+| Kurulumlar | CPU **373.901.992 bayt**, NVIDIA CUDA **2.136.914.047 bayt** |
+| Kaynak | Commit **3c4f7b6**; yerel CPU/CUDA ayrı ayrı **472 test**; [CPU/CUDA/XPU kaynak CI](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/40265608581) başarılı |
+| Paket testleri | İki gerçek frozen EXE; 24 biçim/kanal dönüşümü, yardım ve model formu kontrolü; fiziksel NVIDIA Torch ve ONNX CUDA preflight başarılı |
+| Temiz Windows | [CPU kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/40266512734) · [CUDA kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/40292190906): ilk kurulum, aynı paketle yeniden kurulum, iki açılış ve kaldırma; örnek kullanıcı dosyaları korundu |
+| Siteler | GitHub Pages kaynakları ve sunucudaki Ghostkiller sayfası yeni tarih/paket bilgileriyle güncellendi; diğer proje alanları korundu |
+| Sürüm davranışı | **2.1.0 korundu**; mevcut 2.1.0 kullanıcıları aynı backend paketini **elle yeniden kurmalı** |
+| İmza | Dijital yayıncı sertifikası yok; SHA-256 ve derleme receipt'leri yayımlandı |
 
-## 25 Ekim kullanılabilirlik düzeltmeleri — yalnız kaynak
+## 26 Ekim yayın kanıtı
+
+25 Ekim kullanılabilirlik düzeltmeleri yeni CPU/CUDA kurulumlarına dahil edildi.
+Paketlenen kaynak [v2.1.0-source-20261026](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/tree/v2.1.0-source-20261026)
+etiketindedir; ilk yayının `v2.1.0` etiketi değiştirilmedi. Kaynak SHA-256:
+`9f01b06ba6e6f7b414823cafb56397dc4a24f535c3be50ac27254854ac2519ba`.
+
+- CPU SHA-256: `71fea69c5a691a87eef509d0c511bbcf9ea6dc2702b40d82058b3970ced348a8`
+- CUDA SHA-256: `226c54bf8db0f633d9f7d1e56388a9c5c8a5aae7530d06967bed44f75a761ee4`
+- Yerel derleme, frozen, yükleme ve kabul kanıtları: `build/release_20261026/`.
+- Önceki 23 Ekim dosyaları Release'te `.previous-20261023` adlarıyla korundu.
+- Sunucu sayfası ve proje metni yedeklenerek güncellendi; sayaçlar, diğer proje
+  alanları ve dosya sahipliği/izinleri korundu. HTTP sayfa ve indirme yönleri doğrulandı.
+
+Gerçek NVDA/JAWS anonsları, %125/%150 ölçekleri, uzun eğitim, gerçek mikrofon
+ses kalitesi ve akustik gecikme kabulü açık kalır. Otomatik kurulum testleri
+bu kullanıcı denemelerinin yerine geçmez. Kişisel ayar/model kayıtları korunmuştur.
+
+## 25 Ekim kullanılabilirlik düzeltmeleri — 26 Ekim paketlerine dahil
 
 [İncelemedeki 15 bulgu](KULLANILABILIRLIK_INCELEMESI_2026-10-25.md) için kod ve
 kullanım belgeleri güncellendi. [Yeni arayüz rehberi](ARAYUZ_KULLANIMI.md)
@@ -45,9 +63,9 @@ Escape tuşuyla durdurduğundan son değişikliklerin etkileşimli görsel tekra
 bitmedi. Gerçek NVDA/JAWS, Windows %125/%150 ölçekleri ve ses kalitesi kabulü
 ayrıca yapılmalıdır. Otomatik yerleşim testi bunların yerine geçmez.
 
-**Dağıtım:** 2.1.0 sürümü ve 23 Ekim kurulumları korundu; bu görevde setup
-üretilmedi, commit/push/Release yapılmadı. Aşağıdaki paket/frozen/Windows
-kanıtları 23 Ekim yayınına aittir; 25 Ekim kaynak düzenlemesini kapsamaz.
+**Dağıtım:** Bu düzeltmeler 26 Ekim 2.1.0 CPU/CUDA kurulumlarına dahil edildi.
+Güncel paket kanıtı yukarıdadır. Aşağıdaki 23 Ekim bölümleri önceki yayının
+tarihsel kayıtlarıdır.
 
 ## 23 Ekim yenilemesi ve kaynak kimliği
 

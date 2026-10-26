@@ -53,6 +53,6 @@ Canlı NVDA konuşması için kullanıcı dinlemesi ayrıca
 gerekir. Gerçek CUDA işleyicisi kayıt örneğinde onarım, ilerleme, iptal ve PCM24
 kaydını doğruladı. Bunlar bütün şarkıların ses kalitesi kabulü değildir.
 
-Vokal onarımı 23 Ekim 2.1.0 CPU/CUDA kurulumlarında bulunur. 25 Ekim arayüz
-düzenlemesi yalnız kaynaktadır. Doğrulama kapsamı ve kalan kullanıcı kabulleri
+Vokal onarımı 26 Ekim 2.1.0 CPU/CUDA kurulumlarında bulunur. 25 Ekim arayüz
+düzenlemesi 26 Ekim 2.1.0 kurulumlarına dahil edildi. Doğrulama kapsamı ve kalan kullanıcı kabulleri
 [Son durum](SON_DURUM.md) içindedir.

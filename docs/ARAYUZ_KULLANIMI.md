@@ -1,7 +1,7 @@
 # Arayüzde temel işler
 
-25 Ekim 2026 kaynak düzenlemesi. Bu rehber yeni arayüzü anlatır; yayımlanmış
-23 Ekim 2.1.0 kurulumları henüz bu düzenlemeleri içermez.
+Bu rehber 26 Ekim 2026 tarihinde yenilenen 2.1.0 arayüzünü anlatır. Önceki
+2.1.0 kullanıcıları kullandıkları CPU/CUDA paketini elle yeniden kurmalıdır.
 
 Her ekranda **F1** o ekranın çevrimdışı yardımını açar. **Ctrl+Tab** ve
 **Ctrl+Shift+Tab** sekme değiştirir. **F6** pencerenin altındaki başlat/durdur

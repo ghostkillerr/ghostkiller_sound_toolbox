@@ -1,13 +1,13 @@
 # Canlı AI Cover — deneysel özellik
 
-23 Ekim 2026. Bu özellik yenilenmiş 2.1.0 CPU/CUDA kurulumlarında bulunur.
+26 Ekim 2026. Bu özellik yenilenmiş 2.1.0 CPU/CUDA kurulumlarında bulunur.
 Önceki 2.1.0 kurulumunu kullananlar aynı backend paketini elle yeniden kurmalıdır. Dördüncü sekme **Canlı AI Cover**,
 beşinci sekme **Ayarlar** olarak düzenlenmiştir.
 
 ## Kullanım
 
 1. **Ses modeli ekle** ile kendi RVC `.pth` modelini ve varsa `.index` dosyasını
-   ekle. 25 Ekim kaynağında aynı form Canlı AI Cover ekranından da açılır.
+   ekle. Aynı form Canlı AI Cover ekranından da açılır.
 2. Canlı AI Cover sekmesinde modeli, mikrofonu ve kulaklık aygıtını seç.
    Aygıtları değiştirirsen **Ses aygıtlarını yenile** düğmesini kullan.
    Dinlemeye başlamadan **Otomatik ayarla (10 saniye sessizlik)** düğmesine
@@ -38,7 +38,7 @@ Sanal mikrofon kurulmaz; amaç kendi dönüştürülmüş sesini seçilen çık�
 - Güncel kaynakta index, RMVPE/CREPE yöntemi, parça süresi ve elle ses eşiği
   **Gelişmiş canlı ses ayarları** içindedir. Otomatik ölçüm temel ekranda kalır.
   Başlat/durdur ve durum özeti pencerenin altında sabittir; ses yolu ve günlük
-  ayrı bir açılır bölümde gösterilir. Bu arayüz değişiklikleri henüz paketlenmedi.
+  ayrı bir açılır bölümde gösterilir. Bu arayüz değişiklikleri 26 Ekim 2.1.0 yenilemesindedir.
 - Parça süresi: 250, 500 veya 1000 ms; varsayılan 500 ms. Bu değer duyulan
   toplam gecikme değildir. Ses aygıtı, bağlam, dönüşüm süresi ve kuyruklar eklenir.
 - CPU desteklenir; sürekli dönüşüme yetişeceği garanti edilmez. İşlem süresi
@@ -162,9 +162,9 @@ yanıt vermeyen canlı worker'ın normal durdurmayla kapanmasını sınar.
 başarı/iptal/hata kapanışı, model/çıkış açmaması, UI başarı sırası ve yanlış
 mikrofonda eski profilin kullanılmaması da regresyonlarla sınanır.
 
-23 Ekim yenilemesinin kaynağında CPU ve CUDA ortamlarında ayrı ayrı **458 test**
+26 Ekim yenilemesinin kaynağında CPU ve CUDA ortamlarında ayrı ayrı **472 test**
 geçti; fiziksel donanımla yayın preflight, pip check, iki frozen EXE ve temiz
-Windows kurulum kabulü de başarılıdır. Güncel kayıtlar `build/release_20261022/`,
+Windows kurulum kabulü de başarılıdır. Güncel kayıtlar `build/release_20261026/`,
 internet üzerinden izlenebilen kanıtlar [Son durum](SON_DURUM.md) içindedir.
 Paket self-test'i yeni canlı modüllerin yüklenmesini, çok düşük eşiği,
 sentetik 10 saniye ölçümünü ve kapanışı fiziksel mikrofon/çıkış açmadan sınar.

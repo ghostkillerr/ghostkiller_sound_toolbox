@@ -1,7 +1,7 @@
 # Vokal ve enstrüman işleme
 
-25 Ekim kaynak arayüzünü anlatır. Yeni akışlar henüz 23 Ekim 2.1.0
-kurulumlarına eklenmedi; [paket ve kaynak durumu](SON_DURUM.md) ayrı izlenir.
+26 Ekim 2026 tarihinde yenilenen 2.1.0 kurulumları bu akışları içerir.
+Önceki 2.1.0 kullanıcıları aynı CPU/CUDA paketini elle yeniden kurmalıdır.
 
 
 Birinci sekmenin başındaki **İşlem alanı** seçiminden çalışma türünü seçin.
@@ -84,6 +84,5 @@ gitar/piyano başarısı garantisi değildir. Son paket adaylarının yerel kan�
 `build/cleanup_fixes_20261017/candidates/cpu-optional-models.json` ve
 `cuda-optional-models.json` dosyalarındadır; kişisel kayıt içermez.
 
-Enstrüman ayırma 23 Ekim 2.1.0 CPU/CUDA kurulumlarında bulunur. Yukarıdaki
-yeni seçenek adları ve standart başlangıç tercihi 25 Ekim kaynağına aittir;
-henüz yeni kurulum üretilmedi. Test/paket ayrımı [Son durum](SON_DURUM.md) içindedir.
+Enstrüman ayırma 26 Ekim 2.1.0 CPU/CUDA kurulumlarında bulunur. Yukarıdaki
+yeni seçenek adları ve standart başlangıç tercihi 26 Ekim 2.1.0 yenilemesindedir. Test/paket ayrımı [Son durum](SON_DURUM.md) içindedir.

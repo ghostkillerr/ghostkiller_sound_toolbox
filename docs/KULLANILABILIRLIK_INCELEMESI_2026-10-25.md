@@ -1,6 +1,6 @@
 # Kullanılabilirlik incelemesi — 25 Ekim 2026
 
-## Düzeltme durumu — 25 Ekim kaynak
+## Düzeltme durumu — 26 Ekim 2.1.0 paketleri
 
 Kullanıcının “hepsini düzelt” isteğiyle aşağıdaki 15 bulgu için kaynak kodu ve
 ilgili kullanım belgeleri güncellendi. Aşağıdaki eski gözlemler ilk incelemenin
@@ -37,8 +37,9 @@ son değişikliklerin etkileşimli görsel tekrarı tamamlanmadı. NVDA/JAWS ano
 %125/%150 Windows ölçekleri ve gerçek sesle kullanım kabulü ayrıca yapılmalıdır.
 Otomatik kontroller bu kabullerin yerine geçmez.
 
-**Dağıtım:** Sürüm 2.1.0 korundu; yeni setup/GitHub yayını yapılmadı. Değişiklikler
-kaynak çalıştırması içindir. [Güncel kullanım](ARAYUZ_KULLANIMI.md) ·
+**Dağıtım — 26 Ekim:** Sürüm 2.1.0 korundu. Yeni CPU/CUDA setup’ları,
+GitHub kaynakları ve indirme sayfaları güncellendi. Önceki 2.1.0 kullanıcıları
+aynı paketi indirip elle yeniden kurmalıdır. [Güncel kullanım](ARAYUZ_KULLANIMI.md) ·
 [Güncel kanıt](SON_DURUM.md).
 
 ## İlk incelemenin değerlendirmesi

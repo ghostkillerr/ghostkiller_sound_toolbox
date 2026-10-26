@@ -4,24 +4,22 @@ Windows için Türkçe, klavye ve ekran okuyucuyla kullanımı hedefleyen masaü
 
 Geliştiriciler ve yapay zekâ ajanları için başlangıç: **[oku.md](oku.md)**.
 
-**25 Ekim kaynak düzenlemesi:** Sabit başlat/durdur alanı, çevrimdışı F1 yardımı,
-sonuçları dinleme ve vokali AI Cover’a aktarma, tek model ekleme formu ve güvenli
-tercih edilen model kaydı eklendi. Bu değişiklikler henüz 23 Ekim kurulumlarında
-yoktur. [Arayüz kullanım rehberi](docs/ARAYUZ_KULLANIMI.md) ·
-[15 bulgunun düzeltme durumu](docs/KULLANILABILIRLIK_INCELEMESI_2026-10-25.md).
+**26 Ekim 2.1.0 yenilemesi:** Sabit başlat/durdur alanı, çevrimdışı F1 yardımı,
+sonuçtan vokal aktarımı, tek model ekleme formu ve güvenli tercih edilen model
+kaydı yeni CPU/CUDA kurulumlarındadır. [Arayüz rehberi](docs/ARAYUZ_KULLANIMI.md).
 
 **[Programı tanı ve kurulumları indir](https://ghostkillerr.github.io/ghostkiller_sound_toolbox/)**
 · [GitHub yayınları](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases)
 · [Sürüm notları](CHANGELOG.md)
 
-**2.1.0 kurulumları 23 Ekim 2026 tarihinde yenilendi.** Windows x64 için [CPU ve NVIDIA CUDA kurulumlarını](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0)
-indirebilirsiniz. CPU paketi yaklaşık **374 MB**, CUDA paketi **2,14 GB**.
+**2.1.0 kurulumları 26 Ekim 2026 tarihinde yenilendi.** Windows x64 için [CPU ve NVIDIA CUDA kurulumlarını](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0)
+indirebilirsiniz. CPU paketi yaklaşık **373,90 MB**, CUDA paketi **2,14 GB**.
 Python ve FFmpeg paketlerin içindedir; ilk kullanımda gerekli modelleri programdan hazırlayın.
 Kurulum dosyaları henüz dijital yayıncı sertifikasıyla imzalanmamıştır.
 
 **Zaten 2.1.0 kullanıyorsanız aynı CPU veya CUDA paketini indirip kurulumu
 yeniden çalıştırın.** Sürüm numarası korunduğu için otomatik güncelleme bildirimi
-çıkmaz. Yeni kurulumlar Canlı AI Cover ve son eğitim/indirme düzeltmelerini içerir.
+çıkmaz. Yeni kurulumlar kullanılabilirlik düzenlemelerini ve güvenli model kaydını içerir.
 
 - Müzik/vokal ayırma, arka vokal, yankı ve gürültü temizleme.
 - [Enstrüman ayırma](docs/ENSTRUMAN_AYIRMA.md): dört kanallı SCNet ve bilimsel kullanım için deneysel altı kanallı HTDemucs; ayrı ses dosyaları.
@@ -37,7 +35,7 @@ yeniden çalıştırın.** Sürüm numarası korunduğu için otomatik güncelle
 
 Sesler yerel bilgisayarda işlenir. Eksik modelleri indirmek ve güncelleme kontrolü için internet kullanılabilir. TTS içermez.
 
-**Deneysel Canlı AI Cover:** 23 Ekim 2.1.0 kurulumlarında 4. sekmede
+**Deneysel Canlı AI Cover:** 26 Ekim 2.1.0 kurulumlarında 4. sekmede
 [Canlı AI Cover](docs/CANLI_AI_COVER.md), 5. sekmede Ayarlar bulunur.
 Mikrofon sesini kayıtlı RVC modeliyle dönüştürüp seçilen kulaklıkta dinleme,
 aygıt seçimi ve başlat/durdur akışı vardır. Gerçek ses kalitesi, akustik

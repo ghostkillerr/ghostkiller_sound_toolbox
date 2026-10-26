@@ -1,20 +1,20 @@
 {
   "version": "2.1.0",
   "app_name": "Ghostkiller Sound Toolbox",
-  "changelog": "23 Ekim 2026 yenilemesi: Canlı AI Cover, düzenli epoch modelleri, güvenli eğitim temizliği, oturum kilitleri ve model/index/CUDA cihaz seçimi düzeltmeleri. Sürüm 2.1.0 korundu; mevcut 2.1.0 kullanıcıları kurulumu elle yenilemelidir.",
+  "changelog": "26 Ekim 2026 yenilemesi: sabit işlem alanı, çevrimdışı yardım, vokal aktarımı, tek model formu, indirme onayı ve güvenli model kaydı. Sürüm 2.1.0 korundu; mevcut 2.1.0 kullanıcıları kurulumu elle yenilemelidir.",
   "release_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0",
   "packages": {
     "cpu": {
       "download_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller_V2_Setup_cpu_2.1.0.exe",
-      "sha256": "c95948ab3583412203c566fc31ecd50513617aa7d29f7d3118a004a19531ddc6",
-      "size": 373887686
+      "sha256": "71fea69c5a691a87eef509d0c511bbcf9ea6dc2702b40d82058b3970ced348a8",
+      "size": 373901992
     },
     "cuda": {
       "download_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller_V2_Setup_cuda_2.1.0.exe",
-      "sha256": "eb67e89289f9afead5e5b330b8ebfcc5fc756ec95f513c78655a6037d5d8dba6",
-      "size": 2136900907
+      "sha256": "226c54bf8db0f633d9f7d1e56388a9c5c8a5aae7530d06967bed44f75a761ee4",
+      "size": 2136914047
     }
   },
-  "release_date": "2026-10-23",
+  "release_date": "2026-10-26",
   "distribution_status": "published"
 }
