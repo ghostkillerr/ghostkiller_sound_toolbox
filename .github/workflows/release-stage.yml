@@ -1,0 +1,107 @@
+name: Stage accepted release assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Dated candidate tag (vX.Y.Z-candidate-YYYYMMDD)
+        required: true
+        type: string
+      cpu_run:
+        description: Successful CPU installer acceptance run ID
+        required: true
+        type: string
+      cuda_run:
+        description: Successful CUDA installer acceptance run ID
+        required: true
+        type: string
+      source_run:
+        description: Successful native source validation run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: stage-release-assets
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+      CPU_RUN: ${{ inputs.cpu_run }}
+      CUDA_RUN: ${{ inputs.cuda_run }}
+      SOURCE_RUN: ${{ inputs.source_run }}
+    steps:
+      - name: Verify acceptance and copy exact bytes to pending release names
+        shell: python
+        run: |
+          import hashlib, json, os, pathlib, re, subprocess
+          repo = os.environ['GITHUB_REPOSITORY']
+          def gh(*args):
+              return subprocess.check_output(['gh', *args], text=True)
+          def api(path):
+              return json.loads(gh('api', f'repos/{repo}/{path}'))
+          tag = os.environ['CANDIDATE_TAG']
+          match = re.fullmatch(r'v(\d+\.\d+\.\d+)-candidate-(\d{8})', tag)
+          assert match, 'Invalid candidate tag'
+          version, date = match.groups()
+          target = 'v' + version
+          source_sha = api(f'commits/{tag}')['sha']
+          for variable, workflow, backend in [
+              ('CPU_RUN', 'installer-acceptance.yml', 'cpu'),
+              ('CUDA_RUN', 'installer-acceptance.yml', 'cuda'),
+              ('SOURCE_RUN', 'native-validation.yml', None),
+          ]:
+              run_id = os.environ[variable]
+              assert run_id.isdecimal()
+              run = api(f'actions/runs/{run_id}')
+              assert run['conclusion'] == 'success' and run['head_sha'] == source_sha
+              assert run['path'].split('@')[0] == '.github/workflows/' + workflow
+              if backend:
+                  jobs = api(f'actions/runs/{run_id}/jobs')['jobs']
+                  assert any(job['name'] == f'install-upgrade-uninstall ({backend})'
+                             and job['conclusion'] == 'success' for job in jobs)
+          candidate = api(f'releases/tags/{tag}')
+          stable = api(f'releases/tags/{target}')
+          assert candidate['prerelease'] and not candidate['draft']
+          assert not stable['prerelease'] and not stable['draft']
+          assets = {asset['name']: asset for asset in candidate['assets']}
+          existing = {asset['name']: asset for asset in stable['assets']}
+          root = pathlib.Path('release-stage')
+          root.mkdir()
+          identities = set()
+          for backend in ('cpu', 'cuda'):
+              stem = f'Ghostkiller_V2_Setup_{backend}_{version}'
+              names = [stem + '.exe', stem + '.build.json']
+              subprocess.run(['gh', 'release', 'download', tag, '--repo', repo,
+                              '--dir', str(root), '--pattern', names[0], '--pattern', names[1]], check=True)
+              receipt = json.loads((root / names[1]).read_text())
+              assert receipt['backend'] == backend and receipt['application_version'] == version
+              assert receipt['release_eligible'] and receipt['purpose'] == 'release'
+              identities.add(receipt['application_source_sha256'])
+              for name in names:
+                  path = root / name
+                  with path.open('rb') as file:
+                      digest = hashlib.file_digest(file, 'sha256').hexdigest()
+                  asset = assets[name]
+                  assert asset['state'] == 'uploaded' and asset['size'] == path.stat().st_size
+                  assert asset['digest'] == 'sha256:' + digest
+                  if name.endswith('.exe'):
+                      assert receipt['installer'] == {'filename': name, 'size': path.stat().st_size, 'sha256': digest}
+                  pending = name + '.pending-' + date
+                  if pending in existing:
+                      assert existing[pending]['digest'] == asset['digest'] and existing[pending]['size'] == asset['size']
+                      continue
+                  renamed = root / pending
+                  path.rename(renamed)
+                  subprocess.run(['gh', 'release', 'upload', target, str(renamed), '--repo', repo], check=True)
+                  print('Staged verified asset: ' + pending)
+          assert len(identities) == 1, 'CPU and CUDA source identities differ'
+          # Canonical filenames and release metadata are deliberately untouched.
