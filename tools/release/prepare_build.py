@@ -1,5 +1,6 @@
 """Generate immutable backend metadata and third-party material for PyInstaller."""
 from importlib import metadata
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sys
@@ -22,6 +23,7 @@ def prepare_build(backend, ffmpeg_directory, *, purpose='release'):
     (output / 'build-info.json').write_text(json.dumps({
         'backend': backend, 'purpose': purpose, 'release_eligible': purpose == 'release',
         'application_version': read_application_version(ROOT/'version.json'),
+        'built_at_utc': datetime.now(timezone.utc).isoformat(),
         'python': report['python'], 'torch': report['torch'],
         'dependency_lock_sha256': sha256(ROOT / 'requirements' / f'{backend}.lock'),
         'common_lock_sha256': sha256(ROOT / 'requirements' / 'common.lock'),

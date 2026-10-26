@@ -164,6 +164,17 @@ def main(argv=None):
                 if dialog.GetDefaultItem().GetId() != wx.ID_CANCEL:
                     raise RuntimeError('Optional model terms must default to cancel.')
         result['optional_model_dialogs'] = True
+        from ui_models import AddModelDialog
+        from ui_help import HELP, application_identity
+        with AddModelDialog(frame, ()) as dialog:
+            if dialog.Value() != ('', {'pth': '', 'index': ''}):
+                raise RuntimeError('Packaged model form has unexpected defaults.')
+        identity = application_identity()
+        if len(HELP) != 5 or 'Ghostkiller Sound Toolbox' not in identity:
+            raise RuntimeError('Packaged offline help or application identity missing.')
+        if result['frozen'] and result['build']['backend'].upper() not in identity:
+            raise RuntimeError('Packaged About information does not identify its backend.')
+        result['usability_help_and_model_form'] = True
         frame.Destroy()
         app.Destroy()
         with tempfile.TemporaryDirectory(prefix='release_native_', dir=output.parent) as folder:

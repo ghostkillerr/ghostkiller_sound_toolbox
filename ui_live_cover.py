@@ -11,7 +11,7 @@ from live_audio import AudioDevice, enumerate_devices
 from live_cover import LiveOptions
 from live_gate import (CalibrationOptions, HYSTERESIS_DB, ATTACK_MS, HOLD_MS,
                        RELEASE_MS, validate_gate)
-from ui_common import add_intro, apply_native_style, checkbox_control, explanation_control, name_control
+from ui_common import add_intro, apply_native_style, checkbox_control, explanation_control, name_control, fold_controls, request_field
 from ui_operation import OperationPreparation, operation_error
 
 
@@ -54,8 +54,8 @@ class LiveCoverPanel(wx.ScrolledWindow):
         self.btn_models = wx.Button(self, label='Model listesini yenile')
         self.btn_models.Bind(wx.EVT_BUTTON, lambda event: getattr(self.settings, 'refresh_cover', self.RefreshModels)())
         row.Add(self.btn_models, 0, wx.ALL, 4)
-        self.btn_add_model = wx.Button(self, label='Model eklemek için AI Cover sekmesini aç')
-        self.btn_add_model.Bind(wx.EVT_BUTTON, lambda event: getattr(self.settings, 'open_cover', lambda: None)())
+        self.btn_add_model = wx.Button(self, label='Ses modeli ekle')
+        self.btn_add_model.Bind(wx.EVT_BUTTON, lambda event: getattr(self.settings, 'add_model', getattr(self.settings, 'open_cover', lambda: None))())
         row.Add(self.btn_add_model, 0, wx.ALL, 4)
         layout.Add(row, 0, wx.EXPAND | wx.LEFT, 4)
         self.input_choice = field('Mikrofon', lambda: wx.Choice(self))
@@ -64,9 +64,9 @@ class LiveCoverPanel(wx.ScrolledWindow):
         self.btn_devices = wx.Button(self, label='Ses aygıtlarını yenile')
         self.btn_devices.Bind(wx.EVT_BUTTON, lambda event: self.RefreshDevices())
         layout.Add(self.btn_devices, 0, wx.ALL, 8)
-        self.pitch = field('Perde (yarım ses, -24 ile 24)',
+        self.pitch = field('Ses tonu (yarım ses): 0 değişmez; + inceltir, − kalınlaştırır',
                            lambda: wx.SpinCtrl(self, min=-24, max=24, initial=0))
-        self.index_rate = field('Ses benzerlik oranı, 0 ile 1 arası',
+        self.index_rate = field('Index katkısı (0–1); benzerlik puanı değildir',
                                 lambda: wx.TextCtrl(self, value='0.75'))
         self.f0_choice = field('Perde belirleme yöntemi', lambda: wx.Choice(self, choices=['rmvpe', 'crepe']))
         self.f0_choice.SetSelection(0)
@@ -84,10 +84,10 @@ class LiveCoverPanel(wx.ScrolledWindow):
         layout.Add(self.gate_enabled, 0, wx.ALL, 8)
         self.gate_db = field('Ses eşiği (dB, en fazla 0; alt sınır yok)', lambda: wx.TextCtrl(self, value='-45'))
         self.gate_db.Bind(wx.EVT_TEXT, self.OnGateChange)
-        layout.Add(explanation_control(self, 'Ses eşiği açıklaması',
+        gate_help = explanation_control(self, 'Ses eşiği açıklaması',
             'Eşik altındaki dip sesi yok sayılır ve sessiz parçalarda ses modeli çalıştırılmaz. '
-            '-35 dB daha fazla sesi keser, -60 dB daha hassastır. Dinlerken değiştirebilirsiniz.'),
-            0, wx.EXPAND | wx.ALL, 8)
+            '-35 dB daha fazla sesi keser, -60 dB daha hassastır. Dinlerken değiştirebilirsiniz.')
+        layout.Add(gate_help, 0, wx.EXPAND | wx.ALL, 8)
         self.btn_calibrate = wx.Button(self, label='Otomatik ayarla (10 saniye sessizlik)')
         self.btn_calibrate.Bind(wx.EVT_BUTTON, self.OnCalibrate)
         layout.Add(self.btn_calibrate, 0, wx.ALL, 8)
@@ -114,7 +114,7 @@ class LiveCoverPanel(wx.ScrolledWindow):
         for button in (self.btn_start, self.btn_stop, self.btn_force_stop):
             actions.Add(button, 0, wx.ALL, 8)
         layout.Add(actions, 0, wx.EXPAND)
-        self.txt_status = name_control(wx.TextCtrl(self, value='Hazır. Modeli, mikrofonu ve kulaklığı seçin.',
+        self.txt_status = name_control(wx.TextCtrl(self, value='Modeli, mikrofonu ve kulaklığı seçin.',
                                                   style=wx.TE_READONLY), 'Canlı dinleme durumu ve gecikme')
         layout.Add(self.txt_status, 0, wx.EXPAND | wx.ALL, 8)
         self.txt_route = name_control(wx.TextCtrl(self, value='Mikrofon → RVC ses modeli → seçilen çıkış',
@@ -123,12 +123,39 @@ class LiveCoverPanel(wx.ScrolledWindow):
         self.txt_log = name_control(wx.TextCtrl(self, style=wx.TE_READONLY | wx.TE_MULTILINE),
                                     'Canlı dinleme günlüğü')
         layout.Add(self.txt_log, 1, wx.EXPAND | wx.ALL, 8)
+        # Keep preparation, calibration and listening on the basic path.
+        advanced_controls = [self.index_rate.GetPrevSibling(), self.index_rate,
+            self.f0_choice.GetPrevSibling(), self.f0_choice, self.block.GetPrevSibling(), self.block,
+            text, self.gate_enabled, self.gate_db.GetPrevSibling(), self.gate_db, gate_help, self.txt_gate_profile]
+        self.advanced = wx.Panel(self, style=wx.TAB_TRAVERSAL)
+        advanced_layout = wx.BoxSizer(wx.VERTICAL)
+        for control in advanced_controls:
+            layout.Detach(control)
+            control.Reparent(self.advanced)
+            advanced_layout.Add(control, 0, wx.EXPAND | wx.ALL, 6)
+        self.advanced.SetSizer(advanced_layout)
+        self.advanced.Hide()
+        self.advanced_toggle = wx.ToggleButton(self, label='Gelişmiş canlı ses ayarları [KAPALI]')
+        self.advanced_toggle.Bind(wx.EVT_TOGGLEBUTTON, self.OnAdvanced)
+        layout.Add(self.advanced_toggle, 0, wx.ALL, 8)
+        layout.Add(self.advanced, 0, wx.EXPAND | wx.ALL, 4)
+        from ui_help import add_help
+        add_help(self, layout, 'Canlı AI Cover')
+        self.log_toggle = fold_controls(self, layout, [self.txt_log, self.txt_route], 'Ses yolu ve günlüğü göster')
+        self.btn_start._ui_primary = True
         self.SetSizer(layout)
         add_intro(self, layout, 'Canlı AI Cover', 'Kendi sesinizi başka bir ses modeliyle canlı dinleyin.')
         self.RefreshModels(models)
         self.RefreshDevices()
         self.EnableUI(True)
         apply_native_style(self)
+        self.FitInside()
+
+    def OnAdvanced(self, event):
+        shown = self.advanced_toggle.GetValue()
+        self.advanced.Show(shown)
+        self.advanced_toggle.SetLabel('Gelişmiş canlı ses ayarları ' + ('[AÇIK]' if shown else '[KAPALI]'))
+        self.Layout()
         self.FitInside()
 
     def Summary(self):
@@ -218,7 +245,7 @@ class LiveCoverPanel(wx.ScrolledWindow):
         from ui_cover import get_app_dir, resolve_model_file_path
         index = self.model_choice.GetSelection()
         if index == wx.NOT_FOUND:
-            raise ValueError('Önce bir ses modeli seçin. Modeli AI Cover sekmesinden ekleyebilirsiniz.')
+            raise ValueError('Önce bir ses modeli seçin. Ses modeli ekle düğmesiyle dosyanızı ekleyebilirsiniz.')
         record = dict(self.models[self.model_names[index]])
         input_device, output_device = self.SelectedDevice(self.input_choice), self.SelectedDevice(self.output_choice)
         if self._calibrated_input and input_device.id == -1:
@@ -227,7 +254,7 @@ class LiveCoverPanel(wx.ScrolledWindow):
         try:
             ratio = float(self.index_rate.GetValue().strip().replace(',', '.'))
         except ValueError:
-            raise ValueError('Ses benzerlik oranı 0 ile 1 arasında olmalı.')
+            raise ValueError('Index katkısı 0 ile 1 arasında olmalı.')
         return LiveOptions(
             model_path=resolve_model_file_path(get_app_dir(), record['pth']),
             index_path=resolve_model_file_path(get_app_dir(), record.get('index', '')),
@@ -240,6 +267,9 @@ class LiveCoverPanel(wx.ScrolledWindow):
             device=self.settings.prepare_job(self.RequiredModels())).validate()
 
     def OnStart(self, event):
+        if not self.busy and self.model_choice.GetSelection() == wx.NOT_FOUND:
+            request_field(self, 'Ses modeli ekleyin veya listeden bir model seçin.', self.btn_add_model)
+            return
         if self.busy or not JOB_LOCK.acquire(blocking=False):
             self.txt_status.SetValue('Başka bir işlem sürüyor. Bitmesini bekleyin.')
             return

@@ -137,7 +137,7 @@ class AccessibilityControls(unittest.TestCase):
             self.assertFalse(panel.btn_resume.IsShown())
             self.assertFalse(panel.btn_load.IsShown())
             self.assertFalse(panel.btn_folder.IsShown())
-            self.assertIn('epoch modellerini',panel.btn_register.GetLabel())
+            self.assertIn('epoch modellerini',panel.btn_register.GetLabel().lower())
             self.assertIsInstance(panel.segment,wx.TextCtrl)
             self.assertIsInstance(panel.overlap,wx.TextCtrl)
             panel.sources = ['example.wav']
@@ -354,7 +354,7 @@ class AccessibilityControls(unittest.TestCase):
                 cover = ui_cover.CoverPanel(frame)
             separator = ui_separator.SeparatorPanel(frame)
             self.assertEqual(cover.f0_choice.GetStrings(), ['rmvpe', 'crepe'])
-            self.assertEqual(cover.index_rate_ctrl.GetName(), 'Ses benzerlik oranı, 0 ile 1 arası')
+            self.assertEqual(cover.index_rate_ctrl.GetName(), 'Index katkısı, 0 ile 1 arası')
             self.assertEqual(cover.txt_log.GetName(), 'İşlem günlüğü')
             self.assertEqual(separator.txt_status.GetName(), 'İşlem durumu ve yüzde')
             self.assertTrue(separator.chk_step1.GetValue())

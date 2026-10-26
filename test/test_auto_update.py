@@ -110,7 +110,7 @@ class AutomaticUpdateTests(unittest.TestCase):
         check.call_args.kwargs['on_complete']()
         complete.assert_called_once_with()
 
-    def test_startup_waits_for_update_outcome_then_queues_welcome(self):
+    def test_startup_waits_for_update_outcome_then_focuses_without_welcome_modal(self):
         import main
         parent = self.parent()
         parent.ShowStartupMessage = Mock()
@@ -126,9 +126,11 @@ class AutomaticUpdateTests(unittest.TestCase):
             fn, args = queued.pop()
             fn(*args)
         parent.ShowStartupMessage.assert_called_once_with()
+        parent.notebook = Mock()
         with patch.object(main, 'check_startup_updates') as check, patch.object(main.wx, 'MessageBox') as message:
             main.GhostkillerMainFrame.ShowStartupMessage(parent)
-        self.assertIn('Yasin Talha Gençsoy', message.call_args.args[0])
+        message.assert_not_called()
+        parent.notebook.SetFocus.assert_called_once()
         check.assert_not_called()
 
     def test_turning_off_during_network_check_prevents_apply(self):

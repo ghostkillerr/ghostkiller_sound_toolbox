@@ -126,7 +126,7 @@ class InstrumentTests(unittest.TestCase):
             self.assertFalse(panel.chk_step1.IsShown())
             self.assertFalse(panel.chk_restore.IsShown())
             self.assertTrue(panel.instrument_panel.IsShown())
-            self.assertEqual(sum(c.IsShown() for c in panel.instrument_stems.values()),6)
+            self.assertEqual(sum(c.IsShown() for c in panel.instrument_stems.values()),4)
             self.assertIn('Enstrüman',panel.btn_start.GetName())
             panel.instrument_profile.SetFocus()
             panel.instrument_profile.Navigate(wx.NavigationKeyEvent.IsForward);app.Yield()
@@ -152,7 +152,8 @@ class InstrumentTests(unittest.TestCase):
         try:
             panel = SeparatorPanel(frame,SimpleNamespace(theme='light'))
             frame.Show()
-            panel.mode_choice.SetSelection(1);panel.OnMode(None);app.Yield()
+            panel.mode_choice.SetSelection(1);panel.OnMode(None)
+            panel.instrument_profile.SetSelection(1);panel.OnInstrumentProfile(None);app.Yield()
             panel.instrument_help.SetFocus()
             panel.instrument_help.Navigate(wx.NavigationKeyEvent.IsForward);app.Yield()
             self.assertIs(wx.Window.FindFocus(),panel.instrument_stems['bass'])

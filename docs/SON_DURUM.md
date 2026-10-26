@@ -1,14 +1,53 @@
-# Güncel durum — 23 Ekim 2026
+# Güncel durum — 26 Ekim 2026
 
 | Konu | Doğrulanmış durum |
 | --- | --- |
 | Yayın | **2.1.0 — 23 Ekim yenilemesi**; CPU/CUDA kurulumları ve hashli manifest yayımlandı |
 | Kurulumlar | CPU **373.887.686 bayt**, NVIDIA CUDA **2.136.900.907 bayt** |
-| Kaynak | CPU/CUDA ortamlarında ayrı ayrı **458 test**; [CPU/CUDA/XPU kaynak CI](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39720313588) başarılı |
+| Güncel kaynak | 25 Ekim kullanılabilirlik düzeltmeleri; yerel CPU/CUDA ortamlarında ayrı ayrı **472 test** başarılı. Yeni kaynak için setup veya CI yayını yapılmadı |
+| Son paketlenen kaynak | 23 Ekim: ayrı ayrı **458 test**; [CPU/CUDA/XPU kaynak CI](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39720313588) başarılı |
 | Paket testleri | İki gerçek EXE geçti; fiziksel NVIDIA Torch forward/backward ve ONNX CUDA oturumu başarılı |
 | Temiz Windows | [CPU kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39856163928) ve [CUDA kabulü](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/39891844457): ilk kurulum, aynı paketle yeniden kurulum, açılış ve kaldırma; örnek kullanıcı dosyaları korundu |
 | Sürüm davranışı | Sürüm 2.1.0 korundu; mevcut 2.1.0 kullanıcıları aynı backend paketini **elle yeniden kurmalı** |
 | İmza | Kurulumlar dijital yayıncı sertifikasıyla imzalı değil; SHA-256 ve derleme receipt'leri yayımlandı |
+
+## 25 Ekim kullanılabilirlik düzeltmeleri — yalnız kaynak
+
+[İncelemedeki 15 bulgu](KULLANILABILIRLIK_INCELEMESI_2026-10-25.md) için kod ve
+kullanım belgeleri güncellendi. [Yeni arayüz rehberi](ARAYUZ_KULLANIMI.md)
+beş ekranın temel akışını ve klavye erişimini anlatır.
+
+- Seçili eğitim modelini tek başına kaydetme, toplu kayıtta tercih edilen adayı
+  koruma ve kalıcı kopyası bulunmayan tercihte temizliği engelleme eklendi.
+  Oturum kalıcı kayıttan sonra tutulur; teknik dosya temizliği ayrı işlemdir.
+- Başlat/durdur/durum alanı sabitlendi. Koyu tema seçenekleri düzeltildi;
+  canlı sesin teknik ayarları ve günlükler açılır bölüme alındı. Ctrl+Tab alt
+  alanda da çalışır; F6 işlem alanına, F1 çevrimdışı yardıma gider.
+- Vokal/temizlik zinciri, standart ve deneysel enstrüman yöntemleri açıklandı.
+  Sonuç listesi, dinleme/klasör açma ve vokali AI Cover’a aktarma eklendi.
+- Tek model ekleme formu, arama, seçili sayısı, bağımsız liste yönetimi ve eksik
+  form yönlendirmesi eklendi. Ses tonu ve index katkısının anlamı düzeltildi.
+- Model hazırlığında indirme öncesi boyut/onay ve göreve dönüş eklendi.
+  Onay penceresi, tahmin işinin kilidi bırakıldıktan sonra gösterilir.
+- Açılış bilgi penceresi kaldırıldı; geliştirici ve kopyalanabilir paket kimliği
+  Hakkında alanına taşındı. Yeni build metadata’sı UTC derleme tarihini içerir.
+
+**Kanıt:** CPU/CUDA tam testleri ayrı ayrı **472**; 14 yeni akış regresyonu.
+İki ortamda `pip check` ve release preflight başarılı. Native yerleşim testi
+800×850, 680×600 ve 1000×700 pencerelerde beş sekmenin alt durum alanını denetler.
+Son doğrulama: **26 Ekim 2026**. Yerel kayıtlar:
+`build/usability_20261025/` (test/preflight logları ve `verification.json`).
+Kişisel `settings.json` ve `models.json` SHA-256 değerleri başlangıçla aynı;
+kişisel ses/model/eğitim verileri değiştirilmedi.
+
+**Açık kabul sınırı:** İlk görsel kontrol sonrası bilgisayar kontrolü kullanıcı
+Escape tuşuyla durdurduğundan son değişikliklerin etkileşimli görsel tekrarı
+bitmedi. Gerçek NVDA/JAWS, Windows %125/%150 ölçekleri ve ses kalitesi kabulü
+ayrıca yapılmalıdır. Otomatik yerleşim testi bunların yerine geçmez.
+
+**Dağıtım:** 2.1.0 sürümü ve 23 Ekim kurulumları korundu; bu görevde setup
+üretilmedi, commit/push/Release yapılmadı. Aşağıdaki paket/frozen/Windows
+kanıtları 23 Ekim yayınına aittir; 25 Ekim kaynak düzenlemesini kapsamaz.
 
 ## 23 Ekim yenilemesi ve kaynak kimliği
 

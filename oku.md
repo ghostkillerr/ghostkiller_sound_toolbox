@@ -1,6 +1,6 @@
 # Ghostkiller Sound Toolbox — ajan ve geliştirici rehberi
 
-Son doğrulama: **23 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
+Son kaynak düzenlemesi: **26 Ekim 2026**; son yayımlanan paket: **23 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
 görev geçmişi değildir. Kullanıcının güncel talimatı burada yazanlardan önceliklidir.
 
 ## 1. Proje ve güncel durum
@@ -13,7 +13,7 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 | --- | --- |
 | Uygulama sürümü | `version.json`: **2.1.0**, `published`, CPU ve CUDA hash/boyut/URL kayıtları |
 | Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları 23 Ekim 2026 tarihinde yenilendi; mevcut 2.1.0 için elle kurulum gerekir |
-| Kaynak doğrulaması | 23 Ekim yenilemesinde CPU/CUDA ortamlarında ayrı ayrı **458 test**, iki gerçek EXE, fiziksel NVIDIA Torch/ONNX, CPU/CUDA/XPU kaynak CI ve iki setup'ın temiz Windows kabulü geçti. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
+| Kaynak doğrulaması | 25 Ekim kullanılabilirlik kaynağı: CPU/CUDA ayrı ayrı **472 test**, pip check ve preflight. 23 Ekim paket kanıtı ayrıdır; yeni setup üretilmedi. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
 | Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması ve 10 saniyelik otomatik mikrofon ölçümünün çalışması doğrulandı. Son eşik/pencere değişikliği, genel ses kalitesi ve NVDA/JAWS kabulü sürüyor |
@@ -33,8 +33,9 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
   ara model karşılaştırma, oturumlar, deney sırası ve eğitilen modeli kaydetme.
   Kayıt aralığı ile tutulacak son epoch modeli sayısı kullanıcıdan alınır. Kalıcı
   epoch modelleri adlarına ait temiz klasörde tek ortak index ile saklanır.
-  Başarılı kalıcı kayıttan sonra kullanıcı onayıyla teknik eğitim oturumu
-  temizlenebilir; özgün kayıtlar ve kalıcı modeller bu işlemin dışındadır.
+  Seçili aday tek başına; epoch modelleri, seçili aday ve notla tercih edilen
+  model birlikte kalıcı kaydedilebilir. Oturum varsayılan olarak saklanır;
+  Eğitim oturumlarım içinden ayrı onayla teknik dosyalar temizlenebilir; özgün kayıtlar ve kalıcı modeller bu işlemin dışındadır.
 - **Canlı AI Cover (4. sekme):** mikrofonu kayıtlı RVC modeliyle dönüştürüp
   seçilen kulaklık/çıkış aygıtından dinleme. 23 Ekim kurulumlarında deneysel olarak bulunur;
   gerçek mikrofon, donanım gecikmesi ve ses kalitesi kabulü sürer.
@@ -85,10 +86,10 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
 - Model indirmelerinde boyut ve disk alanı kontrol edilir. Sunucu destekliyorsa
   Range ve ETag/Last-Modified ile yarım indirme sürer; değişmiş veya bozuk parça
   kullanılmaz. Kısmi dosyalar `models/.downloads` içindedir.
-- Açılışta otomatik güncelleme **denetimi** varsayılan açıktır. Geliştirici bilgi
-  penceresinden önce kontrol edilir; yalnız yeni doğrulanmış sürüm varsa indirme
-  onayı çıkar. **Evet** indirme/kurulumu başlatır; Hayır, hata veya iptal normal
-  açılışa döner. İndirme/kurulum devrinde geliştirici penceresi açılmaz.
+- Açılışta otomatik güncelleme **denetimi** varsayılan açıktır. Yalnız yeni doğrulanmış sürüm varsa indirme
+  onayı çıkar. Geliştirici/paket bilgisi Yardım → Hakkında alanındadır; açılışta
+  tekrar eden karşılama penceresi yoktur. **Evet** indirme/kurulumu başlatır; Hayır, hata veya iptal normal
+  açılışa döner.
 - Kapalı otomatik denetim açılışta ağ isteği yapmaz. Ayarlar/F5 elle denetler ve
   onay ister. Kaynak çalışması kendisini installer ile değiştirmez.
 
@@ -104,6 +105,7 @@ Durum değişirse önce kod/paket kanıtını kontrol et, ardından bu tabloyu g
 | `ui_training.py`, `ui_training_tools.py` | Eğitim, oturum, karşılaştırma ve deney sırası arayüzü |
 | `ui_settings.py`, `ui_operation.py` | Tercihler, model hazırlama, koşullu düğme, sonuç klasörü ve hata yönlendirmesi |
 | `ui_common.py`, `ui_model_terms.py` | Native tema, erişilebilir kontrol/açıklamalar ve model koşulları |
+| `ui_models.py`, `ui_help.py` | Tek RVC ekleme formu, çevrimdışı görev yardımı ve paket kimliği |
 | `app_runtime.py`, `app_settings.py`, `registry_store.py` | Dizinler, `JOB_LOCK`, UI dispatch, atomik ayarlar/kayıt kilitleri |
 | `source_runtime.py` | Doğrudan kaynak açılışını kayıtlı GPU tercihine uygun hazır yerel ortama yönlendirme |
 | `audio_export.py` | Akışla kodlama, kanal dönüşümü, doğrulama ve çakışmasız çıktı yayını |
@@ -214,6 +216,12 @@ Göndermeden önce stage edilmiş ağaçta `python tools/check_public_tree.py` v
 
 ## 6. Git, setup ve güncelleme yayını
 
+26 Ekim yenilemesinde kullanıcının açık talimatı: **sürümü değiştirme**.
+Uygulama 2.1.0 kalır; paket tarihi, kaynak etiketi ve hash ile ayrılır.
+Aynı sürüm için otomatik güncelleme teklifi yoktur; elle kurulum açıklanır.
+Yeni CPU/CUDA paketleri önce ayrı tarihli aday yayında sınanır; mevcut
+kurulumlar kabulden sonra yedeklenerek yenileriyle değiştirilir.
+
 - Kullanıcı doğrudan **master** üzerinde çalışmayı tercih eder. GitHub'a
   gönderme/yayımlama yetkisini güncel kullanıcı isteğinden al; eski görev
   anlatımını devam eden izin sayma. Force push veya geçmişi yeniden yazma.
@@ -243,7 +251,8 @@ Göndermeden önce stage edilmiş ağaçta `python tools/check_public_tree.py` v
 
 ## 7. Sıradaki iş ve belge seçimi
 
-**2.1.0 CPU/CUDA yayını tamamlandı.** Kaynak, frozen ve Windows kurulum
+**23 Ekim 2.1.0 CPU/CUDA yayını tamamlandı.** 25 Ekim kullanılabilirlik
+düzeltmeleri yalnız güncel kaynaktadır; bunlar için yeni setup/yayın üretilmedi. Kaynak, frozen ve Windows kurulum
 kanıtları Son durum belgesindedir. Gerçek sesle uzun işlem/eğitim, NVDA/JAWS
 ve etkileşimli UAC/güncelleme kullanıcı kabulü sürer. Kullanıcıdan kod/hash/
 derleme komutu beklenmez; ses ve kullanım geri bildirimi alınır.

@@ -331,7 +331,7 @@ def register_model(job, candidate, registry_path, name=None):
     return name
 
 
-def register_models(job, registry_path, name=None):
+def register_models(job, registry_path, name=None, *, candidates=(), include_epochs=True):
     """Install every retained epoch snapshot in one clean, user-facing folder."""
     from model_manager import file_digest
     from registry_store import update_registry
@@ -358,7 +358,27 @@ def register_models(job, registry_path, name=None):
                        if r.get("file") == "latest.pth" and r.get("smoke_passed")),None)
         if record:
             by_epoch[int(result.get("epochs") or manifest["options"]["epochs"])] = record
-    records = sorted(by_epoch.items())
+    records = [(f'Epoch_{epoch:03d}', f'Epoch {epoch}', record)
+               for epoch, record in sorted(by_epoch.items())] if include_epochs else []
+    from training.experiments import read_notes
+    preferred = read_notes(job).get('preferred_model')
+    requested = list(dict.fromkeys([*candidates, *([preferred] if preferred and include_epochs else [])]))
+    labels = {'best_validation.pth': ('Tercih_Modeli', 'Kontrol hatası en düşük model'),
+              'latest.pth': ('Son_Model', 'Son eğitim modeli')}
+    for candidate in requested:
+        record = next((r for r in result.get('models', ()) if r.get('file') == candidate and r.get('smoke_passed')), None)
+        if record is None:
+            raise ValueError('Seçili veya tercih edilen model bulunamadı; oturum korunuyor.')
+        if any(r['sha256'] == record['sha256'] for _, _, r in records):
+            continue
+        if candidate in labels:
+            suffix, label = labels[candidate]
+        else:
+            epoch = record.get('epoch')
+            if type(epoch) is not int or epoch <= 0:
+                raise ValueError('Seçili ara modelin epoch bilgisi geçersiz; oturum korunuyor.')
+            suffix, label = f'Epoch_{epoch:03d}', f'Epoch {epoch}'
+        records.append((suffix, label, record))
     if not records:
         raise ValueError("Kaydedilecek, uyumluluk testinden geçmiş epoch modeli bulunamadı.")
 
@@ -366,7 +386,7 @@ def register_models(job, registry_path, name=None):
     index_digest = result["index_sha256"]
     if file_digest(index_source) != index_digest:
         raise ValueError("Test edilen index sonradan değişmiş; kayıt yapılmadı.")
-    for _epoch, record in records:
+    for _suffix, _label, record in records:
         if file_digest(record["pth"]) != record["sha256"]:
             raise ValueError("Test edilen epoch modellerinden biri sonradan değişmiş; kayıt yapılmadı.")
 
@@ -390,12 +410,12 @@ def register_models(job, registry_path, name=None):
         shutil.copyfile(index_source,index_target)
         if file_digest(index_target) != index_digest:
             raise ValueError("Kalıcı modele kopyalanan index kontrolü başarısız; liste değiştirilmedi.")
-        for epoch, record in records:
-            target = destination/f"{installed_base}_Epoch_{epoch:03d}.pth"
+        for suffix, label, record in records:
+            target = destination/f"{installed_base}_{suffix}.pth"
             shutil.copyfile(record["pth"],target)
             if file_digest(target) != record["sha256"]:
                 raise ValueError("Kalıcı modele kopyalanan epoch dosyası kontrolü başarısız; liste değiştirilmedi.")
-            installed.append((f"{installed_base} - Epoch {epoch}",target))
+            installed.append((f"{installed_base} - {label}",target))
 
         def add_models(models):
             duplicate = next((label for label,_target in installed if label in models),None)

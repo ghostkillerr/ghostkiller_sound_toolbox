@@ -17,7 +17,7 @@ ve model yönetim sistemini modüler bir wx.Panel (CoverPanel) olarak sağlar.
 """
 
 import wx
-from ui_common import apply_native_style, add_intro, checkbox_control, ToggleAccessible
+from ui_common import apply_native_style, add_intro, checkbox_control, ToggleAccessible, fold_controls, request_field
 from audio_export import (export_audio, selected_output_format, normalize_output_format,
                           selected_output_channels, normalize_output_channels)
 from ui_operation import OperationPreparation, show_result, operation_error
@@ -149,7 +149,17 @@ class ModelToggleList(wx.ScrolledWindow):
         self.SetScrollRate(5, 20)
         self.buttons = []
         self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.SetSizer(self.sizer)
+        outer = wx.BoxSizer(wx.VERTICAL)
+        self.search = wx.SearchCtrl(self, style=wx.TE_PROCESS_ENTER)
+        self.search.SetDescriptiveText('Model ara')
+        self.search.SetName('Model listesinde ara')
+        self.search.Bind(wx.EVT_TEXT, self.FilterModels)
+        outer.Add(self.search, 0, wx.EXPAND | wx.ALL, 4)
+        self.selection_summary = wx.StaticText(self, label='')
+        outer.Add(self.selection_summary, 0, wx.ALL, 4)
+        outer.Add(self.sizer, 1, wx.EXPAND)
+        self.SetSizer(outer)
+        self.on_change = None
         self.bg_btn = wx.Colour(60, 60, 60)
         self.bg_btn_active = wx.Colour(0, 120, 215)
         self.fg_light = wx.Colour(240, 240, 240)
@@ -163,6 +173,7 @@ class ModelToggleList(wx.ScrolledWindow):
                 button.display_name = labels.get(button.model_name, button.model_name)
                 button.SetValue(button.model_name in checked)
                 self.UpdateModelButton(button)
+            self.FilterModels()
             return
         self.sizer.Clear(True)
         self.buttons = []
@@ -172,7 +183,7 @@ class ModelToggleList(wx.ScrolledWindow):
         if not model_names:
             lbl_empty = wx.StaticText(
                 self,
-                label="Henüz ses modeli eklenmedi. Ses modeli ekle düğmesini kullanın."
+                label="Hazır RVC .pth dosyanızı Ses modeli ekle ile ekleyin. Modeliniz yoksa Model Eğitimi sekmesini kullanın."
             )
             lbl_empty.SetFont(font_normal)
             lbl_empty.SetForegroundColour(wx.Colour(180, 180, 180))
@@ -198,11 +209,26 @@ class ModelToggleList(wx.ScrolledWindow):
         self.Layout()
         self.FitInside()
         self.Refresh()
+        self.FilterModels()
 
     def OnToggleModel(self, event):
         """Bir model düğmesine tıklandığında [AÇIK]/[KAPALI] etiketini ve rengini günceller."""
         btn = event.GetEventObject()
         self.UpdateModelButton(btn)
+        self.FilterModels()
+        if self.on_change:
+            self.on_change()
+
+    def FilterModels(self, event=None):
+        query = self.search.GetValue().casefold().strip()
+        shown = 0
+        for button in self.buttons:
+            visible = not query or query in button.display_name.casefold()
+            button.Show(visible)
+            shown += int(visible)
+        self.selection_summary.SetLabel(f"{len(self.GetCheckedModels())} model işaretli · {shown}/{len(self.buttons)} model gösteriliyor")
+        self.Layout()
+        self.FitInside()
 
     def UpdateModelButton(self, btn):
         if btn.GetValue():
@@ -219,12 +245,12 @@ class ModelToggleList(wx.ScrolledWindow):
     def OnKeyDown(self, event, idx):
         """Klavye Yukarı/Aşağı ok tuşları ile model listesi arasında NVDA erişilebilir dolaşımı sağlar."""
         keycode = event.GetKeyCode()
-        if keycode == wx.WXK_DOWN:
-            if idx + 1 < len(self.buttons):
-                self.FocusModel(idx + 1)
-        elif keycode == wx.WXK_UP:
-            if idx - 1 >= 0:
-                self.FocusModel(idx - 1)
+        if keycode in (wx.WXK_DOWN, wx.WXK_UP):
+            direction = 1 if keycode == wx.WXK_DOWN else -1
+            for target in range(idx + direction, len(self.buttons) if direction > 0 else -1, direction):
+                if self.buttons[target].IsShown():
+                    self.FocusModel(target)
+                    break
         else:
             event.Skip()
 
@@ -302,7 +328,7 @@ class CoverPanel(wx.ScrolledWindow):
         self.btn_add_model.SetForegroundColour(self.fg_light)
         self.btn_add_model.Bind(wx.EVT_BUTTON, self.OnAddModel)
 
-        self.btn_del_model = wx.Button(self, label="Seçili modeli listeden kaldır", size=(-1, 40))
+        self.btn_del_model = wx.Button(self, label="Model listesini yönet", size=(-1, 40))
         self.btn_del_model.SetFont(font_normal)
         self.btn_del_model.SetBackgroundColour(wx.Colour(150, 60, 60))
         self.btn_del_model.SetForegroundColour(self.fg_light)
@@ -322,7 +348,8 @@ class CoverPanel(wx.ScrolledWindow):
         # A11y (Erişilebilirlik): Sound Cleaner (ui_separator.py) sekmesiyle birebir aynı
         # [AÇIK] / [KAPALI] ve basılı/basılı değil okuma mantığına sahip ModelToggleList.
         self.model_list = ModelToggleList(self)
-        self.model_list.SetMinSize((-1, 100))
+        self.model_list.SetMinSize((-1, 220))
+        self.model_list.on_change = self.RefreshGuidance
         self.UpdateModelCheckList()
         sizer_models.Add(self.model_list, 1, wx.EXPAND | wx.ALL, 5)
 
@@ -336,7 +363,7 @@ class CoverPanel(wx.ScrolledWindow):
 
         # Girdi ses dosyası
         input_box = wx.BoxSizer(wx.HORIZONTAL)
-        self.btn_select_input = wx.Button(self, label="Ses dosyası seç", size=(-1, 40))
+        self.btn_select_input = wx.Button(self, label="Vokal dosyası seç", size=(-1, 40))
         self.btn_select_input.SetFont(font_normal)
         self.btn_select_input.SetBackgroundColour(self.bg_btn)
         self.btn_select_input.SetForegroundColour(self.fg_light)
@@ -380,7 +407,7 @@ class CoverPanel(wx.ScrolledWindow):
         grid.AddGrowableCol(1, 1)
 
         # Pitch
-        lbl_pitch = wx.StaticText(self, label="Sesin inceliği / kalınlığı:")
+        lbl_pitch = wx.StaticText(self, label="Ses tonu (yarım ses):")
         lbl_pitch.SetFont(font_normal)
         grid.Add(lbl_pitch, 0, wx.ALIGN_CENTER_VERTICAL)
         self.pitch_ctrl = wx.SpinCtrl(self, value="0", min=-24, max=24)
@@ -404,7 +431,7 @@ class CoverPanel(wx.ScrolledWindow):
         advanced_grid.Add(self.f0_choice, 1, wx.EXPAND)
 
         # Index Rate
-        lbl_index = wx.StaticText(self.advanced_options, label="Model sesine benzerlik (0–1):")
+        lbl_index = wx.StaticText(self.advanced_options, label="Index katkısı (0–1):")
         lbl_index.SetFont(font_normal)
         advanced_grid.Add(lbl_index, 0, wx.ALIGN_CENTER_VERTICAL)
         self.index_rate_ctrl = wx.TextCtrl(self.advanced_options, value="0.75")
@@ -412,8 +439,9 @@ class CoverPanel(wx.ScrolledWindow):
         advanced_grid.Add(self.index_rate_ctrl, 1, wx.EXPAND)
 
         sizer_settings.Add(grid, 0, wx.EXPAND | wx.ALL, 5)
+        sizer_settings.Add(wx.StaticText(self, label="0 değişmez; + inceltir, − kalınlaştırır."), 0, wx.ALL, 5)
         sizer_settings.Add(self.advanced_toggle, 0, wx.ALL, 5)
-        advanced_layout.Add(wx.StaticText(self.advanced_options, label="Emin değilseniz varsayılan değerleri kullanın."), 0, wx.ALL, 5)
+        advanced_layout.Add(wx.StaticText(self.advanced_options, label="Index, eğitim kayıtlarından destek sağlar; bu bir benzerlik puanı değildir. Yüksek değer her zaman daha iyi değildir."), 0, wx.ALL, 5)
         advanced_layout.Add(advanced_grid, 0, wx.EXPAND | wx.ALL, 5)
         self.quality_controls = {}
         for key, label in (('input_highpass_80hz', '80 Hz altındaki giriş sesini filtrele'),
@@ -478,18 +506,27 @@ class CoverPanel(wx.ScrolledWindow):
         self.txt_log.MoveAfterInTabOrder(self.txt_status)
 
         self.SetSizer(vbox)
-        add_intro(self, vbox, "Ses değiştirme", "Bir ses modeli ve kayıt seçin. Program, kaydı seçtiğiniz modelin sesiyle dönüştürür.")
+        add_intro(self, vbox, "Ses değiştirme", "Dönüştürülecek vokali seçin. Müzikli şarkıda önce ilk sekmeden vokali ayırın. Sonuç ayrı bir vokaldir; müzikle otomatik birleştirilmez.")
         apply_native_style(self)
         self.FitInside()
         self.pitch_ctrl.SetName("Ses tonu, yarım ses")
         self.f0_choice.SetName("Ses algılama yöntemi")
-        self.index_rate_ctrl.SetName("Ses benzerlik oranı, 0 ile 1 arası")
+        self.index_rate_ctrl.SetName("Index katkısı, 0 ile 1 arası")
         self.txt_selected_input.SetName("Seçilen ses dosyası")
         self.txt_selected_output.SetName("Çıktı klasörü")
         self.txt_log.SetName("İşlem günlüğü")
         self.txt_status.SetName("İşlem durumu ve yüzde")
         self.gauge.SetName("İşlem ilerlemesi")
-        self.LogMessage("Hazır. Başlamak için bir ses dosyası seçin.")
+        from ui_help import add_help
+        from ui_operation import ResultList
+        add_help(self, vbox, 'Ses değiştirme')
+        self.results = ResultList(self, self.settings)
+        vbox.Add(self.results, 0, wx.EXPAND | wx.ALL, 8)
+        self.log_toggle = fold_controls(self, vbox, [self.txt_log])
+        self.btn_start._ui_primary = True
+        self.RefreshGuidance()
+        apply_native_style(self)
+        self.FitInside()
 
     def OnAdvanced(self, event):
         enabled = self.advanced_toggle.GetValue()
@@ -501,87 +538,68 @@ class CoverPanel(wx.ScrolledWindow):
     def UpdateModelCheckList(self):
         """Kayıtlı modelleri listeye yansıtır."""
         self.model_list.SetModels(list(self.models.keys()))
+        self.RefreshGuidance()
 
     def RequiredModels(self):
         return ['contentvec'] + (['rmvpe'] if self.f0_choice.GetStringSelection() == 'rmvpe' else [])
 
     def OnAddModel(self, event):
-        """Yeni model ekleme penceresi ve veritabanı kaydı."""
         if JOB_LOCK.locked():
-            wx.MessageBox("İşlem bitmeden model kayıtları değiştirilemez.", "İşlem sürüyor", wx.OK | wx.ICON_INFORMATION)
             return
-        name_dlg = wx.TextEntryDialog(
-            self,
-            "Model için kolay anlaşılır bir isim girin (Örn: Ahmet Sesi, Ayşe Sesi vb.):",
-            "Yeni Ses Modeli Ekle"
-        )
-        if name_dlg.ShowModal() == wx.ID_OK:
-            model_name = name_dlg.GetValue().strip()
-            if not model_name:
-                wx.MessageBox("Model adı boş olamaz.", "Uyarı", wx.OK | wx.ICON_WARNING)
-                name_dlg.Destroy()
+        from ui_models import AddModelDialog
+        with AddModelDialog(self, self.models) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
                 return
-
-            if model_name in self.models:
-                wx.MessageBox("Bu isimde bir model zaten var. Farklı bir isim girin.", "Model Adı", wx.OK | wx.ICON_WARNING)
-                name_dlg.Destroy()
-                return
-
-            pth_dlg = wx.FileDialog(
-                self,
-                "PTH Dosyasını Seçin",
-                wildcard="PTH dosyaları (*.pth)|*.pth|Tüm Dosyalar (*.*)|*.*",
-                style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
-            )
-            if pth_dlg.ShowModal() == wx.ID_OK:
-                pth_path = pth_dlg.GetPath()
-
-                index_dlg = wx.FileDialog(
-                    self,
-                    "Index Dosyasını Seçin (Opsiyonel, iptal edilebilir)",
-                    wildcard="Index dosyaları (*.index)|*.index|Tüm Dosyalar (*.*)|*.*",
-                    style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST
-                )
-                index_path = ""
-                if index_dlg.ShowModal() == wx.ID_OK:
-                    index_path = index_dlg.GetPath()
-                index_dlg.Destroy()
-
-                updated = dict(self.models)
-                updated[model_name] = {"pth": pth_path, "index": index_path}
-                if not save_models(self.app_dir, updated, previous=self.models):
-                    pth_dlg.Destroy()
-                    name_dlg.Destroy()
-                    return
-                self.models = load_models(self.app_dir)
-                self.UpdateModelCheckList()
-                self.LogMessage(f"Yeni model eklendi: {model_name}")
-                wx.MessageBox(f"'{model_name}' başarıyla eklendi.", "Bilgi", wx.OK | wx.ICON_INFORMATION)
-            pth_dlg.Destroy()
-        name_dlg.Destroy()
+            model_name, record = dialog.Value()
+        updated = dict(self.models)
+        updated[model_name] = record
+        if not save_models(self.app_dir, updated, previous=self.models):
+            return
+        self.models = load_models(self.app_dir)
+        self.UpdateModelCheckList()
+        self.txt_status.SetValue(model_name + ' eklendi. Dönüşüm için listeden işaretleyin.')
+        refresh = getattr(self.settings, 'refresh_cover', None)
+        if refresh:
+            refresh()
+        return model_name
 
     def OnDelModel(self, event):
-        """Seçili/İşaretli modelleri listeden ve models.json dosyasından siler."""
-        if JOB_LOCK.locked():
-            wx.MessageBox("İşlem bitmeden model kayıtları değiştirilemez.", "İşlem sürüyor", wx.OK | wx.ICON_INFORMATION)
+        if JOB_LOCK.locked() or not self.models:
             return
-        selected_names = self.model_list.GetCheckedModels()
-        if not selected_names:
-            wx.MessageBox("Lütfen silmek istediğiniz model(ler)i listeden basarak [AÇIK] duruma getirin.", "Uyarı", wx.OK | wx.ICON_WARNING)
-            return
-
-        confirm = wx.MessageBox(
-            f"{len(selected_names)} model kaydını silmek istediğinize emin misiniz?\n\n" + ", ".join(selected_names),
-            "Silme Onayı",
-            wx.YES_NO | wx.ICON_QUESTION
-        )
-        if confirm == wx.YES:
-            updated = {name: data for name, data in self.models.items() if name not in selected_names}
-            if not save_models(self.app_dir, updated, previous=self.models):
+        names = list(self.models)
+        with wx.SingleChoiceDialog(self, 'Yalnız liste kaydı kaldırılır; .pth ve .index dosyaları silinmez.',
+                                   'Model listesini yönet', names) as dialog:
+            if dialog.ShowModal() != wx.ID_OK:
                 return
+            name = names[dialog.GetSelection()]
+        if wx.MessageBox(f"'{name}' liste kaydı kaldırılsın mı? Dosyalarınız silinmez.",
+                         'Liste kaydını kaldır', wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION, parent=self) != wx.YES:
+            return
+        updated = {key: value for key, value in self.models.items() if key != name}
+        if save_models(self.app_dir, updated, previous=self.models):
             self.models = load_models(self.app_dir)
             self.UpdateModelCheckList()
-            self.LogMessage(f"Silinen modeller: {', '.join(selected_names)}")
+            refresh = getattr(self.settings, 'refresh_cover', None)
+            if refresh:
+                refresh()
+
+    def SetInput(self, path):
+        self.input_audio_path = str(path)
+        self.txt_selected_input.SetValue(str(path))
+        if not self.output_folder_path:
+            self.output_folder_path = os.path.dirname(str(path))
+            self.txt_selected_output.SetValue(self.output_folder_path)
+        self.RefreshGuidance()
+
+    def RefreshGuidance(self):
+        if not hasattr(self, 'txt_status') or getattr(self, 'working', False):
+            return
+        selected = self.model_list.GetCheckedModels()
+        missing = []
+        if not selected: missing.append('Bir ses modeli işaretleyin')
+        if not self.input_audio_path: missing.append('Dönüştürülecek vokali seçin')
+        if not self.output_folder_path: missing.append('Çıktı klasörünü seçin')
+        self.txt_status.SetValue(' · '.join(missing) if missing else f'{len(selected)} model sırayla dönüştürülecek. Başlatabilirsiniz.')
 
     def OnSelectInput(self, event):
         """Desteklenen biçimlerdeki kılavuz vokal dosyasını seçtirir."""
@@ -601,6 +619,7 @@ class CoverPanel(wx.ScrolledWindow):
                 self.txt_selected_output.SetValue(self.output_folder_path)
             self.LogMessage(f"Kılavuz vokal seçildi: {os.path.basename(self.input_audio_path)}")
         dlg.Destroy()
+        self.RefreshGuidance()
 
     def OnSelectOutput(self, event):
         """Çıktı klasörünü seçtirir."""
@@ -610,6 +629,7 @@ class CoverPanel(wx.ScrolledWindow):
             self.txt_selected_output.SetValue(self.output_folder_path)
             self.LogMessage(f"Çıktı klasörü ayarlandı: {self.output_folder_path}")
         dlg.Destroy()
+        self.RefreshGuidance()
 
     def LogMessage(self, message):
         """Log ekranına zaman damgalı/satır sonlu metin ekler ve en alta kaydırır."""
@@ -628,6 +648,7 @@ class CoverPanel(wx.ScrolledWindow):
 
     def EnableUI(self, enable):
         """İşlem sürerken veya bittiğinde arayüz butonlarını ve kontrollerini kilitler/açar."""
+        self.working = not enable
         post_ui(self, self.btn_add_model.Enable, enable)
         post_ui(self, self.btn_del_model.Enable, enable)
         post_ui(self, self.btn_select_input.Enable, enable)
@@ -661,13 +682,13 @@ class CoverPanel(wx.ScrolledWindow):
         """Seçili modeller ve ayarlar için çıkarım kuyruğunu (threading) başlatır."""
         selected_model_names = self.model_list.GetCheckedModels()
         if not selected_model_names:
-            wx.MessageBox("Lütfen işlem yapılacak en az bir modeli listeden basarak [AÇIK] duruma getirin.", "Hata", wx.OK | wx.ICON_ERROR)
+            request_field(self, "Dönüştürmek için en az bir ses modelini işaretleyin.", self.model_list)
             return
         if not self.input_audio_path:
-            wx.MessageBox("Lütfen kılavuz vokal dosyasını seçin.", "Hata", wx.OK | wx.ICON_ERROR)
+            request_field(self, "Dönüştürülecek vokal dosyasını seçin.", self.btn_select_input)
             return
         if not self.output_folder_path:
-            wx.MessageBox("Lütfen çıktı klasörünü seçin.", "Hata", wx.OK | wx.ICON_ERROR)
+            request_field(self, "Çıktı klasörünü seçin.", self.btn_select_output)
             return
 
         try:
@@ -675,7 +696,7 @@ class CoverPanel(wx.ScrolledWindow):
         except ValueError:
             index_rate_val = float("nan")
         if not math.isfinite(index_rate_val) or not 0 <= index_rate_val <= 1:
-            wx.MessageBox("Ses benzerlik oranı 0 ile 1 arasında bir sayı olmalıdır.", "Hata", wx.OK | wx.ICON_ERROR)
+            wx.MessageBox("Index katkısı 0 ile 1 arasında bir sayı olmalıdır.", "Ayarı kontrol edin", wx.OK | wx.ICON_INFORMATION)
             self.index_rate_ctrl.SetFocus()
             return
 
@@ -713,6 +734,7 @@ class CoverPanel(wx.ScrolledWindow):
             wx.MessageBox("Başka bir ses işlemi çalışıyor. Bitmesini bekleyin.", "İşlem Sürüyor", wx.OK | wx.ICON_INFORMATION)
             return
         try:
+            self.results.Clear()
             self.txt_log.Clear()
             self.LogMessage(f"Seçilen {len(selected_model_names)} model için toplu çıkarım kuyruğu başlatılıyor...")
             self.LogMessage(f"Ayarlar: Pitch={settings['pitch']}, Cihaz={settings['device']}, F0={settings['f0_method']}, IndexRate={settings['index_rate']}")
@@ -842,6 +864,8 @@ class CoverPanel(wx.ScrolledWindow):
                 output_path = export_audio(temporary_path,output_path,output_format,cancelled=lambda:self.is_cancelled,
                                            output_channels=output_channels)
                 succeeded += 1
+                from ui_operation import record_result
+                post_ui(self, record_result, self, output_path, model_name + " — Dönüştürülmüş vokal")
                 self.LogMessage(f"[BAŞARILI] {os.path.basename(output_path)} başarıyla oluşturuldu.")
 
             except Exception as e:

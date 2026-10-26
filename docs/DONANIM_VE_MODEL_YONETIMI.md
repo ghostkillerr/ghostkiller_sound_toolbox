@@ -1,4 +1,8 @@
-# Donanım ve model yönetimi — 18 Ekim 2026
+# Donanım ve model yönetimi — 25 Ekim 2026
+
+25 Ekim kaynak arayüzünü anlatır. Yeni akışlar henüz 23 Ekim 2.1.0
+kurulumlarına eklenmedi; [paket ve kaynak durumu](SON_DURUM.md) ayrı izlenir.
+
 
 Yeni Ayarlar sekmesi, iki ses motorunun aynı işlemci/ekran kartı tercihini kullanmasını sağlar. Kullanıcı teknik backend seçmez; CPU ve GPU ağırlıkları aynıdır. Intel ve AMD işlemciler CPU yoluyla, uyumlu NVIDIA kartları CUDA yoluyla kullanılır. AMD GPU için uygun ROCm/PyTorch ortamı gereklidir; mevcut CUDA ortamında üretilen setup AMD GPU çalışma ortamını içermez.
 
@@ -20,7 +24,10 @@ kanalın ortalaması alınır; mono bir ses stereo kaydedilirse aynı ses iki ka
 
 İşlem ekranlarında yalnız gereken modeller hazır değilse **Bu işlem için eksik
 modelleri hazırla** düğmesi görünür. Bu düğme Ayarlar'ı açıp yalnız ilgili
-eksikleri seçer; mevcut sağlam dosyaları kullanır, eksik/bozuk olanları hazırlar.
+eksikleri seçer. Güncel kaynakta indirme öncesinde boyut özeti ve onay çıkar;
+boyutu bilinmeyen dosyalar ayrıca belirtilir. Sağlam dosyalar korunur.
+Hazırlık sonunda geldiğiniz işe dön düğmesiyle dosya/seçimlerinizi koruyarak
+devam edebilirsiniz. Ses işlemi kendiliğinden başlamaz.
 İsteğe bağlı modellerin kullanım koşulları yine onaylanır. Hazırlık tamamlanınca
 düğme gizlenir; dosya biçimi, kanal ve donanım özeti görünür kalır.
 
@@ -30,7 +37,8 @@ düğme gizlenir; dosya biçimi, kanal ve donanım özeti görünür kalır.
 4. Eksikleri indir, Dosyaları kontrol et veya Seçilenleri onar düğmesini kullanın.
 5. Modeller hazır olduğunda ses sekmesine dönün. Eksik/değişmiş model ses işini başlatmaz; Ayarlar açılır.
 
-Kişisel RVC ses modelleri AI Cover sekmesinden eklenir. Bunların otomatik yeniden indirme kaynağı bilinmez. Programın yönetilen modelleri kurulumun yanındaki `models/` dizinine iner; kişisel veriler Git'e ve setup'a eklenmez.
+Kişisel RVC ses modelleri AI Cover ve Canlı AI Cover ekranlarındaki tek
+**Ses modeli ekle** formundan eklenir. Index isteğe bağlıdır; yoksa alanı boş bırakın. Bunların otomatik yeniden indirme kaynağı bilinmez. Programın yönetilen modelleri kurulumun yanındaki `models/` dizinine iner; kişisel veriler Git'e ve setup'a eklenmez.
 
 ## Gerçek destek sınırı
 
@@ -83,4 +91,5 @@ AMD'nin Windows PyTorch desteği belirli cihaz/sürücü/çalışma ortamlarına
 - Bu gerçek denemede Librosa/Numba'nın kütüphane dizinine cache yazarken beklediği görüldü. Numba import edilmeden önce `NUMBA_CACHE_DIR` ayarlanıyor: kaynakta `__pycache__/numba`, EXE'de kullanıcı veri dizininin `cache/numba` klasörü. Düzeltmeden sonra aynı GPU ayrıştırması tamamlandı; EXE cache yolu ayrıca regresyon testiyle kontrol edildi.
 - NVDA/JAWS anonsları, AMD GPU, fiziksel Intel CPU, tüm GPU modellerinde gerçek şarkı ve yeni PyInstaller/Inno Setup dağıtımı ayrıca doğrulanmalıdır.
 
-Sürüm numarası ve yayımlanmış eski setup değiştirilmedi. Yeni modüller PyInstaller tanımına eklendi; yeni setup bu kaynaklardan yeniden üretilmelidir.
+Model yönetimi 23 Ekim CPU/CUDA paketlerinde bulunur. 25 Ekim kaynak arayüzü
+henüz paketlenmedi; güncel kaynak ve yayın kanıtları [Son durum](SON_DURUM.md) içindedir.

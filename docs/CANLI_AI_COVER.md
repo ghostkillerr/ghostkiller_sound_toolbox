@@ -6,7 +6,8 @@ beşinci sekme **Ayarlar** olarak düzenlenmiştir.
 
 ## Kullanım
 
-1. AI Cover sekmesine kendi RVC `.pth` modelini ve varsa `.index` dosyasını ekle.
+1. **Ses modeli ekle** ile kendi RVC `.pth` modelini ve varsa `.index` dosyasını
+   ekle. 25 Ekim kaynağında aynı form Canlı AI Cover ekranından da açılır.
 2. Canlı AI Cover sekmesinde modeli, mikrofonu ve kulaklık aygıtını seç.
    Aygıtları değiştirirsen **Ses aygıtlarını yenile** düğmesini kullan.
    Dinlemeye başlamadan **Otomatik ayarla (10 saniye sessizlik)** düğmesine
@@ -32,7 +33,12 @@ Sanal mikrofon kurulmaz; amaç kendi dönüştürülmüş sesini seçilen çık�
 
 ## Ayarlar ve sınırlar
 
-- Perde: -24..24 yarım ses; benzerlik: 0..1; RMVPE veya CREPE.
+- Ses tonu: -24..24 yarım ses. 0 değişmez; pozitif inceltir, negatif kalınlaştırır.
+- Index katkısı: 0..1; benzerlik ya da kalite puanı değildir. Yüksek her zaman daha iyi değildir.
+- Güncel kaynakta index, RMVPE/CREPE yöntemi, parça süresi ve elle ses eşiği
+  **Gelişmiş canlı ses ayarları** içindedir. Otomatik ölçüm temel ekranda kalır.
+  Başlat/durdur ve durum özeti pencerenin altında sabittir; ses yolu ve günlük
+  ayrı bir açılır bölümde gösterilir. Bu arayüz değişiklikleri henüz paketlenmedi.
 - Parça süresi: 250, 500 veya 1000 ms; varsayılan 500 ms. Bu değer duyulan
   toplam gecikme değildir. Ses aygıtı, bağlam, dönüşüm süresi ve kuyruklar eklenir.
 - CPU desteklenir; sürekli dönüşüme yetişeceği garanti edilmez. İşlem süresi

@@ -42,8 +42,10 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$') { throw 'Invalid release tag' }
-          $version = $env:RELEASE_TAG.Substring(1)
+          # A dated candidate tests a same-version refresh without replacing
+          # the public installers before acceptance has passed.
+          if ($env:RELEASE_TAG -notmatch '^v(?<version>\d+\.\d+\.\d+)(?:-candidate-\d{8})?$') { throw 'Invalid release tag' }
+          $version = $Matches.version
           $stem = "Ghostkiller_V2_Setup_$($env:BACKEND)_$version"
           New-Item -ItemType Directory -Path acceptance-input -Force | Out-Null
           gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --dir acceptance-input --pattern "$stem.exe" --pattern "$stem.build.json"
@@ -72,7 +74,8 @@ jobs:
           foreach ($index in @(0, 1)) {
             $smoke = Get-Content "acceptance-results/smoke-$index.json" -Raw | ConvertFrom-Json
             if ($smoke.ok -ne $true -or $smoke.frozen -ne $true -or $smoke.build.backend -ne $env:BACKEND -or
-                $smoke.audio_exports.roundtrips.Count -ne 24 -or $smoke.audio_exports.numbered_output_preserved -ne $true) {
+                $smoke.audio_exports.roundtrips.Count -ne 24 -or $smoke.audio_exports.numbered_output_preserved -ne $true -or
+                $smoke.usability_help_and_model_form -ne $true) {
               throw 'Installed frozen runtime or audio codec coverage failed'
             }
           }

@@ -88,6 +88,7 @@ class GhostkillerMainFrame(wx.Frame):
         self.InitMenuBar()
         self.InitUI()
         self.Bind(wx.EVT_CLOSE, self.OnClose)
+        self.Bind(wx.EVT_CHAR_HOOK, self.OnNavigationKey)
         self.Centre()
 
         wx.CallAfter(lambda: post_ui(self, self.BeginStartupSequence))
@@ -120,6 +121,17 @@ class GhostkillerMainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, lambda evt: self.OpenSettings(), settings_item)
 
         menubar.Append(tools_menu, "&Araçlar")
+        from ui_help import show_help, show_about
+        help_menu = wx.Menu()
+        current = help_menu.Append(wx.ID_HELP, 'Bu ekran nasıl kullanılır?\tF1')
+        self.Bind(wx.EVT_MENU, lambda event: show_help(self, self.HelpTopic()), current)
+        first = help_menu.Append(wx.ID_ANY, 'İlk kullanım ve klavye yardımı')
+        self.Bind(wx.EVT_MENU, lambda event: show_help(self), first)
+        actions = help_menu.Append(wx.ID_ANY, 'Başlat/durdur alanına git\tF6')
+        self.Bind(wx.EVT_MENU, lambda event: self.FocusActionBar(), actions)
+        about = help_menu.Append(wx.ID_ABOUT, 'Hakkında ve paket bilgisi')
+        self.Bind(wx.EVT_MENU, lambda event: show_about(self), about)
+        menubar.Append(help_menu, '&Yardım')
         self.SetMenuBar(menubar)
 
     def BeginStartupSequence(self):
@@ -129,14 +141,28 @@ class GhostkillerMainFrame(wx.Frame):
         )
 
     def ShowStartupMessage(self):
-        """Uygulama başladığında bilgi mesajı gösterir."""
-        wx.MessageBox(
-            f"Ghostkiller Sound Toolbox (v{CURRENT_VERSION})\n\n"
-            "Geliştirici: Yasin Talha Gençsoy\n\n"
-            "Ses temizleme ve yapay zeka ile ses değiştirme programı hazır.",
-            "Ghostkiller Sound Toolbox",
-            wx.OK | wx.ICON_INFORMATION
-        )
+        """Updates finish before the ready state, without an interrupting welcome."""
+        self.notebook.SetFocus()
+
+    def HelpTopic(self):
+        return ('Müzik ve ses temizleme', 'Ses değiştirme', 'Ses modeli eğitimi',
+                'Canlı AI Cover', 'Ayarlar')[self.notebook.GetSelection()]
+
+    def OnNavigationKey(self, event):
+        # The fixed action area is outside the notebook. Preserve Ctrl+Tab
+        # navigation from that area as well as from each page's form.
+        if event.GetKeyCode() == wx.WXK_TAB and event.ControlDown():
+            self.notebook.AdvanceSelection(not event.ShiftDown())
+            self.notebook.SetFocus()
+        else:
+            event.Skip()
+
+    def FocusActionBar(self):
+        bar = self.action_bars[self.notebook.GetSelection()]
+        target = next((child for child in bar.GetChildren()
+                       if isinstance(child, wx.Button) and child.IsShown() and child.IsEnabled()),
+                      self.notebook.GetCurrentPage().txt_status)
+        target.SetFocus()
 
     def InitUI(self):
         """Arayüz bileşenlerini, Karanlık Modu ve wx.Notebook sekmelerini oluşturur."""
@@ -149,6 +175,8 @@ class GhostkillerMainFrame(wx.Frame):
         self.settings = AppSettings()
         self.settings.open_settings = self.OpenSettings
         self.settings.open_cover = self.OpenCover
+        self.settings.add_model = self.AddVoiceModel
+        self.settings.use_vocal = self.UseVocal
         self.settings.prepare_models = self.PrepareModels
         self.settings.refresh_operations = self.RefreshOperations
         self.SetBackgroundColour(self.bg_main)
@@ -185,13 +213,66 @@ class GhostkillerMainFrame(wx.Frame):
         self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.OnPageChanged)
 
         vbox.Add(self.notebook, 1, wx.EXPAND | wx.ALL, 5)
+        self.InstallActionBars(panel, vbox)
         panel.SetSizer(vbox)
 
         # A11y (Erişilebilirlik): Uygulama açıldığında NVDA / JAWS ekran okuyucunun
         # anında aktif sekmeyi seslendirmesi için odağı açıkça wx.Notebook üzerine ayarlıyoruz.
         apply_native_style(self)
         self.Layout()
+        # Native font sizes settle during the first layout. Recalculate the
+        # footer before showing the frame so its status field is never clipped.
+        panel.Layout()
         self.notebook.SetFocus()
+
+    def InstallActionBars(self, parent, layout):
+        # Move the original controls, preserving handlers and live enabled state.
+        self.action_bars = []
+        pages = (self.separator_tab, self.cover_tab, self.training_tab, self.live_cover_tab, self.settings_tab)
+        for index, page in enumerate(pages):
+            bar = wx.Panel(parent, style=wx.TAB_TRAVERSAL)
+            stack = wx.BoxSizer(wx.VERTICAL)
+            row = wx.WrapSizer(wx.HORIZONTAL)
+            names = ('btn_start', 'btn_cancel', 'btn_force_stop')
+            if index == 3: names = ('btn_start', 'btn_stop', 'btn_force_stop')
+            if index == 4: names = ('btn_return', 'btn_cancel')
+            for name in names:
+                control = getattr(page, name, None)
+                if control is None: continue
+                control.GetContainingSizer().Detach(control)
+                control.Reparent(bar)
+                if name != 'btn_return': control.Show()
+                row.Add(control, 0, wx.ALL, 4)
+            stack.Add(row, 0, wx.EXPAND)
+            status = page.txt_status
+            status.GetContainingSizer().Detach(status)
+            status.Reparent(bar)
+            status.SetMinSize((-1, self.FromDIP(42)))
+            if index == 2: status.SetValue('Ses kayıtlarını ekleyin ve model adı verin.')
+            status.Show()
+            stack.Add(status, 0, wx.EXPAND | wx.ALL, 4)
+            bar.SetSizer(stack)
+            layout.Add(bar, 0, wx.EXPAND | wx.LEFT | wx.RIGHT | wx.BOTTOM, 6)
+            bar.Show(index == 0)
+            self.action_bars.append(bar)
+            page.Layout()
+            page.FitInside()
+
+    def AddVoiceModel(self):
+        name = self.cover_tab.OnAddModel(None)
+        if name:
+            self.RefreshCoverModels()
+            self.live_cover_tab.model_choice.SetStringSelection(name)
+
+    def UseVocal(self, path):
+        if JOB_LOCK.locked():
+            return
+        if not os.path.isfile(path):
+            wx.MessageBox('Sonuç dosyası artık bulunamıyor.', 'Vokal seçimi', wx.OK | wx.ICON_INFORMATION, parent=self)
+            return
+        self.cover_tab.SetInput(path)
+        self.OpenCover()
+        self.cover_tab.model_list.SetFocus()
 
     def OpenSettings(self):
         self.notebook.SetSelection(self.notebook.FindPage(self.settings_tab))
@@ -202,6 +283,17 @@ class GhostkillerMainFrame(wx.Frame):
         self.cover_tab.btn_add_model.SetFocus()
 
     def PrepareModels(self, model_ids):
+        origin = self.notebook.GetSelection()
+        topic = self.HelpTopic()
+        def return_to_task():
+            self.notebook.SetSelection(origin)
+            page = self.notebook.GetPage(origin)
+            page.btn_start.SetFocus()
+        self.settings_tab.return_action = return_to_task
+        self.settings_tab.btn_return.SetLabel(topic + ' işine dön')
+        self.settings_tab.btn_return.Show()
+        if hasattr(self, 'action_bars'):
+            self.action_bars[4].Layout()
         self.notebook.SetSelection(self.notebook.FindPage(self.settings_tab))
         self.settings_tab.PrepareRequiredModels(model_ids)
 
@@ -212,6 +304,14 @@ class GhostkillerMainFrame(wx.Frame):
                 preparation.RefreshReadiness()
 
     def OnPageChanged(self, event):
+        for index, bar in enumerate(getattr(self, 'action_bars', ())):
+            bar.Show(index == self.notebook.GetSelection())
+            bar.InvalidateBestSize()
+        self.Layout()
+        if getattr(self, 'action_bars', None):
+            parent = self.action_bars[0].GetParent()
+            parent.Layout()
+            parent.Layout()
         self.RefreshOperations()
         live = getattr(self, 'live_cover_tab', None)
         if live is not None and self.notebook.GetCurrentPage() is live and not live.busy:

@@ -1,5 +1,9 @@
 # Ses modeli eğitimi — kullanım rehberi
 
+25 Ekim kaynak arayüzünü anlatır. Yeni akışlar henüz 23 Ekim 2.1.0
+kurulumlarına eklenmedi; [paket ve kaynak durumu](SON_DURUM.md) ayrı izlenir.
+
+
 Program tek kişiye ait kayıtlarla yerel RVC V2 ses modeli eğitir. Ses dosyaları
 bilgisayarınızda kalır. Önce kısa bir deneme yapmanız, iki sonucu dinleyip sonra
 daha uzun eğitim başlatmanız önerilir.
@@ -72,8 +76,10 @@ kayıplarını native tabloda gösterir. Düşük mel hatası daha iyi duyulan t
 garantilemez. Anlaşılırlık, nota kararlılığı, tını ve istenmeyen sesleri dinleyin.
 **Tercih et ve not yaz** ile dinleyerek seçtiğiniz adayı kaydedin.
 
-**Kaydedilen epoch modellerini AI Cover listesine ekle** tutulan bütün epoch
-modellerini tek seferde kalıcı olarak kaydeder. Örneğin `Ahmet` için temiz klasör
+**Seçili modeli kalıcı kaydet** yalnız dinleme listesindeki adayı kaydeder.
+**Epoch modellerini ve tercihimi topluca kaydet** tutulan epoch modellerini,
+seçili adayı ve oturum notuyla tercih edilen modeli birlikte kaydeder. Aynı
+ağırlık iki kez kopyalanmaz; farklı tercih edilen model ayrıca korunur. Örneğin `Ahmet` için temiz klasör
 `trained_models/Ahmet/`; dosyalar `Ahmet_Epoch_080.pth`,
 `Ahmet_Epoch_090.pth`, `Ahmet_Epoch_100.pth` ve ortak `Ahmet.index` olur.
 AI Cover listesinde her epoch ayrı görünür ve aynı index'i kullanır. Aynı adlı
@@ -81,16 +87,14 @@ klasör varsa `Ahmet (2)` gibi numaralanır; mevcut dosyaların üzerine yazılm
 Teknik eğitim klasörü işlem bitince kendiliğinden açılmaz. Küçük inference
 modelleri tam devam kaydı değildir.
 
-Model kaydından önce teknik çalışma dosyalarının yaklaşık boyutu gösterilir.
-**Evet** seçilirse modeller güvenli klasöre ve AI Cover listesine başarıyla
-kaydedildikten sonra devam checkpoint'i, hazırlanmış parçalar/özellikler, ara
-test sesleri ve teknik oturum silinir. Özgün kayıtlar ile `trained_models`
-altındaki kalıcı model/index dosyaları bu temizliğin dışındadır. Temizlenen
-eğitime daha sonra epoch eklenemez ve eski test sesleri açılamaz. Devam etmek
-isteyen kullanıcı **Hayır** ile oturumu tutabilir; tamamlanmış oturum daha sonra
-**Eğitim oturumlarım → Teknik çalışma dosyalarını sil** yoluyla temizlenebilir.
-Yarım veya başka yeni bir eğitimin başlangıç ağırlığı olarak beklenen oturumlar
-otomatik temizlenmez.
+Model kaydından sonra eğitim oturumu varsayılan olarak saklanır. Temizlemek
+isterseniz **Eğitim oturumlarım → Teknik çalışma dosyalarını sil** yolunu kullanın.
+Boyut ve silinecek çalışma dosyaları onaydan önce gösterilir. Varsayılan seçim
+oturumu saklamaktır. Devam checkpoint'i, hazırlanmış parçalar/özellikler, ara
+test sesleri ve teknik oturum silinince aynı eğitime devam edilemez. Özgün
+kayıtlar ve kalıcı modeller korunur. Notla tercih edilen model ve ortak index
+kalıcı kayıtla eşleşmiyorsa temizlik engellenir. Yarım veya başka bir eğitimin
+başlangıç ağırlığı olarak beklenen oturumlar da temizlenmez.
 
 Bağlı eğitim hata vermiş olsa da devam edilebilir; başlangıç checkpoint'ine
 bağımlılığı sürerken eski oturum silinmez. Bir oturumun özgün/karşılaştırma kaydı

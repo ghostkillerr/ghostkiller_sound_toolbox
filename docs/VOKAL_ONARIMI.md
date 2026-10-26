@@ -7,8 +7,7 @@ fazla bellek ve zaman gerektirir; belleği yetersiz bilgisayarda işlem açıkla
 mesajla durur. Bu değişiklik kaynak kodunda uygulanıp sınandı.
 Güncel paket ve doğrulama sonucu [Son durum](SON_DURUM.md) içindedir.
 
-Müzik ve ses temizleme sekmesinde **3. Arka Vokalleri ve Harmoni Seslerini
-Temizle** açıkken hemen altında **Arka vokal temizliğinden sonra kısa vokal
+Müzik ve ses temizleme sekmesinde **Arka vokalleri ve harmonileri temizle** açıkken hemen altında **Arka vokal temizliğinden sonra kısa vokal
 kayıplarını onar** seçeneği görünür. Varsayılan kapalıdır. Arka vokal temizliği
 kapatılınca bu seçenek de kapanır ve gizlenir.
 
@@ -42,8 +41,8 @@ dosyalarındadır. Bu bilgisayarda mevcut ağırlık doğrulanıp hazırlandı.
 
 - Tab ile arka vokal düğmesine gel; Boşluk tuşuyla aç.
 - Sonraki Tab, görünen onarım düğmesine gider. Boşluk tuşu seçimi değiştirir.
-- Etiket `[AÇIK]` veya `[KAPALI]` içerir; erişilebilirlik arayüzü basılı/basılı
-  değil durumunu, adı, açıklamayı ve aç/kapat eylemini sunar.
+- Etiket `[AÇIK]` veya `[KAPALI]` içerir; erişilebilirlik arayüzü onay kutusu rolünü, işaretli/işaretsiz
+  durumunu, adı, açıklamayı ve işaretle/işaretini kaldır eylemini sunar.
 - Ana seçenek kapatılınca gizlenen onarım düğmesi Tab sırasında atlanır.
   Odak bu düğmedeyken gizlenirse arka vokal düğmesine geri alınır.
 - İşlem sırasında seçenekler kilitlenir; İptal et ve Zorla durdur korunur.
@@ -54,7 +53,6 @@ Canlı NVDA konuşması için kullanıcı dinlemesi ayrıca
 gerekir. Gerçek CUDA işleyicisi kayıt örneğinde onarım, ilerleme, iptal ve PCM24
 kaydını doğruladı. Bunlar bütün şarkıların ses kalitesi kabulü değildir.
 
-Önceki paketli işleyicilerde CPU başlangıcı ve NVIDIA'da gerçek A2SB üretimi
-doğrulanmıştı. Eski kurulum adayları temizlikte kaldırıldı; yayın için güncel
-kaynakla iki yeni paket gerekir. Güncel durum ve kalan kabuller için
-[Son durum](SON_DURUM.md) dosyasını esas alın.
+Vokal onarımı 23 Ekim 2.1.0 CPU/CUDA kurulumlarında bulunur. 25 Ekim arayüz
+düzenlemesi yalnız kaynaktadır. Doğrulama kapsamı ve kalan kullanıcı kabulleri
+[Son durum](SON_DURUM.md) içindedir.

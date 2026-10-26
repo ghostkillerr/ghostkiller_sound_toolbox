@@ -1,5 +1,9 @@
 # Vokal ve enstrüman işleme
 
+25 Ekim kaynak arayüzünü anlatır. Yeni akışlar henüz 23 Ekim 2.1.0
+kurulumlarına eklenmedi; [paket ve kaynak durumu](SON_DURUM.md) ayrı izlenir.
+
+
 Birinci sekmenin başındaki **İşlem alanı** seçiminden çalışma türünü seçin.
 **Vokal işleme**, önceki vokal ayırma ve temizleme seçeneklerini gösterir.
 **Enstrüman işleme**, model ve kaydedilecek ses kanallarını gösterir.
@@ -11,12 +15,12 @@ Dosya ve çıktı klasörü iki görünümde ortaktır; seçim değiştirmek iş
    da kullanabilirsiniz; sonuç kalitesi ayrıca dinlenmelidir.
 2. İşlem alanını **Enstrüman işleme** olarak değiştirin.
 3. **Ayırma yöntemi** listesinden seçim yapın.
-   **Ayrıntılı (6 kanal)**: bas, davul, gitar, piyano, vokal ve diğer
+   **Deneysel (6 ayrı ses; gitar ve piyano dahil)**: bas, davul, gitar, piyano, vokal ve diğer
    enstrümanlar. Bu ağırlıklar yalnız bilimsel amaçlarla sunulur. Gitar ve
    özellikle piyano deneysel çıktılardır.
-   **Standart (4 kanal)**: bas, davul, vokal ve diğer enstrümanlar.
+   **Standart (4 ayrı ses)** (başlangıç tercihi): bas, davul, vokal ve diğer enstrümanlar.
    Bu model gitarı ve piyanoyu ayrı çıkarmaz.
-4. **3. Yapılacak Ayırma İşlemleri** bölümünde **Bası Ayır**, **Davulu Ayır**
+4. **Kaydedilecek ayrı sesler** bölümünde **Bası Ayır**, **Davulu Ayır**
    gibi seçeneklerden kaydetmek istediklerinizi **[AÇIK]**, istemediklerinizi
    **[KAPALI]** yapın. Tab ile seçeneğe gidip Boşluk tuşuyla durumunu
    değiştirebilirsiniz. Ardından **Enstrüman ayırmayı başlat** düğmesine basın.
@@ -80,7 +84,6 @@ gitar/piyano başarısı garantisi değildir. Son paket adaylarının yerel kan�
 `build/cleanup_fixes_20261017/candidates/cpu-optional-models.json` ve
 `cuda-optional-models.json` dosyalarındadır; kişisel kayıt içermez.
 
-Önceki iki frozen pakette gerçek ağırlıklarla kısa sentetik ses ayırması geçti.
-Son kaynak düzeltmesini içermeyen yerel installer adayları temizlikte kaldırıldı;
-yayın öncesinde iki paket yeniden üretilecek. Güncel test sonucu ve kalan
-kabuller [Son durum](SON_DURUM.md) içindedir.
+Enstrüman ayırma 23 Ekim 2.1.0 CPU/CUDA kurulumlarında bulunur. Yukarıdaki
+yeni seçenek adları ve standart başlangıç tercihi 25 Ekim kaynağına aittir;
+henüz yeni kurulum üretilmedi. Test/paket ayrımı [Son durum](SON_DURUM.md) içindedir.

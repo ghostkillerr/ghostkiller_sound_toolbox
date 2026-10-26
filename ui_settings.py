@@ -8,7 +8,7 @@ from hardware import detect_hardware
 from model_manager import model_catalog, default_model_selection
 from ui_cover import ModelToggleList
 from ui_common import (apply_native_style, DetailsDialog, add_intro, checkbox_control,
-                       section_title, name_control)
+                       section_title, name_control, RadioChoice, fold_controls)
 from audio_export import OUTPUT_FORMATS, selected_output_format, OUTPUT_CHANNELS, selected_output_channels
 from updater import check_for_updates, last_update_result
 from ui_model_terms import confirm_restoration_terms, confirm_demucs_terms
@@ -24,12 +24,13 @@ class SettingsPanel(wx.ScrolledWindow):
         self.model_ids = list(model_catalog())
         self.is_cancelled = False
         self.busy = False
+        self.pending_download = None
         self._progress_at = 0
         self.SetBackgroundColour(wx.Colour(30, 30, 30))
         self.SetForegroundColour(wx.Colour(240, 240, 240))
         layout = wx.BoxSizer(wx.VERTICAL)
         add_intro(self, layout, "Ayarlar", "İşlemlerde kullanılacak donanımı seçin ve programın ihtiyaç duyduğu model dosyalarını hazırlayın.")
-        self.theme_choice = wx.RadioBox(self,label='Görünüm',choices=['Açık mod','Koyu mod'],majorDimension=2,style=wx.RA_SPECIFY_COLS)
+        self.theme_choice = RadioChoice(self,label='Görünüm',choices=['Açık mod','Koyu mod'],majorDimension=2,style=wx.RA_SPECIFY_COLS)
         self.theme_choice.SetSelection(0 if settings.theme == 'light' else 1)
         self.theme_choice.Bind(wx.EVT_RADIOBOX,self.OnTheme)
         layout.Add(self.theme_choice,0,wx.EXPAND | wx.ALL,8)
@@ -65,7 +66,7 @@ class SettingsPanel(wx.ScrolledWindow):
                                             style=wx.TE_READONLY)
         self.txt_update_status.SetName('Son program güncellemesi durumu')
         layout.Add(self.txt_update_status, 0, wx.EXPAND | wx.ALL, 8)
-        self.device_choice = wx.RadioBox(self, label="1. İşlemlerde kullanılacak donanım",
+        self.device_choice = RadioChoice(self, label="1. İşlemlerde kullanılacak donanım",
                                          choices=["İşlemci", "Ekran kartı"], majorDimension=1, style=wx.RA_SPECIFY_ROWS)
         self.device_choice.SetSelection(0 if settings.preference == "cpu" else 1)
         self.device_choice.Bind(wx.EVT_RADIOBOX, self.OnDevice)
@@ -86,10 +87,10 @@ class SettingsPanel(wx.ScrolledWindow):
         self.txt_path.SetName("Modellerin indirileceği klasör")
         layout.Add(self.txt_path, 0, wx.EXPAND | wx.ALL, 8)
         section_title(self, layout, "2. Model dosyaları")
-        layout.Add(wx.StaticText(self, label="Ses temizleme ve ses değiştirme modelleri seçili gelir.\nEğitim, enstrüman ayırma ve isteğe bağlı vokal onarımı modellerini gerektiğinde ayrıca seçin.\nSeçimleri Boşluk ile değiştirin; ok tuşlarıyla listede dolaşın.\nEksikleri indir: olmayan dosyaları tamamlar. Kontrol et: dosyaları inceler. Onar: sorunlu dosyaları yeniden indirir."),
+        layout.Add(wx.StaticText(self, label="Ses temizleme ve ses değiştirme modelleri seçili gelir.\nEğitim, enstrüman ayırma ve isteğe bağlı vokal onarımı modellerini gerektiğinde ayrıca seçin.\nHazır/Eksik dosya durumudur; [AÇIK]/[KAPALI] yalnız bakım seçiminizdir, kullanımı kapatmaz.\nSeçimleri Boşluk ile değiştirin; ok tuşlarıyla listede dolaşın.\nEksikleri indir: olmayan dosyaları tamamlar. Kontrol et: dosyaları inceler. Onar: sorunlu dosyaları yeniden indirir."),
                    0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
         self.model_list = ModelToggleList(self)
-        self.model_list.SetMinSize((-1, 180))
+        self.model_list.SetMinSize((-1, 280))
         self.model_list.SetName("İndirilecek veya kontrol edilecek modeller ve dosya durumları")
         self.RefreshModels(initial_selection=True)
         layout.Add(self.model_list, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
@@ -118,6 +119,26 @@ class SettingsPanel(wx.ScrolledWindow):
         for control in (self.txt_hardware, self.txt_path, self.model_list, self.txt_status, self.txt_log):
             control.SetBackgroundColour(wx.Colour(40, 40, 40))
             control.SetForegroundColour(wx.Colour(240, 240, 240))
+        self.return_action = None
+        self.btn_return = wx.Button(self, label='Hazırladığım işe dön')
+        self.btn_return.Bind(wx.EVT_BUTTON, lambda event: self.return_action() if self.return_action else None)
+        self.btn_return.Hide()
+        layout.Insert(2, self.btn_return, 0, wx.ALL, 8)
+        from ui_help import add_help
+        add_help(self, layout, 'Ayarlar')
+        # General preferences follow the hardware/model workflow.
+        items = list(layout.GetChildren())
+        general = []
+        start = next(i for i, item in enumerate(items) if item.GetWindow() is self.theme_choice)
+        end = next(i for i, item in enumerate(items) if item.GetWindow() is self.device_choice)
+        for item in items[start:end]:
+            window = item.GetWindow()
+            if window:
+                layout.Detach(window)
+                general.append(window)
+        for window in general:
+            layout.Add(window, 0, wx.EXPAND | wx.ALL, 8)
+        self.log_toggle = fold_controls(self, layout, [self.txt_log], 'Model ve donanım günlüğünü göster')
         self.SetSizer(layout)
         apply_native_style(self)
         self.FitInside()
@@ -188,6 +209,11 @@ class SettingsPanel(wx.ScrolledWindow):
         for control in (self.device_choice, self.output_format_choice, self.output_channels_choice, self.model_list, self.btn_hardware, self.btn_install, self.btn_verify, self.btn_repair):
             control.Enable(enable)
         self.btn_cancel.Enable(not enable)
+        if enable and self.pending_download:
+            pending, self.pending_download = self.pending_download, None
+            # finish_job releases the lock after EnableUI returns. A queued
+            # callback cannot race the worker's still-pending finish callback.
+            wx.CallAfter(post_ui, self, self.ConfirmDownload, *pending)
 
     def OnDevice(self, event):
         previous = self.settings.preference
@@ -213,7 +239,9 @@ class SettingsPanel(wx.ScrolledWindow):
         self.btn_details.SetFocus()
 
     def ShowModelResult(self, summary, failed):
-        self.txt_status.SetValue(summary)
+        self.txt_status.SetValue(summary + (' Hazırladığım işe dön düğmesiyle devam edebilirsiniz.' if not failed and self.return_action else ''))
+        if not failed and self.return_action:
+            self.btn_return.SetFocus()
         if failed:
             with DetailsDialog(self, "Hazırlanamayan model dosyaları", summary) as dialog:
                 dialog.ShowModal()
@@ -235,7 +263,7 @@ class SettingsPanel(wx.ScrolledWindow):
             return
         if action != 'verify' and 'demucs6' in selected and not confirm_demucs_terms(self):
             return
-        self.StartJob(action, selected)
+        self.StartJob('estimate:' + action if action != 'verify' else action, selected)
 
     def PrepareRequiredModels(self, model_ids):
         missing = [key for key in model_ids if self.settings.manager.status(key) != 'Hazır']
@@ -245,6 +273,25 @@ class SettingsPanel(wx.ScrolledWindow):
             self.OnModels('repair')
         self.model_list.SetFocus()
 
+    def QueueDownloadConfirmation(self, action, selected, total, unknown):
+        self.pending_download = (action, selected, total, unknown)
+
+    def ConfirmDownload(self, action, selected, total, unknown):
+        if self.is_cancelled or JOB_LOCK.locked():
+            return
+        catalog = model_catalog()
+        text = 'Hazırlanacak modeller:\n' + '\n'.join(catalog.get(key, key) for key in selected)
+        text += f'\n\nBilinen indirme boyutu: {total / 1024**2:.0f} MB.'
+        if unknown:
+            text += f' {unknown} dosyanın boyutu bilinmiyor; toplam daha büyük olabilir.'
+        text += '\nSağlam dosyalar korunur. Hazırlık bitince geldiğiniz işe dönebilirsiniz; ses işlemi kendiliğinden başlamaz.'
+        with wx.MessageDialog(self, text, 'Model hazırlığı', wx.YES_NO | wx.NO_DEFAULT | wx.ICON_INFORMATION) as dialog:
+            dialog.SetYesNoLabels('Hazırlamayı başlat', 'Şimdi değil')
+            if dialog.ShowModal() == wx.ID_YES:
+                self.StartJob(action, selected)
+            else:
+                self.txt_status.SetValue('Model indirilmedi. İsterseniz geldiğiniz işe dönün.')
+
     def StartJob(self, action, selected):
         if not JOB_LOCK.acquire(blocking=False):
             self.txt_status.SetValue("Başka bir işlem sürüyor. Bitmesini bekleyip tekrar deneyin.")
@@ -253,7 +300,9 @@ class SettingsPanel(wx.ScrolledWindow):
             self.is_cancelled = False
             self.EnableUI(False)
             self.gauge.SetValue(0)
-            self.txt_status.SetValue("Donanım kontrol ediliyor..." if action == "hardware" else "Model işlemi başladı...")
+            self.txt_status.SetValue("Donanım kontrol ediliyor..." if action == "hardware" else
+                                     "İndirme boyutu hesaplanıyor; model dosyaları henüz indirilmiyor..." if action.startswith('estimate:') else
+                                     "Model işlemi başladı...")
             worker = threading.Thread(target=self.RunJob, args=(action, tuple(selected)), daemon=True)
             worker.start()
             self.settings.refresh_operations()
@@ -281,6 +330,13 @@ class SettingsPanel(wx.ScrolledWindow):
 
     def RunJob(self, action, selected):
         try:
+            if action.startswith('estimate:'):
+                total, unknown = self.settings.manager.download_estimate(selected,
+                    cancelled=lambda: self.is_cancelled,
+                    log=lambda text: post_ui(self, self.txt_status.SetValue, text))
+                if not self.is_cancelled:
+                    post_ui(self, self.QueueDownloadConfirmation, action.split(':', 1)[1], selected, total, unknown)
+                return
             if action == "hardware":
                 report = detect_hardware()
                 if self.is_cancelled:

@@ -1,6 +1,7 @@
 # Kullanıcı denemesi
 
-Güncelleme: **23 Ekim 2026**. Güncel test ve paket durumu
+Güncelleme: **25 Ekim 2026**. Yeni arayüz akışları güncel kaynak içindir;
+23 Ekim kurulumları henüz bu değişiklikleri içermez. Güncel test ve paket durumu
 [Son durum](SON_DURUM.md) dosyasındadır. Kod yazman, komut çalıştırman veya
 eğitim teorisini bilmen gerekmiyor. Sonucu dinleyip takıldığın yeri anlatman yeterli.
 
@@ -8,8 +9,10 @@ eğitim teorisini bilmen gerekmiyor. Sonucu dinleyip takıldığın yeri anlatma
 
 1. İşlem ekranında dosya biçimi, kanal düzeni ve donanım özetini kontrol et.
 2. Model eksikse görünen **Bu işlem için eksik modelleri hazırla** düğmesini
-   kullan. Yalnız ilgili modeller seçilmeli; hazır olunca düğme kaybolmalı.
+   kullan. Yalnız ilgili modeller seçilmeli; indirme öncesinde boyut ve onay
+   görünmeli. Hazırlanınca işe dön düğmesiyle aynı dosyaya geri gel.
 3. Kısa bir kayıtla işlem yap. Sonuç mesajını kapatınca çıktı klasörü açılmalı.
+   Uygulamadaki sonuç listesinde son vokali dinle ve ses değiştirmeye aktar.
 4. Aynı işlemi tekrar yap. Yeni sonuç `(2)` ile kaydedilmeli; önceki dosya
    değişmemeli. Ses adlarına program adı veya JSON raporu eklenmemeli.
 5. Ayarlar'da MP3/WAV/FLAC/OGG ve mono/stereo tercihlerini değiştirip yeni
@@ -41,17 +44,19 @@ başlamamalı. Sesleri internete yüklemen gerekmez; dosyalar bilgisayarında i�
    seçimi modelin kendi sonucunu duymanı sağlar.
 5. Daha uzun denemede **durdur ve kaydet**, **Eğitim oturumlarım** içinden
    **yarım kalan eğitime devam et** ve epoch modellerini AI Cover listesine
-   ekleme akışlarını dene. Model klasöründe yalnız seçtiğin sayıda
-   `Ad_Epoch_NNN.pth` ve tek `Ad.index` bulunmalı; teknik eğitim dosyaları bu
-   klasöre karışmamalıdır. Model kaydından sonra önerilen teknik dosya temizliğini
-   onayla; bildirilen boşaltılan alan kadar oturum klasörü kalkmalı, özgün kayıtlar
-   ve kalıcı modeller açılmaya devam etmelidir.
+   ekleme akışlarını dene. Tek aday kaydı ile toplu kaydı ayrı dene; toplu kayıtta
+   tercih edilen farklı aday da bulunmalı ve modeller tek ortak index kullanmalı.
+   Kaydın ardından teknik oturum kendiliğinden silinmemeli. İstersen **Eğitim
+   oturumlarım → Teknik çalışma dosyalarını sil** üzerinden ayrı onayla temizle;
+   özgün kayıtlar ve kalıcı modeller açılmaya devam etmeli.
+
 
 Kayıt incelemesi, ara modeller, oturumlar, şablonlar ve eğitim sırası zaten
 vardır. İyileştirmeler gerçek kullanımda zor gelen adıma ve duyulan sonuca göre seçilir.
 
 ## 4. Klavye ve hatalar
 
+F1 ile ekran yardımını aç. Formu kaydırırken alt işlem alanı görünür kalmalı.
 Tab/ok/Boşluk ile kontrollerin adını, açık/kapalı durumunu, kısa ayar özetini ve
 sonuçları NVDA/JAWS ile dinle. “Şurada sustu”, “Aynı yazıyı iki kez okudu” veya
 “Buradan sonra ne yapacağımı anlayamadım” demen yeterli.

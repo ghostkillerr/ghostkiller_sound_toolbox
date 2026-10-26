@@ -67,6 +67,27 @@ def _check_references(root, path, registry):
                     raise ValueError(f"'{name}' AI Cover modeli bu oturumu kullanıyor. Önce modeli kalıcı klasöre kaydedin ve eski kaydı listeden kaldırın.")
 
 
+def _check_preferred_export(path, registry):
+    from training.experiments import read_notes
+    from model_manager import file_digest
+    preferred = read_notes(path).get('preferred_model')
+    if not preferred:
+        return
+    result = json.loads((path / 'result.json').read_text(encoding='utf-8'))
+    record = next((r for r in result['models'] if r['file'] == preferred), None)
+    if record is None:
+        raise ValueError('Tercih edilen model doğrulanamıyor; teknik oturum korunuyor.')
+    models = validate_models(json.loads(registry.read_text(encoding='utf-8'))) if registry.is_file() else {}
+    for model in models.values():
+        weight, index = Path(model['pth']), Path(model.get('index') or '.')
+        if not weight.is_absolute(): weight = registry.parent / weight
+        if not index.is_absolute(): index = registry.parent / index
+        if weight.is_file() and index.is_file() and not _inside(weight, path) and not _inside(index, path):
+            if file_digest(weight) == record['sha256'] and file_digest(index) == result['index_sha256']:
+                return
+    raise ValueError('Tercih ettiğiniz model henüz kalıcı kaydedilmemiş veya kalıcı dosyası değişmiş. Önce sonuç ekranından modeli kaydedin; oturum silinmedi.')
+
+
 def _remove_cache_reference(root, path):
     catalog = root / 'preparation-cache.json'
     try:
@@ -97,6 +118,8 @@ def delete_training_job(job, training_root=None):
             if manifest.get('status') not in ('completed', 'deleting'):
                 raise ValueError('Yalnız tamamlanmış eğitimlerin teknik dosyaları temizlenebilir.')
             _check_references(root, path, registry)
+            if manifest.get("status") == "completed":
+                _check_preferred_export(path, registry)
             _training_job_path(path, root)
             manifest = update_manifest(path, status='deleting')
         # Both entry points reject this tombstone before touching any worker state.

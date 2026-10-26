@@ -7,6 +7,81 @@ from audio_export import selected_output_format, selected_output_channels
 from ui_common import explanation_control
 
 
+class ResultList(wx.Panel):
+    """Only published files from this task; never infer results by scanning a folder."""
+    def __init__(self, owner, settings):
+        super().__init__(owner)
+        self.owner, self.settings, self.records = owner, settings, []
+        layout = wx.BoxSizer(wx.VERTICAL)
+        layout.Add(wx.StaticText(self, label='Bu işlemde üretilen sonuçlar'), 0, wx.BOTTOM, 4)
+        self.list = wx.ListBox(self, size=(-1, 110))
+        self.list.SetName('Sonuç dosyaları; son vokal çıktısı ayrıca belirtilir')
+        self.list.Bind(wx.EVT_LISTBOX, self.RefreshActions)
+        layout.Add(self.list, 0, wx.EXPAND)
+        row = wx.WrapSizer(wx.HORIZONTAL)
+        self.listen = wx.Button(self, label='Seçili sonucu dinle')
+        self.folder = wx.Button(self, label='Sonuç klasörünü aç')
+        self.cover = wx.Button(self, label='Bu vokalle ses değiştir')
+        self.listen.Bind(wx.EVT_BUTTON, self.OnListen)
+        self.folder.Bind(wx.EVT_BUTTON, self.OnFolder)
+        self.cover.Bind(wx.EVT_BUTTON, self.OnCover)
+        for button in (self.listen, self.folder, self.cover):
+            row.Add(button, 0, wx.ALL, 4)
+        layout.Add(row, 0, wx.EXPAND)
+        self.SetSizer(layout)
+        self.Hide()
+
+    def Clear(self):
+        self.records.clear()
+        self.list.Clear()
+        self.Hide()
+        self.owner.Layout()
+        self.owner.FitInside()
+
+    def Add(self, path, label, vocal=False):
+        self.records.append((str(path), label, vocal))
+        last_vocal = max((i for i, r in enumerate(self.records) if r[2]), default=-1)
+        self.list.Set([label + (' — Son vokal çıktısı' if i == last_vocal else '') + ' · ' + Path(path).name
+                       for i, (path, label, _) in enumerate(self.records)])
+        self.list.SetSelection(len(self.records)-1)
+        self.Show()
+        self.RefreshActions()
+        self.owner.Layout()
+        self.owner.FitInside()
+
+    def Selected(self):
+        index = self.list.GetSelection()
+        return self.records[index] if 0 <= index < len(self.records) else None
+
+    def RefreshActions(self, event=None):
+        record = self.Selected()
+        self.listen.Enable(record is not None)
+        self.folder.Enable(record is not None)
+        self.cover.Enable(bool(record and record[2]))
+
+    def OnListen(self, event):
+        record = self.Selected()
+        if record and Path(record[0]).is_file():
+            wx.LaunchDefaultApplication(record[0])
+
+    def OnFolder(self, event):
+        record = self.Selected()
+        if record:
+            open_result_folder(self.owner, str(Path(record[0]).parent))
+
+    def OnCover(self, event):
+        record = self.Selected()
+        transfer = getattr(self.settings, 'use_vocal', None)
+        if record and record[2] and transfer and not JOB_LOCK.locked():
+            transfer(record[0])
+
+
+def record_result(owner, path, label, vocal=False):
+    results = getattr(owner, 'results', None)
+    if results is not None:
+        results.Add(path, label, vocal)
+
+
 def operation_error(error):
     text = str(error)
     lower = text.lower()

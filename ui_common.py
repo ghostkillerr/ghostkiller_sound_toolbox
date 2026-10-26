@@ -218,7 +218,7 @@ def fit_panel_text(panel):
         return
     panel._ui_wrap_width = width
     for child in panel.GetChildren():
-        if isinstance(child, wx.StaticText) and len(child.GetLabel()) > 70:
+        if isinstance(child, wx.StaticText) and (hasattr(child, '_ui_wrap_text') or len(child.GetLabel()) > 70):
             if not hasattr(child, '_ui_wrap_text'):
                 child._ui_wrap_text = child.GetLabel()
             child.SetLabel(child._ui_wrap_text)
@@ -262,10 +262,77 @@ def apply_native_style(window, contrast=None, theme=None):
         if not contrast:
             window.SetForegroundColour(wx.Colour('#A7CFFF' if dark else '#174A8B'))
     if isinstance(window, (wx.Button, wx.ToggleButton)):
+        # Native Windows hover/pressed backgrounds do not honor custom dark
+        # foregrounds consistently. Keep a readable native button palette.
+        window.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNTEXT))
+        window.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_BTNFACE))
+        if getattr(window, '_ui_primary', False):
+            window.SetFont(font.Bold())
         # Let labels determine width; use one compact height across all panels.
         window.SetMinSize((-1, window.FromDIP(36)))
     for child in window.GetChildren():
         apply_native_style(child, contrast, theme)
+
+
+class RadioChoice(wx.Panel):
+    """Native radio buttons whose individual labels can follow the theme."""
+    def __init__(self, parent, label, choices, **kwargs):
+        super().__init__(parent, style=wx.TAB_TRAVERSAL)
+        layout = wx.BoxSizer(wx.VERTICAL)
+        layout.Add(wx.StaticText(self, label=label), 0, wx.BOTTOM, 4)
+        self.buttons = []
+        row = wx.WrapSizer(wx.HORIZONTAL)
+        for index, text in enumerate(choices):
+            button = wx.RadioButton(self, label=text, style=wx.RB_GROUP if index == 0 else 0)
+            button.Bind(wx.EVT_RADIOBUTTON, self.OnChoice)
+            self.buttons.append(button)
+            row.Add(button, 0, wx.RIGHT | wx.BOTTOM, 16)
+        layout.Add(row, 0, wx.EXPAND)
+        self.SetSizer(layout)
+
+    def GetSelection(self):
+        return next((i for i, button in enumerate(self.buttons) if button.GetValue()), 0)
+
+    def GetCount(self):
+        return len(self.buttons)
+
+    def SetSelection(self, index):
+        self.buttons[index].SetValue(True)
+
+    def SetFocus(self):
+        self.buttons[self.GetSelection()].SetFocus()
+
+    def OnChoice(self, event):
+        changed = wx.CommandEvent(wx.EVT_RADIOBOX.typeId, self.GetId())
+        changed.SetEventObject(self)
+        changed.SetInt(self.GetSelection())
+        self.GetEventHandler().ProcessEvent(changed)
+
+
+def fold_controls(owner, layout, controls, label='İşlem günlüğünü göster'):
+    """Keep detailed, keyboard-accessible content off the basic task path."""
+    toggle = wx.ToggleButton(owner, label=label + ' [KAPALI]')
+    layout.Add(toggle, 0, wx.ALL, 6)
+    for control in controls:
+        layout.Detach(control)
+        layout.Add(control, 0, wx.EXPAND | wx.ALL, 6)
+        control.Hide()
+    def changed(event):
+        for control in controls:
+            control.Show(toggle.GetValue())
+        toggle.SetLabel(label + (' [AÇIK]' if toggle.GetValue() else ' [KAPALI]'))
+        owner.Layout()
+        owner.FitInside()
+    toggle.Bind(wx.EVT_TOGGLEBUTTON, changed)
+    return toggle
+
+
+def request_field(owner, message, control):
+    """Ordinary incomplete input is guidance, not an application failure."""
+    owner.txt_status.SetValue(message)
+    control.SetFocus()
+    wx.Accessible.NotifyEvent(wx.ACC_EVENT_OBJECT_VALUECHANGE, owner.txt_status,
+                              wx.OBJID_CLIENT, wx.ACC_SELF)
 
 
 class DetailsDialog(wx.Dialog):

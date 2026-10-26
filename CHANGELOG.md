@@ -3,6 +3,28 @@
 Ghostkiller Sound Toolbox'ın kullanıcıya yansıyan önemli değişiklikleri burada
 toplanır. Küçük teknik düzeltmeler ilgili özelliğin altında birleştirilir.
 
+## 25 Ekim 2026 — kaynakta, henüz paketlenmedi
+
+Sürüm numarası ve 23 Ekim kurulumları değiştirilmedi.
+
+- Başlat/durdur ve durum alanı sabitlendi; canlı sesin teknik ayarları ve
+  günlükler açılır bölümlere alındı. Koyu tema seçenekleri ve düğme yazıları
+  okunur hale getirildi. F1 çevrimdışı yardımı, F6 işlem alanını açar.
+- Vokal/temizleme zinciri açıklandı; standart dört çıkış başlangıç seçeneği
+  oldu. Sonuç listesine dinleme, klasör açma ve vokali AI Cover’a aktarma eklendi.
+- Tek model ekleme formu, isteğe bağlı index, model araması ve seçili sayısı
+  eklendi; listeden kaldırma dönüşüm seçiminden ayrıldı. Ses tonu ve index
+  katkısının anlamı açıklandı; eksik formlar doğrudan ilgili alana yönlendirir.
+- Model indirme öncesinde boyut/onay, hazırlıktan sonra işe dönme eklendi.
+- Seçili eğitim adayı tek başına kaydedilebilir. Toplu kayıt notla tercih edilen
+  farklı adayı da korur. Oturum kayıttan sonra saklanır; temizleme ayrı onay ister
+  ve kalıcı kopyası bulunmayan tercih edilen modeli silmez.
+- Açılıştaki tekrar eden bilgi penceresi kaldırıldı. Hakkında alanına kopyalanabilir
+  kaynak/paket kimliği, gelecek derlemeler için tarih ve CPU/CUDA bilgisi eklendi.
+
+Ayrıntılar: [Arayüz kullanımı](docs/ARAYUZ_KULLANIMI.md) ve
+[incelemedeki 15 bulgunun durumu](docs/KULLANILABILIRLIK_INCELEMESI_2026-10-25.md).
+
 ## 2.1.0 — 23 Ekim 2026 yenilemesi
 
 CPU ve CUDA kurulumları aşağıdaki değişikliklerle yeniden üretildi. Sürüm

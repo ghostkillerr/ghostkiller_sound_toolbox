@@ -4,6 +4,12 @@ Windows için Türkçe, klavye ve ekran okuyucuyla kullanımı hedefleyen masaü
 
 Geliştiriciler ve yapay zekâ ajanları için başlangıç: **[oku.md](oku.md)**.
 
+**25 Ekim kaynak düzenlemesi:** Sabit başlat/durdur alanı, çevrimdışı F1 yardımı,
+sonuçları dinleme ve vokali AI Cover’a aktarma, tek model ekleme formu ve güvenli
+tercih edilen model kaydı eklendi. Bu değişiklikler henüz 23 Ekim kurulumlarında
+yoktur. [Arayüz kullanım rehberi](docs/ARAYUZ_KULLANIMI.md) ·
+[15 bulgunun düzeltme durumu](docs/KULLANILABILIRLIK_INCELEMESI_2026-10-25.md).
+
 **[Programı tanı ve kurulumları indir](https://ghostkillerr.github.io/ghostkiller_sound_toolbox/)**
 · [GitHub yayınları](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases)
 · [Sürüm notları](CHANGELOG.md)
@@ -61,8 +67,8 @@ düğmesi görünür; yalnız o işlemin eksikleri seçilip hazırlanır. Modell
 olduğunda düğme gizlenir. Model indirmeleri sunucu destekliyorsa kaldığı yerden
 sürer; tamamlanan dosyalar doğrulanmadan kullanılmaz.
 
-Kurulu uygulama varsayılan olarak açılışta, geliştirici bilgi penceresinden önce
-yeni sürümü denetler. Güncelleme varsa **“Güncellemeyi indirmek ister misiniz?”**
+Uygulama varsayılan olarak açılışta yeni sürümü denetler. Güncel kaynakta
+tekrarlayan geliştirici bilgi penceresi kaldırılmıştır; bilgiler Yardım → Hakkında içindedir. Güncelleme varsa **“Güncellemeyi indirmek ister misiniz?”**
 onayı gösterilir. **Evet** ile indirilip kurulum sihirbazını göstermeden aynı
 klasöre uygulanır; ardından program yeniden açılır. **Hayır** ile normal açılış
 devam eder. **Ayarlar → Açılışta güncellemeleri otomatik denetle** seçeneği

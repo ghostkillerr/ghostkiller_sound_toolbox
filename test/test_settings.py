@@ -384,7 +384,7 @@ class SettingsTests(unittest.TestCase):
                         patch('ui_settings.confirm_restoration_terms',return_value=True), \
                         patch.object(panel, 'StartJob') as start:
                     panel.OnModels('install')
-                    self.assertEqual(start.call_args.args, ('install', default_model_selection()))
+                    self.assertEqual(start.call_args.args, ('estimate:install', default_model_selection()))
                     for name in (MODEL_ID, 'training_v2_40k'):
                         panel.model_list.buttons[panel.model_ids.index(name)].SetValue(True)
                     panel.model_list.buttons[0].SetValue(False)
@@ -392,7 +392,7 @@ class SettingsTests(unittest.TestCase):
                     panel.RefreshModels()
                     self.assertEqual(panel.model_list.GetCheckedModels(), selected)
                     panel.OnModels('install')
-                    self.assertEqual(start.call_args.args, ('install', selected))
+                    self.assertEqual(start.call_args.args, ('estimate:install', selected))
                     self.assertIn(MODEL_ID, selected)
                     self.assertIn('training_v2_40k', selected)
                     self.assertNotIn('training_v2_32k', selected)

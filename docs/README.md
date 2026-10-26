@@ -8,10 +8,12 @@ Bu dizin kullanım ve teknik kararları içerir; günlük çalışma geçmişi b
 | --- | --- |
 | Projeyi geliştirmek ve yayımlamak | [oku.md](../oku.md) |
 | Kod incelemesi, düzeltmeler ve disk temizliği | [22 Ekim ayrıntılı inceleme](KOD_INCELEMESI_2026-10-22.md) |
+| Yeni arayüzde temel akışlar (25 Ekim kaynak) | [Arayüz kullanımı](ARAYUZ_KULLANIMI.md) |
+| Kullanılabilirlik bulguları ve düzeltmeler | [25 Ekim inceleme](KULLANILABILIRLIK_INCELEMESI_2026-10-25.md) |
 | İlk denemeyi yapmak | [Kullanıcı kabulü](KULLANICI_KABULU.md) |
 | Enstrümanları ayrı kaydetmek | [Enstrüman ayırma](ENSTRUMAN_AYIRMA.md) |
 | Kısa vokal kayıplarını onarmak | [Vokal onarımı](VOKAL_ONARIMI.md) |
-| Mikrofonu ses modeliyle dinlemek (deneysel kaynak) | [Canlı AI Cover](CANLI_AI_COVER.md) |
+| Mikrofonu ses modeliyle dinlemek (deneysel) | [Canlı AI Cover](CANLI_AI_COVER.md) |
 | Ses modeli eğitmek | [Model eğitimi](MODEL_EGITIMI.md) |
 | Donanım ve modelleri hazırlamak | [Donanım ve model yönetimi](DONANIM_VE_MODEL_YONETIMI.md) |
 | CPU/CUDA kurulumlarını üretmek | [Yayın derlemesi](RELEASE_BUILD.md) |
