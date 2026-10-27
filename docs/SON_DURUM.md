@@ -1,6 +1,6 @@
 # Güncel durum — 27 Ekim 2026
 
-## Açılış gecikmesi düzeltmesi — yerel paketler hazır
+## Açılış gecikmesi düzeltmesi — 27 Ekim ZIP paketleri yayımlandı
 
 Kullanıcı NVIDIA CUDA setup'ın UAC izninden sonra yaklaşık üç dakika
 beklediğini, kurulu uygulamanın da geç açıldığını bildirdi. Önceki yayımlanmış
@@ -25,7 +25,9 @@ Kaynak commit'i `40eef73`; CPU ve CUDA ortamlarında ayrı ayrı **480 test**
 geçti. Sekiz yeni regresyon; gizli arayüzün ağır motorları yüklememesini,
 ayrı donanım sürecini/iptalini, harici arşiv zorunluluğunu ve ZIP
 bütünlüğünü/ayıklama sınırlarını denetler. Kişisel ayar/model kayıtları hash ile aynı.
-Bu yeni kaynak ve paketler henüz uzakta yayımlanmadı; güncel yayın onayı bekleniyor.
+Yeni kaynak önce tarihli GitHub adayında sınandı; başarılı kabulden sonra aynı
+ZIP byte'ları [normal 2.1.0 yayınına](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0)
+aktarıldı. Yeni adlar ve SHA-256 değerleri GitHub metadata'sıyla tekrar doğrulandı.
 
 İki gerçek frozen uygulamanın self-test'i, harici uygulama arşivi, ayrı donanım
 worker'ı ve 24 biçim/kanal dönüşümü başarılı. Fiziksel CUDA preflight geçti.
@@ -54,8 +56,31 @@ Ortak uygulama kaynak SHA-256:
 `bbfb0c7e00c42a59fdaa3639236eff37eec9fc70f2bf0a933f4d61515ceac678`.
 
 Yerel kanıt klasörü: `build/startup_20261026/`; toplu sonuç `verification.json`.
-Yeni paketlerin temiz Windows kabulü/yayını tamamlanmadan aşağıdaki yayımlanmış
-paketlerin değiştirildiği varsayılmamalıdır. Sürüm numarası **2.1.0** olarak korunur.
+İki paket [temiz Windows kabulünden](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/40457916029)
+geçti: ilk kurulum, aynı paketle yeniden kurulum, iki frozen test ve kaldırma;
+örnek kullanıcı dosyaları korundu. [Paket kaynağının CPU/CUDA/XPU CI'si](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/40429829779)
+ve [yayın workflow testini içeren sonraki kaynak CI](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/40457928940)
+başarılıdır. İlk kurulum ölçümleri:
+
+| Temiz Windows VM | Setup'ın ilk günlüğü | Kurulu gizli pencere | Kurulumun tamamı |
+| --- | --- | --- | --- |
+| CPU | 0,67 s | 0,94 s | 54,64 s |
+| CUDA | 0,56 s | 1,01 s | 186,59 s |
+
+Setup günlüğü sihirbazın göründüğü an değildir; test yönetici yetkili hosted VM'de
+sessiz kurulum çalıştırır. UAC ile etkileşim ve kullanıcının ilk açılış süresi
+ayrıca denenmelidir. CUDA'nın büyük verilerinin kurulması hâlâ yaklaşık üç dakika
+sürmüştür; açılış beklemesi ile toplam kurulum süresi ayrı ölçülür.
+Sürüm numarası **2.1.0** olarak korunur.
+
+[GitHub içi doğrulanmış aktarım](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/actions/runs/40458766111)
+başarılı. `version.json/manual_packages` yeni ZIP bağlantılarını içerir;
+`packages` ve eski tek-EXE kurulumları otomatik güncelleme uyumluluğu için
+korunur. Açılış düzeltmesi ZIP paketlerindedir. Mevcut 2.1.0 kullanıcıları
+elle kurmalıdır. GitHub Pages ve sunucu sayfası yeni paket adları, boyut/hash
+ve ZIP ayıklama yönergesiyle eşleştirildi. Sunucuda yalnız Ghostkiller sayfası
+ve proje açıklaması değişti; sayfa yedeği, izin/sahiplik, sayaçlar ve diğer
+proje alanları korundu. Canlı sayfa ve indirme yönleri doğrulandı.
 
 Teknik gerekçe: Inno Setup, büyük EXE'lerin Windows'ta açılışı
 yavaşlatabileceğini belirtir ve ayrı veri parçalarını önerir

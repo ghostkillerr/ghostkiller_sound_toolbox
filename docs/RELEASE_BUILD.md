@@ -2,10 +2,12 @@
 
 CPU ve NVIDIA CUDA ayrı, hash kilitli ortamlardan üretilir. Bu belge derleme
 reçetesidir; güncel test/paket durumu [Son durum](SON_DURUM.md), kullanıcı
-talimatları ve yayın sırası [oku.md](../oku.md) içindedir. **2.1.0 CPU/CUDA
-kurulumları yayımlandı**; gerçek boyut/hash kayıtları `version.json` ve Release
-asset'lerindedir. 26 Ekim 2026 yenilemesinin paketlenen kaynağı
-`v2.1.0-source-20261026` etiketidir; ilk yayının `v2.1.0` etiketi taşınmamıştır.
+talimatları ve yayın sırası [oku.md](../oku.md) içindedir. **27 Ekim 2.1.0 CPU/CUDA
+ZIP kurulumları yayımlandı**; hash/boyut kayıtları `version.json/manual_packages`
+ve Release asset'lerindedir. Paket kaynağı `e42d6fc`, sabit aday etiketi
+`v2.1.0-candidate-20261027-startup`; ilk yayının `v2.1.0` etiketi taşınmamıştır.
+26 Ekim tek-EXE kurulumları otomatik güncelleme uyumluluğu için saklanır ve
+`version.json/packages` alanında kalır; açılış düzeltmesi yeni ZIP'lerdedir.
 Sürüm numarası aynı kaldığı için mevcut 2.1.0 kullanıcılarına elle kurulum
 gerekir. Yeni sürüm için aşağıdaki derleme ve kabul adımları tekrarlanır.
 

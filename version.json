@@ -16,5 +16,23 @@
     }
   },
   "release_date": "2026-10-26",
-  "distribution_status": "published"
+  "distribution_status": "published",
+  "manual_release_date": "2026-10-27",
+  "manual_changelog": "27 Ekim 2026: küçük setup başlatıcısı, küçük uygulama EXE dosyası ve arayüzden ayrı donanım kontrolü. Yeni CPU/CUDA ZIP paketleri aynı 2.1.0 üzerine elle kurulur.",
+  "manual_packages": {
+    "cpu": {
+      "format": "offline-zip",
+      "download_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller-Sound-Toolbox-CPU-V2.1.0.zip",
+      "sha256": "ff1a076b722d5db8a27888e856b43c31d2150375831ebd5fa3990d877f15ba0a",
+      "size": 374711707,
+      "display_name": "Ghostkiller Sound Toolbox CPU V2.1.0"
+    },
+    "cuda": {
+      "format": "offline-zip",
+      "download_url": "https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller-Sound-Toolbox-CUDA-V2.1.0.zip",
+      "sha256": "1ecfb662665f75a2b319c71450470bf9c5cc012c9e60f045083d52fc9025d1e9",
+      "size": 2137724322,
+      "display_name": "Ghostkiller Sound Toolbox CUDA V2.1.0"
+    }
+  }
 }

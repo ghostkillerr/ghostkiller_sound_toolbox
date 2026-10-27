@@ -3,6 +3,26 @@
 Ghostkiller Sound Toolbox'ın kullanıcıya yansıyan önemli değişiklikleri burada
 toplanır. Küçük teknik düzeltmeler ilgili özelliğin altında birleştirilir.
 
+## 2.1.0 — 27 Ekim 2026 açılış düzenlemesi
+
+**Ghostkiller Sound Toolbox CUDA V2.1.0** ve **Ghostkiller Sound Toolbox CPU V2.1.0**
+ZIP kurulumları hazırlandı. ZIP'in tamamını ayıklayıp setup'ı yanındaki `.bin`
+dosyalarıyla aynı klasörde çalıştırın. Mevcut 2.1.0 üzerine elle kurulabilir;
+sürüm numarası değişmediği için otomatik güncelleme bildirimi çıkmaz.
+
+- Büyük kurulum verileri küçük setup başlatıcısından ayrıldı. Toplam indirme
+  boyutu CPU için yaklaşık 375 MB, CUDA için 2,14 GB; başlangıç EXE'si yaklaşık 3,7 MB.
+- Uygulama EXE'si yaklaşık 81 MB'tan 310 KB'a indirildi; uygulama arşivi yanında kurulur.
+- Açılıştaki donanım kontrolü Torch/CUDA'yı arayüz sürecine yüklemez, ayrı süreçte
+  çalışır ve iptal edilebilir. Başlangıç günlüğüne süre ölçümleri eklendi.
+- CPU/CUDA kaynak testleri, frozen testler ve temiz Windows ilk kurulum,
+  yeniden kurulum/kaldırma kabulü geçti. Kullanıcı dosyaları korundu.
+
+Bu çalışma kullanıcının bilgisayarındaki üç dakikalık beklemeyi yeniden üretmedi;
+ilk açılış ve UAC kullanıcı denemesi gerekir. Eski tek dosyalı `.exe` kurulumları
+otomatik güncelleme bağlantılarının uyumluluğu için saklanır; açılış düzeltmesi
+yeni ZIP paketlerindedir. Ayrıntılı ölçümler: [Son durum](docs/SON_DURUM.md).
+
 ## 2.1.0 — 26 Ekim 2026 yenilemesi
 
 Sürüm numarası **2.1.0** olarak korundu. CPU/CUDA kurulumları yenilendi;

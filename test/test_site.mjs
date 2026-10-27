@@ -58,3 +58,27 @@ test('missing integrity data, placeholder hashes and invalid sizes are refused',
     assert.equal(packageFor(metadata, 'cpu'), null);
   }
 });
+
+test('named manual ZIPs use separate metadata and cannot fall back to old EXEs', () => {
+  const metadata = release();
+  const oldCPU = {...metadata.packages.cpu};
+  metadata.manual_packages = Object.fromEntries(['cpu', 'cuda'].map(backend => [backend, {
+    ...metadata.packages[backend], format: 'offline-zip',
+    download_url: `https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/download/v2.1.0/Ghostkiller-Sound-Toolbox-${backend.toUpperCase()}-V2.1.0.zip`,
+  }]));
+  const root = dom();
+  renderDownloads(metadata, root);
+  assert.ok(root.getElementById('cuda-download').textContent.includes('Ghostkiller Sound Toolbox CUDA V2.1.0'));
+  assert.ok(root.getElementById('download-status').textContent.includes('.bin'));
+  assert.deepEqual(metadata.packages.cpu, oldCPU);
+  for (const change of [{format: 'exe'}, {sha256: 'bad'}, {download_url: oldCPU.download_url},
+    {download_url: metadata.manual_packages.cpu.download_url.replace('CPU', 'CUDA')},
+    {download_url: metadata.manual_packages.cpu.download_url.replace('/v2.1.0/', '/latest/')},
+    {download_url: metadata.manual_packages.cpu.download_url.replace('github.com', 'example.com')}]) {
+    const changed = structuredClone(metadata);
+    Object.assign(changed.manual_packages.cpu, change);
+    assert.equal(packageFor(changed, 'cpu'), null);
+  }
+  metadata.manual_packages = {};
+  assert.equal(packageFor(metadata, 'cpu'), null);
+});

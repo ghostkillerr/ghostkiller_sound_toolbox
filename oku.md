@@ -1,6 +1,6 @@
 # Ghostkiller Sound Toolbox — ajan ve geliştirici rehberi
 
-Son durum güncellemesi: **27 Ekim 2026**; son yayımlanan paket: **26 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
+Son durum güncellemesi: **27 Ekim 2026**; son yayımlanan paket: **27 Ekim 2026 ZIP kurulumları**. Bu dosya projeye giriş noktasıdır; günlük veya
 görev geçmişi değildir. Kullanıcının güncel talimatı burada yazanlardan önceliklidir.
 
 ## 1. Proje ve güncel durum
@@ -11,11 +11,11 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 
 | Konu | Durum / kaynak |
 | --- | --- |
-| Uygulama sürümü | `version.json`: **2.1.0**, `published`, CPU ve CUDA hash/boyut/URL kayıtları |
-| Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları 26 Ekim 2026 tarihinde yenilendi; mevcut 2.1.0 için elle kurulum gerekir |
-| Kaynak doğrulaması | 26 Ekim yenilemesi: CPU/CUDA ayrı ayrı **472 test**, iki frozen EXE, fiziksel CUDA preflight, CPU/CUDA/XPU kaynak CI ve temiz Windows kurulum kabulü başarılı. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
+| Uygulama sürümü | `version.json`: **2.1.0**, `published`; yeni ZIP'ler `manual_packages`, eski tek-EXE güncelleme bağlantıları `packages` alanında |
+| Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA ZIP kurulumları 27 Ekim 2026 tarihinde yayımlandı; tamamını ayıklayıp setup'ı çalıştırın. Mevcut 2.1.0 için elle kurulum gerekir |
+| Kaynak doğrulaması | Paket öncesi CPU/CUDA ayrı ayrı **480 test**, iki frozen EXE ve sistem PATH testi, fiziksel CUDA preflight, CPU/CUDA/XPU kaynak CI ve temiz Windows kurulum kabulü başarılı. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
-| Açılış gecikmesi çalışması | Küçük EXE, ayrı donanım kontrolü ve CPU/CUDA ZIP kurulumları yerelde hazır; her ortamda 480 test ve iki frozen test geçti. Temiz Windows kurulum kabulü/yayın henüz tamamlanmadı |
+| Açılış gecikmesi çalışması | Küçük EXE, ayrı donanım kontrolü ve küçük setup başlatıcısı yayımlandı. Temiz Windows CUDA ölçümü: ilk setup günlüğü 0,56 s, gizli pencere 1,01 s; kullanıcının soğuk açılış/UAC denemesi sürer |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
 | Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması ve 10 saniyelik otomatik mikrofon ölçümünün çalışması doğrulandı. Son eşik/pencere değişikliği, genel ses kalitesi ve NVDA/JAWS kabulü sürüyor |
 
@@ -260,14 +260,20 @@ kurulumlar kabulden sonra yedeklenerek yenileriyle değiştirilir.
   `_offline.zip` dosyasıdır; setup ve tüm `.bin` parçaları birlikte ayıklanır.
   ZIP mevcut tek-EXE otomatik güncelleme protokolüne verilmez. İki dağıtımın
   receipt ve temiz Windows kabulü ayrı izlenir.
+  Web indirmeleri `version.json/manual_packages` alanını kullanır; otomatik
+  updater `packages` alanındaki eski tek-EXE sözleşmesini kullanmayı sürdürür.
+  ZIP'i EXE gibi updater'a verme. `manual_release_date` elle kurulum yenilemesini
+  anlatır; eski tek-EXE paketlerinin tarih ve hash değerleri değiştirilmez.
 
 ## 7. Sıradaki iş ve belge seçimi
 
-**Güncel iş: CUDA setup ve program açılış gecikmesi.** Kullanıcı beklemenin
-yönetici izninden sonra olduğunu bildirdi. Küçük uygulama EXE'si, ayrı süreçte
-donanım kontrolü, açılış ölçümleri ve küçük setup içeren ZIP paketinin güncel
-kanıtı Son durum belgesinde izlenir. Sürüm **2.1.0** kalır. Yerel ölçüm,
-kullanıcının bilgisayarındaki ilk açılış süresinin kanıtı sayılmaz.
+**27 Ekim açılış düzenlemesi yayımlandı.** Küçük uygulama EXE'si, ayrı süreçte
+donanım kontrolü ve küçük setup içeren CPU/CUDA ZIP paketleri kaynak, frozen
+ve temiz Windows kabulünden geçti. GitHub'daki yeni paket adları yukarıdaki
+yayın sözleşmesindedir. Paket kaynağı `e42d6fc`; uygulama kaynak hash'i ve
+yayın kanıtları Son durum belgesindedir. Sürüm **2.1.0** kaldı. Kullanıcının
+yönetici izninden sonraki bekleme ve gerçek ilk açılış denemesi hâlâ gerekir;
+yerel/VM gizli pencere ölçümü bunun yerine geçmez.
 
 **Önceki 26 Ekim 2.1.0 CPU/CUDA yenilemesi tamamlandı.** Kullanılabilirlik
 incelemesindeki 15 bulgunun düzeltmeleri paketlendi; GitHub ve sunucudaki
