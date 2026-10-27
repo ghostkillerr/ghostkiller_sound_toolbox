@@ -57,7 +57,10 @@ jobs:
           New-Item -ItemType Directory -Path acceptance-input -Force | Out-Null
           $artifactStem = $stem
           $extension = 'exe'
-          if ($env:DISTRIBUTION -eq 'offline-zip') { $artifactStem += '_offline'; $extension = 'zip' }
+          if ($env:DISTRIBUTION -eq 'offline-zip') {
+            $artifactStem = "Ghostkiller-Sound-Toolbox-$($env:BACKEND.ToUpperInvariant())-V$version"
+            $extension = 'zip'
+          }
           gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --dir acceptance-input --pattern "$artifactStem.$extension" --pattern "$artifactStem.build.json"
           if ($LASTEXITCODE -ne 0) { throw 'Release download failed' }
           $installer = Get-Item "acceptance-input/$artifactStem.$extension"

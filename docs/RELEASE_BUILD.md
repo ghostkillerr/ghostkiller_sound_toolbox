@@ -32,6 +32,14 @@ Receipt dış arşivin ve her girdinin boyut/SHA-256 değerini saklar.
 dizin dışına çıkan girdileri herhangi bir dosya ayıklamadan reddeder.
 Hedef klasör yeni olmalıdır. Bu araç setup'ı çalıştırmaz.
 
+GitHub için `tools/release/stage_offline_publication.ps1 -InputDirectory <setup-klasörü>
+-OutputDirectory <yeni-yayın-klasörü>` iki ZIP'i hash doğrulayarak kullanıcı adlarıyla
+kopyalar ve receipt'teki dış dosya adını eşleştirir. Görünen asset etiketleri
+**Ghostkiller Sound Toolbox CUDA V2.1.0** ve **Ghostkiller Sound Toolbox CPU V2.1.0**;
+dosya adları boşluk yerine tire içerir. Kabul workflow'u bu yayın adlarını indirir.
+ZIP'in içindeki setup/veri dosyaları birlikte korunur; mevcut tek-EXE güncelleme
+bağlantıları bu adlandırma nedeniyle taşınmaz.
+
 Windows installer acceptance workflow'unda `distribution=offline-zip` seçimi
 arşivi doğrular, disposable Windows VM'de kurar/yeniden kurar/kaldırır.
 İlk setup günlüğüne kadar süre ve kurulu uygulamanın gizli açılış ölçümü de

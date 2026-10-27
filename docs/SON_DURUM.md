@@ -1,6 +1,6 @@
-# Güncel durum — 26 Ekim 2026
+# Güncel durum — 27 Ekim 2026
 
-## Açılış gecikmesi düzeltmesi — kabul sürüyor
+## Açılış gecikmesi düzeltmesi — yerel paketler hazır
 
 Kullanıcı NVIDIA CUDA setup'ın UAC izninden sonra yaklaşık üç dakika
 beklediğini, kurulu uygulamanın da geç açıldığını bildirdi. Önceki yayımlanmış
@@ -21,9 +21,41 @@ Bu ölçümler kullanıcının üç dakikalık beklemesini yeniden üretmedi.
   `--startup-probe` gizli, boş verili pencereyi ölçer; kişisel dosyaları,
   modelleri, mikrofonu veya ağı kullanmaz. Soğuk açılış/görünür pencere testi değildir.
 
-Yerel kanıt klasörü: `build/startup_20261026/`. Yeni paketlerin derleme ve
-temiz Windows kabulü tamamlanmadan aşağıdaki yayımlanmış paketlerin
-değiştirildiği varsayılmamalıdır. Sürüm numarası **2.1.0** olarak korunur.
+Kaynak commit'i `40eef73`; CPU ve CUDA ortamlarında ayrı ayrı **480 test**
+geçti. Sekiz yeni regresyon; gizli arayüzün ağır motorları yüklememesini,
+ayrı donanım sürecini/iptalini, harici arşiv zorunluluğunu ve ZIP
+bütünlüğünü/ayıklama sınırlarını denetler. Kişisel ayar/model kayıtları hash ile aynı.
+Bu yeni kaynak ve paketler henüz uzakta yayımlanmadı; güncel yayın onayı bekleniyor.
+
+İki gerçek frozen uygulamanın self-test'i, harici uygulama arşivi, ayrı donanım
+worker'ı ve 24 biçim/kanal dönüşümü başarılı. Fiziksel CUDA preflight geçti.
+İki frozen paket, yalnız Windows sistem dizinlerini içeren PATH ve boş çalışma
+klasörüyle de aynı self-test'ten geçti; geliştirici Python/CUDA yollarına dayanmaz.
+Her iki uygulama EXE'si **310.280 bayt**. İlk paketli gizli pencere ölçümü:
+CPU **1,18 s**, CUDA **1,51 s** (süreç başlangıcından itibaren). Bu, boş veriyle
+aynı geliştirici bilgisayarında alınmış ölçümdür; soğuk açılış, UAC veya görünür
+pencere kabulü değildir. Kullanıcının üç dakikalık beklemesinin kesin olarak
+giderildiği henüz iddia edilmez.
+
+CPU/CUDA çevrimdışı kurulumları derlendi, arşivdeki tüm dosyalar hash ile
+doğrulandı ve `Setup/Acilis_Duzeltmesi_20261026_cpu` / `_cuda` klasörlerine
+ayıklanan setup'lar hazırlandı. Üretim installer'ı bu bilgisayarda çalıştırılmadı.
+
+| Paket | ZIP boyutu | Setup başlatıcısı | ZIP SHA-256 |
+| --- | --- | --- | --- |
+| CPU | 374.711.707 bayt | 3.678.779 bayt | `ff1a076b722d5db8a27888e856b43c31d2150375831ebd5fa3990d877f15ba0a` |
+| CUDA | 2.137.724.322 bayt | 3.682.802 bayt | `1ecfb662665f75a2b319c71450470bf9c5cc012c9e60f045083d52fc9025d1e9` |
+
+GitHub için **Ghostkiller Sound Toolbox CUDA V2.1.0** ve **Ghostkiller Sound
+Toolbox CPU V2.1.0** adlarıyla yayın kopyaları ve eşleşen receipt'ler hazırlandı.
+Dosya adları `Ghostkiller-Sound-Toolbox-CUDA-V2.1.0.zip` ve
+`Ghostkiller-Sound-Toolbox-CPU-V2.1.0.zip`; ZIP içerikleri derlenen arşivle aynıdır.
+Ortak uygulama kaynak SHA-256:
+`bbfb0c7e00c42a59fdaa3639236eff37eec9fc70f2bf0a933f4d61515ceac678`.
+
+Yerel kanıt klasörü: `build/startup_20261026/`; toplu sonuç `verification.json`.
+Yeni paketlerin temiz Windows kabulü/yayını tamamlanmadan aşağıdaki yayımlanmış
+paketlerin değiştirildiği varsayılmamalıdır. Sürüm numarası **2.1.0** olarak korunur.
 
 Teknik gerekçe: Inno Setup, büyük EXE'lerin Windows'ta açılışı
 yavaşlatabileceğini belirtir ve ayrı veri parçalarını önerir

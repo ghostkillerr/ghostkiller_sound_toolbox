@@ -1,6 +1,6 @@
 # Ghostkiller Sound Toolbox — ajan ve geliştirici rehberi
 
-Son kaynak düzenlemesi: **26 Ekim 2026**; son yayımlanan paket: **26 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
+Son durum güncellemesi: **27 Ekim 2026**; son yayımlanan paket: **26 Ekim 2026**. Bu dosya projeye giriş noktasıdır; günlük veya
 görev geçmişi değildir. Kullanıcının güncel talimatı burada yazanlardan önceliklidir.
 
 ## 1. Proje ve güncel durum
@@ -15,7 +15,7 @@ Sesler yerel işlenir; internet model indirme ve sürüm denetimi içindir.
 | Dağıtım | [2.1.0 Release](https://github.com/ghostkillerr/ghostkiller_sound_toolbox/releases/tag/v2.1.0): CPU ve NVIDIA CUDA installer'ları 26 Ekim 2026 tarihinde yenilendi; mevcut 2.1.0 için elle kurulum gerekir |
 | Kaynak doğrulaması | 26 Ekim yenilemesi: CPU/CUDA ayrı ayrı **472 test**, iki frozen EXE, fiziksel CUDA preflight, CPU/CUDA/XPU kaynak CI ve temiz Windows kurulum kabulü başarılı. Ayrıntı: [Son durum](docs/SON_DURUM.md) |
 | Yerel ortamlar | `build/release_cpu`, `build/release_cuda`; bağımsız Python **3.12.15** ortamları |
-| Açılış gecikmesi çalışması | CUDA setup'ta UAC sonrası ve ana programda bildirilen gecikme için küçük EXE, ayrı donanım kontrolü ve çevrimdışı ZIP kurulumu hazırlanıyor; yayımlanan 26 Ekim paketinden ayrı kabul gerekir |
+| Açılış gecikmesi çalışması | Küçük EXE, ayrı donanım kontrolü ve CPU/CUDA ZIP kurulumları yerelde hazır; her ortamda 480 test ve iki frozen test geçti. Temiz Windows kurulum kabulü/yayın henüz tamamlanmadı |
 | Paket desteği | CPU ve NVIDIA CUDA; XPU kaynak/CI profili vardır. Doğrulanmış Windows ROCm yayın kilidi yok |
 | Kullanıcı kabulü | Enstrüman düğmelerinin açık/kapalı okunması ve 10 saniyelik otomatik mikrofon ölçümünün çalışması doğrulandı. Son eşik/pencere değişikliği, genel ses kalitesi ve NVDA/JAWS kabulü sürüyor |
 
@@ -248,6 +248,11 @@ kurulumlar kabulden sonra yedeklenerek yenileriyle değiştirilir.
 - Setup'lar Git ağacına zorla eklenmez; Release asset olarak yüklenir. Legacy
   `AppId` ve kurulum dizini korunur. Güncelleme aynı backend'i seçer, UAC'yi
   atlatmaz; helper sonucu doğrulayıp yeniden açar ve kendi geçici setup'ını temizler.
+- Kullanıcının istediği GitHub paket adları: **Ghostkiller Sound Toolbox CUDA V2.1.0**
+  ve **Ghostkiller Sound Toolbox CPU V2.1.0**. Yayındaki görünen ad/asset etiketi
+  bu biçimi kullanır. Yeni ZIP dosyaları `Ghostkiller-Sound-Toolbox-CUDA-V2.1.0.zip`
+  ve `Ghostkiller-Sound-Toolbox-CPU-V2.1.0.zip` olarak hazırlanır. Eski teknik
+  dosya adları ve mevcut güncelleme bağlantıları sessizce kırılmaz.
 - Kullanıcı ayrıca istemeden üretim installer'ını veya Windows Sandbox'ı
   geliştirici bilgisayarında başlatma. Kabul araçları disposable VM içindir.
 - Yeni paketlerde küçük uygulama EXE'sinin yanındaki aynı adlı `.pkg` zorunludur.
