@@ -19,6 +19,12 @@ on:
         description: Successful native source validation run ID
         required: true
         type: string
+      distribution:
+        description: Accepted artifact format
+        required: true
+        default: single-exe
+        type: choice
+        options: [single-exe, offline-zip]
 
 permissions:
   actions: read
@@ -38,6 +44,7 @@ jobs:
       CPU_RUN: ${{ inputs.cpu_run }}
       CUDA_RUN: ${{ inputs.cuda_run }}
       SOURCE_RUN: ${{ inputs.source_run }}
+      DISTRIBUTION: ${{ inputs.distribution }}
     steps:
       - name: Verify acceptance and copy exact bytes to pending release names
         shell: python
@@ -49,7 +56,7 @@ jobs:
           def api(path):
               return json.loads(gh('api', f'repos/{repo}/{path}'))
           tag = os.environ['CANDIDATE_TAG']
-          match = re.fullmatch(r'v(\d+\.\d+\.\d+)-candidate-(\d{8})', tag)
+          match = re.fullmatch(r'v(\d+\.\d+\.\d+)-candidate-(\d{8})(?:-startup)?', tag)
           assert match, 'Invalid candidate tag'
           version, date = match.groups()
           target = 'v' + version
@@ -79,14 +86,18 @@ jobs:
           root = pathlib.Path('release-stage')
           root.mkdir()
           identities = set()
+          offline = os.environ['DISTRIBUTION'] == 'offline-zip'
           for backend in ('cpu', 'cuda'):
-              stem = f'Ghostkiller_V2_Setup_{backend}_{version}'
-              names = [stem + '.exe', stem + '.build.json']
+              stem = (f'Ghostkiller-Sound-Toolbox-{backend.upper()}-V{version}' if offline
+                      else f'Ghostkiller_V2_Setup_{backend}_{version}')
+              names = [stem + ('.zip' if offline else '.exe'), stem + '.build.json']
               subprocess.run(['gh', 'release', 'download', tag, '--repo', repo,
                               '--dir', str(root), '--pattern', names[0], '--pattern', names[1]], check=True)
               receipt = json.loads((root / names[1]).read_text())
               assert receipt['backend'] == backend and receipt['application_version'] == version
               assert receipt['release_eligible'] and receipt['purpose'] == 'release'
+              if offline:
+                  assert receipt['format'] == 'offline-zip'
               identities.add(receipt['application_source_sha256'])
               for name in names:
                   path = root / name
@@ -96,7 +107,7 @@ jobs:
                   assert asset['updated_at'] <= accepted_at[backend], 'Candidate asset changed after acceptance began'
                   assert asset['state'] == 'uploaded' and asset['size'] == path.stat().st_size
                   assert asset['digest'] == 'sha256:' + digest
-                  if name.endswith('.exe'):
+                  if name == names[0]:
                       assert receipt['installer'] == {'filename': name, 'size': path.stat().st_size, 'sha256': digest}
                   pending = name + '.pending-' + date
                   if pending in existing:
